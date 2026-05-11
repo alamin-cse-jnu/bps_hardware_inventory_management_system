@@ -1,0 +1,131 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Import Preview — {{ asset_type.name }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans "Home" %}</a> &rsaquo;
+    <a href="{% url 'admin:app_list' app_label='assets' %}">Assets</a> &rsaquo;
+    <a href="{% url 'admin:assets_assetitem_changelist' %}">Assets</a> &rsaquo;
+    <a href="{% url 'admin:assets_assetitem_import' %}">Import</a> &rsaquo;
+    Preview
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>Import Preview — {{ asset_type.name }}</h1>
+
+{# Summary bar #}
+<div style="display: flex; gap: 16px; margin: 16px 0; flex-wrap: wrap;">
+    <div style="background: #ecfdf5; border: 1px solid #10b981; border-radius: 6px; padding: 12px 20px; text-align: center;">
+        <div style="font-size: 22px; font-weight: bold; color: #065f46;">{{ counts.valid }}</div>
+        <div style="font-size: 12px; color: #065f46;">Ready</div>
+    </div>
+    <div style="background: #fffbeb; border: 1px solid #f59e0b; border-radius: 6px; padding: 12px 20px; text-align: center;">
+        <div style="font-size: 22px; font-weight: bold; color: #92400e;">{{ counts.warning }}</div>
+        <div style="font-size: 12px; color: #92400e;">Warnings</div>
+    </div>
+    <div style="background: #fef2f2; border: 1px solid #ef4444; border-radius: 6px; padding: 12px 20px; text-align: center;">
+        <div style="font-size: 22px; font-weight: bold; color: #991b1b;">{{ counts.error }}</div>
+        <div style="font-size: 12px; color: #991b1b;">Errors (skipped)</div>
+    </div>
+    <div style="background: #f3f4f6; border: 1px solid #9ca3af; border-radius: 6px; padding: 12px 20px; text-align: center;">
+        <div style="font-size: 22px; font-weight: bold; color: #374151;">{{ counts.total }}</div>
+        <div style="font-size: 12px; color: #374151;">Total rows</div>
+    </div>
+</div>
+
+{% if counts.valid == 0 and counts.warning == 0 %}
+<p style="color: #991b1b; background: #fef2f2; padding: 12px 16px; border-radius: 6px; border: 1px solid #ef4444;">
+    No importable rows found. Fix the errors below and re-upload.
+</p>
+<p><a href="{% url 'admin:assets_assetitem_import' %}" class="button">← Back to Import</a></p>
+{% else %}
+
+<form method="post" action="{% url 'admin:assets_assetitem_import_confirm' %}">
+    {% csrf_token %}
+
+    <p style="font-size: 13px; color: #495057; margin-bottom: 8px;">
+        Rows with errors are excluded automatically.
+        Uncheck any warning rows you want to skip.
+    </p>
+
+    <div style="overflow-x: auto; margin-bottom: 16px;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 12px; min-width: 800px;">
+        <thead>
+            <tr>
+                <th style="width: 32px; background: #006633; color: #fff; padding: 6px 8px;"></th>
+                <th style="background: #006633; color: #fff; padding: 6px 8px; text-align: left;">Row</th>
+                <th style="background: #006633; color: #fff; padding: 6px 8px; text-align: left;">Status</th>
+                <th style="background: #006633; color: #fff; padding: 6px 8px; text-align: left;">asset_tag</th>
+                <th style="background: #006633; color: #fff; padding: 6px 8px; text-align: left;">brand</th>
+                <th style="background: #006633; color: #fff; padding: 6px 8px; text-align: left;">model_name</th>
+                <th style="background: #006633; color: #fff; padding: 6px 8px; text-align: left;">serial_number</th>
+                <th style="background: #006633; color: #fff; padding: 6px 8px; text-align: left;">storage_location_path</th>
+                <th style="background: #006633; color: #fff; padding: 6px 8px; text-align: left;">Issues</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for row in validated_rows %}
+            {% if row.status == "error" %}
+            <tr style="background: #fef2f2; color: #7f1d1d;">
+                <td style="padding: 5px 8px; text-align: center;">
+                    <input type="checkbox" disabled>
+                </td>
+            {% elif row.status == "warning" %}
+            <tr style="background: #fffbeb;">
+                <td style="padding: 5px 8px; text-align: center;">
+                    <input type="checkbox" name="selected_rows" value="{{ row.row }}" checked>
+                </td>
+            {% else %}
+            <tr style="background: #ecfdf5;">
+                <td style="padding: 5px 8px; text-align: center;">
+                    <input type="checkbox" name="selected_rows" value="{{ row.row }}" checked>
+                </td>
+            {% endif %}
+                <td style="padding: 5px 8px;">{{ row.row }}</td>
+                <td style="padding: 5px 8px;">
+                    {% if row.status == "valid" %}
+                        <span style="background: #ecfdf5; color: #065f46; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">valid</span>
+                    {% elif row.status == "warning" %}
+                        <span style="background: #fffbeb; color: #92400e; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">warning</span>
+                    {% else %}
+                        <span style="background: #fef2f2; color: #991b1b; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">error</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 5px 8px; font-family: monospace;">
+                    {{ row.data.asset_tag|default:"(auto)" }}
+                </td>
+                <td style="padding: 5px 8px;">{{ row.data.brand }}</td>
+                <td style="padding: 5px 8px;">{{ row.data.model_name }}</td>
+                <td style="padding: 5px 8px; font-family: monospace; color: #6b7280;">{{ row.data.serial_number|default:"—" }}</td>
+                <td style="padding: 5px 8px; color: #6b7280; font-size: 11px;">
+                    {% if row.data.storage_location_id %}✓{% else %}—{% endif %}
+                </td>
+                <td style="padding: 5px 8px;">
+                    {% for err in row.errors %}
+                        <div style="color: #991b1b; font-size: 11px;">✗ {{ err }}</div>
+                    {% endfor %}
+                    {% for warn in row.warnings %}
+                        <div style="color: #92400e; font-size: 11px;">⚠ {{ warn }}</div>
+                    {% endfor %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+
+    <div style="display: flex; gap: 12px; align-items: center;">
+        <button type="submit" class="button default"
+                style="background: #006633; color: #fff; padding: 9px 28px; border: none; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: bold;">
+            Confirm Import
+        </button>
+        <a href="{% url 'admin:assets_assetitem_import' %}" style="font-size: 13px; color: #6b7280;">
+            ← Cancel, upload a different file
+        </a>
+    </div>
+</form>
+{% endif %}
+{% endblock %}

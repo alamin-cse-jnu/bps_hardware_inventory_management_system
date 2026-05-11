@@ -1,0 +1,30 @@
+# Core
+Django==5.1.4
+djangorestframework==3.15.2
+django-environ==0.11.2
+
+# Database
+psycopg2-binary==2.9.10
+
+# Server
+gunicorn==23.0.0
+
+# Task queue
+celery==5.4.0
+redis==5.2.1
+django-celery-beat==2.7.0
+django-celery-results==2.5.1
+
+# Auth
+django-allauth==65.3.0
+
+# Reports
+openpyxl==3.1.5
+WeasyPrint==63.1
+
+# QR codes
+qrcode==8.0
+Pillow==11.1.0
+
+# Dev utilities
+django-extensions==3.2.3

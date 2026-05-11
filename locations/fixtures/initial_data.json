@@ -1,0 +1,212 @@
+[
+  {
+    "model": "locations.location",
+    "pk": 1,
+    "fields": {
+      "name": "Parliament Bhaban",
+      "name_bn": "",
+      "level_type": "BUILDING",
+      "parent": null,
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null
+    }
+  },
+  {
+    "model": "locations.location",
+    "pk": 2,
+    "fields": {
+      "name": "1st Floor",
+      "name_bn": "",
+      "level_type": "FLOOR",
+      "parent": 1,
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null
+    }
+  },
+  {
+    "model": "locations.location",
+    "pk": 3,
+    "fields": {
+      "name": "2nd Floor",
+      "name_bn": "",
+      "level_type": "FLOOR",
+      "parent": 1,
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null
+    }
+  },
+  {
+    "model": "locations.location",
+    "pk": 4,
+    "fields": {
+      "name": "3rd Floor",
+      "name_bn": "",
+      "level_type": "FLOOR",
+      "parent": 1,
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null
+    }
+  },
+  {
+    "model": "locations.location",
+    "pk": 5,
+    "fields": {
+      "name": "4th Floor",
+      "name_bn": "",
+      "level_type": "FLOOR",
+      "parent": 1,
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null
+    }
+  },
+  {
+    "model": "locations.location",
+    "pk": 6,
+    "fields": {
+      "name": "5th Floor",
+      "name_bn": "",
+      "level_type": "FLOOR",
+      "parent": 1,
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null
+    }
+  },
+  {
+    "model": "locations.location",
+    "pk": 7,
+    "fields": {
+      "name": "6th Floor",
+      "name_bn": "",
+      "level_type": "FLOOR",
+      "parent": 1,
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null
+    }
+  },
+  {
+    "model": "locations.location",
+    "pk": 8,
+    "fields": {
+      "name": "NOC Room",
+      "name_bn": "",
+      "level_type": "ROOM",
+      "parent": 4,
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null
+    }
+  },
+  {
+    "model": "locations.location",
+    "pk": 9,
+    "fields": {
+      "name": "Server Room",
+      "name_bn": "",
+      "level_type": "ROOM",
+      "parent": 3,
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null
+    }
+  },
+  {
+    "model": "locations.location",
+    "pk": 10,
+    "fields": {
+      "name": "IT Office",
+      "name_bn": "",
+      "level_type": "ROOM",
+      "parent": 4,
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null
+    }
+  },
+  {
+    "model": "locations.location",
+    "pk": 11,
+    "fields": {
+      "name": "Sangsad Bhaban",
+      "name_bn": "",
+      "level_type": "BUILDING",
+      "parent": null,
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null
+    }
+  },
+  {
+    "model": "locations.location",
+    "pk": 12,
+    "fields": {
+      "name": "Ground Floor",
+      "name_bn": "",
+      "level_type": "FLOOR",
+      "parent": 11,
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null
+    }
+  },
+  {
+    "model": "locations.location",
+    "pk": 13,
+    "fields": {
+      "name": "1st Floor",
+      "name_bn": "",
+      "level_type": "FLOOR",
+      "parent": 11,
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null
+    }
+  },
+  {
+    "model": "locations.location",
+    "pk": 14,
+    "fields": {
+      "name": "2nd Floor",
+      "name_bn": "",
+      "level_type": "FLOOR",
+      "parent": 11,
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null
+    }
+  },
+  {
+    "model": "locations.location",
+    "pk": 15,
+    "fields": {
+      "name": "Speaker's Office",
+      "name_bn": "",
+      "level_type": "ROOM",
+      "parent": 13,
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null
+    }
+  }
+]

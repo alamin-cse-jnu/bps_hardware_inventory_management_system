@@ -1,0 +1,97 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Import Assets from Excel{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans "Home" %}</a> &rsaquo;
+    <a href="{% url 'admin:app_list' app_label='assets' %}">Assets</a> &rsaquo;
+    <a href="{% url 'admin:assets_assetitem_changelist' %}">Assets</a> &rsaquo;
+    Import from Excel
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>Import Assets from Excel</h1>
+
+{% if messages %}
+<ul class="messagelist">
+    {% for message in messages %}
+    <li class="{{ message.tags }}">{{ message }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+<div style="display: flex; gap: 32px; flex-wrap: wrap; margin-top: 16px;">
+
+    {# ---- Download Template Section ---- #}
+    <div style="flex: 1; min-width: 280px; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px;">
+        <h2 style="margin-top: 0; color: #006633; font-size: 16px;">Step 1 — Download Template</h2>
+        <p style="color: #495057; font-size: 13px;">Select an asset type, then download the pre-formatted Excel template. Fill it in and upload in Step 2.</p>
+
+        <label for="dl-type-select" style="display: block; font-weight: bold; margin-bottom: 6px; font-size: 13px;">Asset Type</label>
+        <select id="dl-type-select" style="width: 100%; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; margin-bottom: 12px;">
+            <option value="">— Select type —</option>
+            {% for at in asset_types %}
+            <option value="{{ at.pk }}">{{ at.category.name }} — {{ at.name }}</option>
+            {% endfor %}
+        </select>
+
+        <a id="download-link" href="#" class="button"
+           style="display: inline-block; background: #006633; color: #fff; padding: 8px 18px; border-radius: 4px; text-decoration: none; font-size: 13px; pointer-events: none; opacity: 0.5;"
+           onclick="return document.getElementById('dl-type-select').value !== ''">
+            Download Template
+        </a>
+    </div>
+
+    {# ---- Upload & Validate Section ---- #}
+    <div style="flex: 2; min-width: 320px; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px;">
+        <h2 style="margin-top: 0; color: #006633; font-size: 16px;">Step 2 — Upload & Validate</h2>
+        <p style="color: #495057; font-size: 13px;">Upload the completed template. The system will validate each row and show a preview before importing.</p>
+
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <label for="id_asset_type_id" style="display: block; font-weight: bold; margin-bottom: 6px; font-size: 13px;">Asset Type</label>
+            <select name="asset_type_id" id="id_asset_type_id" required
+                    style="width: 100%; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; margin-bottom: 16px;">
+                <option value="">— Select type —</option>
+                {% for at in asset_types %}
+                <option value="{{ at.pk }}">{{ at.category.name }} — {{ at.name }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="id_excel_file" style="display: block; font-weight: bold; margin-bottom: 6px; font-size: 13px;">Excel File (.xlsx)</label>
+            <input type="file" name="excel_file" id="id_excel_file" accept=".xlsx,.xls"
+                   required style="margin-bottom: 16px; font-size: 13px; display: block;">
+
+            <button type="submit" class="button"
+                    style="background: #006633; color: #fff; padding: 8px 24px; border: none; border-radius: 4px; font-size: 13px; cursor: pointer;">
+                Upload and Validate
+            </button>
+        </form>
+    </div>
+
+</div>
+
+<script>
+(function () {
+    var sel = document.getElementById('dl-type-select');
+    var link = document.getElementById('download-link');
+    var baseUrl = '{% url "admin:assets_assetitem_download_template" %}';
+
+    sel.addEventListener('change', function () {
+        if (this.value) {
+            link.href = baseUrl + '?type_id=' + this.value;
+            link.style.opacity = '1';
+            link.style.pointerEvents = 'auto';
+        } else {
+            link.href = '#';
+            link.style.opacity = '0.5';
+            link.style.pointerEvents = 'none';
+        }
+    });
+})();
+</script>
+{% endblock %}

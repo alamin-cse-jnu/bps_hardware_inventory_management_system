@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip show *)",
+      "Bash(python -c \"import secrets; print\\(secrets.token_urlsafe\\(50\\)\\)\")",
+      "Bash(cd /d \"D:\\\\Development\\\\projects\\\\it-inventory-final\")",
+      "Bash(Get-ChildItem -Path . -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(mkdir -p \"D:/Development/projects/it-inventory-final/assets/services\")",
+      "Bash(mkdir -p \"D:/Development/projects/it-inventory-final/assets/templates/admin/assets/assetitem\")",
+      "Bash(docker-compose run *)"
+    ]
+  }
+}

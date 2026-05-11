@@ -1,0 +1,344 @@
+{% extends "admin/base.html" %}
+{% load i18n static %}
+
+{% block title %}{{ title }} | Parliament IT Inventory{% endblock %}
+
+{# ── Branding: logo + site name ───────────────────────────────────────── #}
+{% block branding %}
+<div id="site-name">
+    <a href="{% url 'admin:index' %}" style="display:flex; align-items:center; gap:10px; text-decoration:none; color:inherit;">
+        <img src="{% static 'images/parliament_logo.png' %}"
+             alt="Bangladesh Parliament"
+             style="height:40px; width:auto; object-fit:contain; flex-shrink:0;">
+        <span style="font-size:17px; font-weight:700; letter-spacing:0.01em; line-height:1.2;">
+            IT Inventory Admin
+        </span>
+    </a>
+</div>
+{% endblock %}
+
+{# ── Parliament Green theme injected via CSS variables ────────────────── #}
+{% block extrahead %}
+{{ block.super }}
+<style>
+/* ── Google Fonts ─────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ── Force light mode — prevents browser dark mode from corrupting inputs ── */
+:root {
+    color-scheme: light;
+}
+
+/* ── CSS variable overrides (Django admin 4.x / 5.x theming) ─── */
+:root,
+html[data-theme="light"],
+html[data-theme="dark"] {
+    /* Core brand */
+    --primary:                  #006633;
+    --accent:                   #005229;
+    --primary-fg:               #ffffff;
+
+    /* Header */
+    --header-color:             #ffffff;
+    --header-branding-color:    #C8A951;
+    --header-bg:                #006633;
+    --header-link-color:        #ffffff;
+
+    /* Breadcrumbs */
+    --breadcrumbs-fg:           #ffffff;
+    --breadcrumbs-link-fg:      #C8A951;
+    --breadcrumbs-bg:           #005229;
+
+    /* Links */
+    --link-fg:                  #006633;
+    --link-hover-color:         #005229;
+    --link-selected-fg:         #004d26;
+
+    /* Table row selection */
+    --selected-bg:              #FBF5E6;
+    --selected-row:             #FBF5E6;
+
+    /* Buttons (default + primary) */
+    --button-fg:                #ffffff;
+    --button-bg:                #006633;
+    --button-hover-bg:          #005229;
+    --default-button-bg:        #006633;
+    --default-button-hover-bg:  #005229;
+
+    /* Object tools (e.g. "Add" button on changelist) */
+    --object-tools-fg:          #ffffff;
+    --object-tools-bg:          #006633;
+    --object-tools-hover-bg:    #005229;
+
+    /* Delete — intentionally keeps the default red */
+    --delete-button-bg:         #ba2121;
+    --delete-button-hover-bg:   #a41515;
+
+    /* Sidebar / darkened areas */
+    --darkened-bg:              #f8f9fa;
+}
+
+/* ── Force light inputs regardless of OS/browser dark mode ──── */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="number"],
+input[type="search"],
+input[type="url"],
+input[type="tel"],
+input[type="date"],
+input[type="datetime-local"],
+select,
+textarea {
+    background-color: #ffffff !important;
+    color: #212529 !important;
+    border-color: #d1d5db !important;
+    color-scheme: light;
+}
+
+/* ── Typography ──────────────────────────────────────── */
+body,
+input, select, textarea, button {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    font-size: 13px;
+}
+
+/* ── Header bar ──────────────────────────────────────── */
+#header {
+    background: #006633 !important;
+    color: #fff !important;
+    border-bottom: 3px solid #C8A951;
+    padding: 8px 24px;
+    display: flex;
+    align-items: center;
+}
+
+#header a:link,
+#header a:visited {
+    color: #fff !important;
+}
+
+#header a:hover {
+    color: #C8A951 !important;
+    text-decoration: none;
+}
+
+/* User tools (logout link etc.) */
+#user-tools {
+    font-size: 12px;
+}
+
+#user-tools a {
+    color: rgba(255,255,255,0.85) !important;
+    border-bottom: 1px solid rgba(255,255,255,0.3);
+}
+
+#user-tools a:hover {
+    color: #C8A951 !important;
+    border-bottom-color: #C8A951;
+}
+
+/* ── Breadcrumbs ─────────────────────────────────────── */
+div.breadcrumbs {
+    background: #005229 !important;
+    color: #fff !important;
+    padding: 8px 24px;
+    font-size: 12px;
+    border-bottom: 1px solid #C8A951;
+}
+
+div.breadcrumbs a {
+    color: #C8A951 !important;
+}
+
+div.breadcrumbs a:hover {
+    color: #fff !important;
+    text-decoration: underline;
+}
+
+/* ── Module / section headers ────────────────────────── */
+.module h2,
+.module caption,
+.inline-group h2,
+.inline-group .tabular thead th {
+    background: #006633 !important;
+    color: #fff !important;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding: 6px 10px;
+}
+
+.module caption {
+    border-radius: 4px 4px 0 0;
+}
+
+/* ── Sidebar / navigation ────────────────────────────── */
+#nav-sidebar {
+    background: #13122A !important;
+    border-right: 1px solid #35325A;
+}
+
+#nav-sidebar .module caption,
+#nav-sidebar .module h2 {
+    background: #252340 !important;
+    color: #C8A951 !important;
+    border-bottom: 1px solid #35325A;
+}
+
+#nav-sidebar a {
+    color: rgba(255,255,255,0.85) !important;
+}
+
+#nav-sidebar a:hover {
+    color: #C8A951 !important;
+    background: rgba(200,169,81,0.1) !important;
+}
+
+/* ── Content links ───────────────────────────────────── */
+a:link, a:visited {
+    color: #006633;
+}
+
+a:hover {
+    color: #005229;
+}
+
+/* ── Submit buttons ──────────────────────────────────── */
+.submit-row input,
+.submit-row button,
+input[type="submit"],
+.button,
+a.button {
+    font-family: 'Inter', sans-serif !important;
+}
+
+.submit-row input.default,
+input[type="submit"].default,
+.submit-row input[type="submit"]:not(.deletelink-box *) {
+    background: #006633;
+    border-color: #005229;
+    color: #fff;
+}
+
+.submit-row input.default:hover,
+input[type="submit"].default:hover {
+    background: #005229;
+}
+
+/* ── Login page ──────────────────────────────────────── */
+body.login {
+    background: #13122A;
+}
+
+#login-form input[type="submit"] {
+    background: #006633 !important;
+    border-color: #005229 !important;
+    color: #fff !important;
+    font-weight: 600;
+    padding: 10px 24px;
+    border-radius: 4px;
+    width: 100%;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+#login-form input[type="submit"]:hover {
+    background: #005229 !important;
+}
+
+#content-main {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    padding: 20px;
+}
+
+/* ── Changelist table ────────────────────────────────── */
+#result_list thead th {
+    background: #f0f7f3;
+    border-bottom: 2px solid #006633;
+    font-weight: 600;
+    font-size: 12px;
+    color: #212529;
+}
+
+#result_list tr.selected td,
+#result_list tr.selected th {
+    background: #FBF5E6 !important;
+}
+
+tr.row1 { background: #fff; }
+tr.row2 { background: #f8f9fa; }
+
+/* ── Paginator ───────────────────────────────────────── */
+.paginator a:link,
+.paginator a:visited {
+    color: #006633;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    padding: 2px 8px;
+}
+
+.paginator a:hover {
+    background: #006633;
+    color: #fff;
+    border-color: #006633;
+}
+
+.paginator .this-page {
+    background: #006633;
+    color: #fff;
+    border-radius: 4px;
+    padding: 2px 8px;
+}
+
+/* ── Filters sidebar ─────────────────────────────────── */
+#changelist-filter h2 {
+    background: #006633 !important;
+    color: #fff !important;
+}
+
+#changelist-filter h3 {
+    color: #006633;
+    font-weight: 600;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 4px;
+}
+
+#changelist-filter li.selected a,
+#changelist-filter li.selected a:visited {
+    color: #006633;
+    font-weight: 600;
+}
+
+/* ── Asset tag monospace ─────────────────────────────── */
+.field-asset_tag,
+td.field-asset_tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+}
+
+/* ── Django messages ─────────────────────────────────── */
+ul.messagelist li {
+    border-radius: 4px;
+    margin-bottom: 6px;
+    font-size: 13px;
+}
+
+ul.messagelist li.success { background: #ecfdf5; color: #065f46; border-left: 4px solid #10b981; }
+ul.messagelist li.warning { background: #fffbeb; color: #92400e; border-left: 4px solid #f59e0b; }
+ul.messagelist li.error   { background: #fef2f2; color: #991b1b; border-left: 4px solid #ef4444; }
+ul.messagelist li.info    { background: #eff6ff; color: #1e40af; border-left: 4px solid #3b82f6; }
+</style>
+{% endblock %}
+
+{# ── Footer ───────────────────────────────────────────────────────────── #}
+{% block footer %}
+<div id="footer" style="padding: 14px 24px; text-align: center; border-top: 1px solid #e5e7eb; margin-top: 24px; font-size: 12px; color: #6c757d;">
+    Parliament IT Inventory &nbsp;·&nbsp; Bangladesh Parliament Secretariat
+    &nbsp;&nbsp;|&nbsp;&nbsp;
+    Design &amp; Developed by <strong style="color:#006633;">Md. Al-Amin Hossain</strong>
+</div>
+{% endblock %}

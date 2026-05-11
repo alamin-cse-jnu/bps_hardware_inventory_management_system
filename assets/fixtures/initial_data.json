@@ -1,0 +1,230 @@
+[
+  {
+    "model": "assets.assetcategory",
+    "pk": 1,
+    "fields": {
+      "name": "Computing Equipment",
+      "name_bn": "",
+      "description": "Desktop computers, laptops, tablets, and related computing hardware.",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "assets.assetcategory",
+    "pk": 2,
+    "fields": {
+      "name": "Networking Equipment",
+      "name_bn": "",
+      "description": "Routers, switches, access points, and network infrastructure.",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "assets.assetcategory",
+    "pk": 3,
+    "fields": {
+      "name": "Printing & Scanning",
+      "name_bn": "",
+      "description": "Printers, scanners, and multifunction devices.",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "assets.assetcategory",
+    "pk": 4,
+    "fields": {
+      "name": "Office Equipment",
+      "name_bn": "",
+      "description": "UPS, projectors, and general office technology.",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "assets.assetcategory",
+    "pk": 5,
+    "fields": {
+      "name": "Audio Visual Equipment",
+      "name_bn": "",
+      "description": "Conference systems, displays, and audio visual hardware.",
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "assets.assettype",
+    "pk": 1,
+    "fields": {
+      "category": 1,
+      "name": "PC Set",
+      "name_bn": "",
+      "has_components": true,
+      "spec_schema": ["cpu", "ram", "storage", "display", "os", "network"],
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "assets.assettype",
+    "pk": 2,
+    "fields": {
+      "category": 1,
+      "name": "Laptop",
+      "name_bn": "",
+      "has_components": false,
+      "spec_schema": ["cpu", "ram", "storage", "display", "os", "battery"],
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "assets.assettype",
+    "pk": 3,
+    "fields": {
+      "category": 1,
+      "name": "Tablet",
+      "name_bn": "",
+      "has_components": false,
+      "spec_schema": ["cpu", "ram", "storage", "display", "os"],
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "assets.assettype",
+    "pk": 4,
+    "fields": {
+      "category": 2,
+      "name": "Router",
+      "name_bn": "",
+      "has_components": false,
+      "spec_schema": ["ports", "speed", "wifi_standard", "protocol"],
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "assets.assettype",
+    "pk": 5,
+    "fields": {
+      "category": 2,
+      "name": "Switch",
+      "name_bn": "",
+      "has_components": false,
+      "spec_schema": ["ports", "speed", "managed", "poe"],
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "assets.assettype",
+    "pk": 6,
+    "fields": {
+      "category": 2,
+      "name": "Access Point",
+      "name_bn": "",
+      "has_components": false,
+      "spec_schema": ["wifi_standard", "speed", "poe", "coverage"],
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "assets.assettype",
+    "pk": 7,
+    "fields": {
+      "category": 3,
+      "name": "Laser Printer",
+      "name_bn": "",
+      "has_components": false,
+      "spec_schema": ["paper_size", "ppm", "duplex", "color", "connectivity"],
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "assets.assettype",
+    "pk": 8,
+    "fields": {
+      "category": 3,
+      "name": "Scanner",
+      "name_bn": "",
+      "has_components": false,
+      "spec_schema": ["scan_type", "resolution", "adf", "duplex"],
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "assets.assettype",
+    "pk": 9,
+    "fields": {
+      "category": 3,
+      "name": "Multifunction",
+      "name_bn": "",
+      "has_components": false,
+      "spec_schema": ["paper_size", "ppm", "duplex", "color", "scan", "fax"],
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "assets.assettype",
+    "pk": 10,
+    "fields": {
+      "category": 4,
+      "name": "UPS",
+      "name_bn": "",
+      "has_components": false,
+      "spec_schema": ["capacity_va", "output_watts", "battery_type", "backup_minutes"],
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "assets.assettype",
+    "pk": 11,
+    "fields": {
+      "category": 4,
+      "name": "Projector",
+      "name_bn": "",
+      "has_components": false,
+      "spec_schema": ["resolution", "lumens", "technology", "connectivity"],
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "assets.assettype",
+    "pk": 12,
+    "fields": {
+      "category": 5,
+      "name": "Conference System",
+      "name_bn": "",
+      "has_components": false,
+      "spec_schema": ["microphones", "speakers", "camera", "connectivity"],
+      "is_active": true,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  }
+]
