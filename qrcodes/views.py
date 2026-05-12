@@ -2,16 +2,16 @@ import io
 
 import qrcode
 import qrcode.image.svg
-from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 
 from assets.models import AssetItem
 from assignments.models import Assignment
+from config.permissions import viewer_required
 
 
-@login_required
+@viewer_required
 def mobile_scan(request, asset_tag):
     asset = get_object_or_404(
         AssetItem.objects.select_related(
@@ -33,7 +33,7 @@ def mobile_scan(request, asset_tag):
     })
 
 
-@login_required
+@viewer_required
 def qr_download(request, pk):
     asset = get_object_or_404(AssetItem, pk=pk, is_deleted=False)
     scan_url = request.build_absolute_uri(
@@ -59,7 +59,7 @@ def qr_download(request, pk):
     return response
 
 
-@login_required
+@viewer_required
 def qr_label(request, pk):
     asset = get_object_or_404(AssetItem, pk=pk, is_deleted=False)
     scan_url = request.build_absolute_uri(

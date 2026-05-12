@@ -9,10 +9,16 @@
 {% endblock %}
 
 {% block topbar_actions %}
-  <a href="/admin/assets/assetitem/add/" class="btn btn-primary btn-sm">
+  {% if user_is_it_officer %}
+  <a href="{% url 'assets:import_upload' %}" class="btn btn-outline btn-sm">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    Import
+  </a>
+  <a href="{% url 'assets:create' %}" class="btn btn-primary btn-sm">
     <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     Add Asset
   </a>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
@@ -100,7 +106,18 @@
           {% endif %}
         </td>
         <td style="white-space:nowrap">
-          <a href="{% url 'assets:detail' asset.pk %}" class="btn btn-outline btn-sm" style="margin-right:6px">View</a>
+          <a href="{% url 'assets:detail' asset.pk %}" class="btn btn-outline btn-sm" style="margin-right:4px">View</a>
+          {% if user_is_it_officer %}
+            <a href="{% url 'assets:edit' asset.pk %}" class="btn btn-outline btn-sm" style="margin-right:4px" title="Edit">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </a>
+            <button class="btn btn-danger-soft btn-sm" style="margin-right:4px" title="Delete"
+                    hx-get="{% url 'assets:delete' asset.pk %}"
+                    hx-target="#panel-container"
+                    hx-swap="innerHTML">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            </button>
+          {% endif %}
           {% if asset.status == 'IN_STOCK' %}
             <button class="btn btn-primary btn-sm"
                     hx-get="{% url 'assignments:assign_panel' asset.pk %}"
@@ -122,6 +139,12 @@
     <svg width="40" height="40" fill="none" stroke="#D1D5DB" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:12px"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
     <p style="font-size:15px;font-weight:600;color:#9CA3AF;margin-bottom:6px">No assets found</p>
     <p class="text-muted text-small">Try adjusting your search or filters.</p>
+    {% if user_is_it_officer %}
+    <div style="margin-top:16px;display:flex;gap:10px;justify-content:center">
+      <a href="{% url 'assets:create' %}" class="btn btn-primary btn-sm">Add Asset</a>
+      <a href="{% url 'assets:import_upload' %}" class="btn btn-outline btn-sm">Import from Excel</a>
+    </div>
+    {% endif %}
   </div>
   {% endif %}
 </div>

@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Bulk Import{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:list' %}" style="color:#6C757D">Assets</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>Bulk Import</strong>
+{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'assets:list' %}" class="btn btn-outline btn-sm">Cancel</a>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:720px">
+
+  <!-- Step indicator -->
+  <div style="display:flex;margin-bottom:28px;border-radius:6px;overflow:hidden;border:1px solid #E5E7EB">
+    <div style="flex:1;padding:10px 16px;background:#0076A7;color:#fff;font-size:13px;font-weight:700;text-align:center">1 — Upload File</div>
+    <div style="flex:1;padding:10px 16px;background:#E8F3F8;color:#9CA3AF;font-size:13px;text-align:center;border-left:1px solid #E5E7EB">2 — Preview</div>
+    <div style="flex:1;padding:10px 16px;background:#E8F3F8;color:#9CA3AF;font-size:13px;text-align:center;border-left:1px solid #E5E7EB">3 — Confirm</div>
+  </div>
+
+  {% if upload_errors %}
+  <div class="callout callout-red" style="margin-bottom:20px">
+    <svg width="16" height="16" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <div>
+      {% for err in upload_errors %}<div>{{ err }}</div>{% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Step 1: Download Template -->
+  <div class="card" style="margin-bottom:20px">
+    <div style="padding:14px 20px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:8px">
+      <svg width="15" height="15" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <h3 style="font-size:13px;font-weight:700;color:#212529;margin:0">Step 1 — Download Template</h3>
+    </div>
+    <div class="card-body">
+      <p style="font-size:13px;color:#6C757D;margin-bottom:14px">Select the asset type you want to import, then download the Excel template. Fill it in and upload it below.</p>
+      <div style="display:flex;gap:10px;align-items:center">
+        <select id="template-type-select" class="filter-input" style="flex:1">
+          <option value="">— Select Asset Type —</option>
+          {% for t in types %}
+            <option value="{{ t.pk }}">{{ t.category.name }} — {{ t.name }}</option>
+          {% endfor %}
+        </select>
+        <button type="button" onclick="downloadTemplate()" class="btn btn-outline">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Template
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: Upload -->
+  <div class="card">
+    <div style="padding:14px 20px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:8px">
+      <svg width="15" height="15" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <h3 style="font-size:13px;font-weight:700;color:#212529;margin:0">Step 2 — Upload Filled File</h3>
+    </div>
+    <div class="card-body">
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="form-group">
+          <label class="form-label">Asset Type <span style="color:#EF4444">*</span></label>
+          <select name="asset_type" class="form-input" required>
+            <option value="">— Select Asset Type —</option>
+            {% regroup types by category as type_groups %}
+            {% for group in type_groups %}
+              <optgroup label="{{ group.grouper.name }}">
+                {% for t in group.list %}
+                  <option value="{{ t.pk }}">{{ t.name }}</option>
+                {% endfor %}
+              </optgroup>
+            {% endfor %}
+          </select>
+          <div class="text-muted text-small" style="margin-top:4px">Must match the type you used when downloading the template.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Excel File (.xlsx) <span style="color:#EF4444">*</span></label>
+          <input type="file" name="excel_file" accept=".xlsx,.xls" class="form-input" style="height:auto;padding:8px 12px;cursor:pointer" required>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:8px">
+          <button type="submit" class="btn btn-primary">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Validate &amp; Preview
+          </button>
+          <a href="{% url 'assets:list' %}" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Info callout -->
+  <div class="callout callout-gold" style="margin-top:16px">
+    <svg width="15" height="15" fill="none" stroke="#C8A951" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <div style="font-size:12.5px;color:#495057">
+      <strong>Tips:</strong> Leave the <em>asset_tag</em> column blank — the system auto-generates tags.
+      Copy location paths exactly from the <em>Valid Locations</em> sheet in the template.
+      Rows with errors will be skipped; all valid rows import in one transaction.
+    </div>
+  </div>
+</div>
+
+<script>
+function downloadTemplate() {
+  const typeId = document.getElementById('template-type-select').value;
+  if (!typeId) {
+    alert('Please select an asset type first.');
+    return;
+  }
+  window.location.href = "{% url 'assets:import_template' %}?type_id=" + typeId;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Access Denied — Parliament IT Inventory</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Inter',sans-serif;background:#F8F9FA;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+    .card{background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:48px;max-width:480px;width:100%;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.06)}
+    .icon{width:64px;height:64px;border-radius:50%;background:#FEF2F2;display:flex;align-items:center;justify-content:center;margin:0 auto 24px}
+    h1{font-size:22px;font-weight:700;color:#212529;margin-bottom:8px}
+    p{font-size:14px;color:#6C757D;line-height:1.6;margin-bottom:24px}
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:0 20px;height:40px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:'Inter',sans-serif;text-decoration:none;background:#0076A7;color:#fff}
+    .btn:hover{background:#005d85}
+    .org{margin-top:32px;font-size:11px;color:#aaa;display:flex;align-items:center;justify-content:center;gap:8px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">
+      <svg width="28" height="28" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+      </svg>
+    </div>
+    <h1>Access Denied</h1>
+    <p>
+      You don't have permission to access this page.<br>
+      Contact your system administrator to request access.
+    </p>
+    <a href="/" class="btn">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      Go to Dashboard
+    </a>
+    <div class="org">
+      <img src="{% static 'images/parliament_logo.png' %}" alt="Parliament" style="width:18px;height:18px;object-fit:contain">
+      Bangladesh Parliament Secretariat · IT Inventory
+    </div>
+  </div>
+</body>
+</html>

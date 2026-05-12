@@ -1,0 +1,52 @@
+<div class="panel-overlay">
+  <div class="panel-backdrop" onclick="document.getElementById('panel-container').innerHTML=''"></div>
+  <div class="panel-drawer" style="width:420px">
+    <div class="panel-header">
+      <h2 style="font-size:15px;font-weight:700;color:#EF4444;display:flex;align-items:center;gap:8px">
+        <svg width="16" height="16" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        Delete Asset
+      </h2>
+      <button type="button" onclick="document.getElementById('panel-container').innerHTML=''" class="btn btn-outline btn-sm" style="padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="panel-body">
+      <div class="callout callout-red" style="margin-bottom:20px">
+        <svg width="18" height="18" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div>
+          <strong style="font-size:13px">This is a soft delete.</strong>
+          <p class="text-muted text-small" style="margin-top:4px;line-height:1.5">The record is preserved for historical reporting and audit trails. It will no longer appear in active asset lists.</p>
+        </div>
+      </div>
+
+      <div style="background:#F8F9FA;border:1px solid #E5E7EB;border-radius:8px;padding:16px">
+        <div class="text-muted text-small" style="margin-bottom:6px">Asset to be deleted</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:#0076A7">{{ asset.asset_tag }}</div>
+        <div style="font-size:13px;font-weight:600;color:#212529;margin-top:4px">{{ asset.brand }} {{ asset.model_name }}</div>
+        <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+          <span class="badge badge-{{ asset.status }}">{{ asset.get_status_display }}</span>
+          <span class="text-muted text-small">{{ asset.asset_type.name }}</span>
+        </div>
+        {% if asset.status == 'ASSIGNED' %}
+        <div style="margin-top:10px;padding:8px 10px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:4px;font-size:12px;color:#92400E">
+          <strong>Note:</strong> This asset is currently assigned. Deleting it will preserve the active assignment record.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="panel-footer">
+      <form method="post" action="{% url 'assets:delete' asset.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn" style="background:#EF4444;color:#fff;border:none">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          Yes, Delete Asset
+        </button>
+      </form>
+      <button type="button" onclick="document.getElementById('panel-container').innerHTML=''" class="btn btn-outline">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>

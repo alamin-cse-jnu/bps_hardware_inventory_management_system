@@ -12,7 +12,7 @@ User = get_user_model()
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 def make_user(username="auditor"):
-    return User.objects.create_user(username=username, password="pw")
+    return User.objects.create_user(username=username, password="pw", is_superuser=True, is_staff=True)
 
 
 def make_asset(tag="PC-001"):

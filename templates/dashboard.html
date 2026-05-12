@@ -1,0 +1,380 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block breadcrumb %}<strong>Dashboard</strong>{% endblock %}
+
+{% block topbar_actions %}
+<button
+  class="btn btn-primary btn-sm"
+  id="sync-btn"
+  hx-post="{% url 'sync_prp:trigger' %}"
+  hx-target="#sync-result"
+  hx-swap="innerHTML"
+  hx-indicator="#sync-btn"
+  hx-disabled-elt="this"
+>
+  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.68"/></svg>
+  Sync Now
+</button>
+<span id="sync-result" style="font-size:12px;color:#6C757D;"></span>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ── KPI cards ── */
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+  .kpi-card{border-radius:12px;padding:20px;color:#fff;position:relative;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.12)}
+  .kpi-card::before{content:'';position:absolute;right:-20px;top:-20px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.1)}
+  .kpi-card::after{content:'';position:absolute;right:10px;bottom:-30px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.06)}
+  .kpi-card.violet{background:linear-gradient(135deg,#6D5AE6,#8B5CF6)}
+  .kpi-card.blue{background:linear-gradient(135deg,#3B82F6,#6D5AE6)}
+  .kpi-card.teal{background:linear-gradient(135deg,#0076A7,#10B981)}
+  .kpi-card.orange{background:linear-gradient(135deg,#F59E0B,#EF8A20)}
+  .kpi-label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.8;margin-bottom:8px}
+  .kpi-value{font-size:36px;font-weight:800;line-height:1;margin-bottom:6px}
+  .kpi-sub{font-size:12px;opacity:.75}
+  .kpi-icon{position:absolute;right:18px;top:50%;transform:translateY(-50%);opacity:.25}
+
+  /* ── Section layout ── */
+  .dash-grid{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start}
+  .section-card{background:#fff;border:1px solid #E5E7EB;border-radius:8px;overflow:hidden}
+  .section-head{padding:14px 16px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;justify-content:space-between}
+  .section-title{font-size:13px;font-weight:700;color:#212529}
+  .section-body{padding:0}
+
+  /* ── Alert banner ── */
+  .alert-banner{display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border-radius:6px;margin-bottom:10px;font-size:13px}
+  .alert-banner.red{background:#FEF2F2;border:1px solid #FECACA;color:#991B1B}
+  .alert-banner.amber{background:#FFFBEB;border:1px solid #FDE68A;color:#92400E}
+  .alert-banner.blue{background:#EFF6FF;border:1px solid #BFDBFE;color:#1E40AF}
+  .alert-icon{flex-shrink:0;margin-top:1px}
+
+  /* ── Activity feed ── */
+  .feed-item{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-bottom:1px solid #F3F4F6}
+  .feed-item:last-child{border-bottom:none}
+  .feed-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px}
+  .feed-dot.green{background:#10B981}
+  .feed-dot.blue{background:#3B82F6}
+  .feed-dot.amber{background:#F59E0B}
+  .feed-dot.red{background:#EF4444}
+  .feed-content{flex:1;min-width:0}
+  .feed-main{font-size:13px;color:#212529;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .feed-meta{font-size:11px;color:#6C757D;margin-top:2px}
+
+  /* ── Sync status strip ── */
+  .sync-strip{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid #E5E7EB;font-size:12px;color:#6C757D;background:#FAFAFA}
+  .sync-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .sync-dot.success{background:#10B981}
+  .sync-dot.failed{background:#EF4444}
+  .sync-dot.running{background:#F59E0B;animation:pulse 1s infinite}
+  .sync-dot.never{background:#D1D5DB}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  /* ── Quick actions ── */
+  .quick-actions{display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px}
+  .qa-btn{display:inline-flex;align-items:center;gap:6px;padding:0 14px;height:34px;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid #E5E7EB;background:#fff;color:#495057;text-decoration:none;transition:background 150ms,border-color 150ms}
+  .qa-btn:hover{background:#F8F9FA;border-color:#D1D5DB}
+  .qa-btn.primary{background:#0076A7;border-color:#0076A7;color:#fff}
+  .qa-btn.primary:hover{background:#005d85;border-color:#005d85}
+
+  /* ── Expiry table ── */
+  .expiry-row{display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid #F3F4F6;font-size:12.5px}
+  .expiry-row:last-child{border-bottom:none}
+  .expiry-tag{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:#0076A7}
+  .expiry-date{font-size:11px;padding:2px 7px;border-radius:4px;font-weight:600}
+  .expiry-date.warn{background:#FFFBEB;color:#92400E}
+  .expiry-date.ok{background:#ECFDF5;color:#065F46}
+
+  /* ── Empty state ── */
+  .empty-state{padding:32px 16px;text-align:center;color:#9CA3AF;font-size:13px}
+  .empty-state svg{margin-bottom:8px;opacity:.4}
+
+  @media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.dash-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── KPI Row ────────────────────────────────────────────────────────────── -->
+<div class="kpi-grid">
+
+  <div class="kpi-card violet">
+    <div class="kpi-label">Total Assets</div>
+    <div class="kpi-value">{{ total }}</div>
+    <div class="kpi-sub">All tracked items</div>
+    <div class="kpi-icon">
+      <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+    </div>
+  </div>
+
+  <div class="kpi-card blue">
+    <div class="kpi-label">Assigned</div>
+    <div class="kpi-value">{{ assigned_count }}</div>
+    <div class="kpi-sub">Currently with holders</div>
+    <div class="kpi-icon">
+      <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
+    </div>
+  </div>
+
+  <div class="kpi-card teal">
+    <div class="kpi-label">In Stock</div>
+    <div class="kpi-value">{{ in_stock_count }}</div>
+    <div class="kpi-sub">Available to assign</div>
+    <div class="kpi-icon">
+      <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+  </div>
+
+  <div class="kpi-card orange">
+    <div class="kpi-label">Issues</div>
+    <div class="kpi-value">{{ issues_count }}</div>
+    <div class="kpi-sub">Maintenance / Lost / Damaged</div>
+    <div class="kpi-icon">
+      <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Alert banners ──────────────────────────────────────────────────────── -->
+{% if open_alerts %}
+<div class="alert-banner red" style="margin-bottom:10px">
+  <div class="alert-icon">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  </div>
+  <div>
+    <strong>{{ open_alerts|length }} Inactive Holder Alert{{ open_alerts|length|pluralize }}</strong> —
+    assets assigned to holders no longer in the PRP system.
+    <a href="/admin/assignments/inactiveholderalert/" style="color:inherit;font-weight:700;text-decoration:underline;margin-left:4px">Review →</a>
+  </div>
+</div>
+{% endif %}
+
+{% if expiring_assets %}
+<div class="alert-banner amber" style="margin-bottom:16px">
+  <div class="alert-icon">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+  </div>
+  <div>
+    <strong>{{ expiring_assets|length }} asset{{ expiring_assets|length|pluralize }}</strong> with warranty or AMC expiring within 30 days.
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Main grid ──────────────────────────────────────────────────────────── -->
+<div class="dash-grid">
+
+  <!-- Left column: activity + expiry -->
+  <div style="display:flex;flex-direction:column;gap:16px">
+
+    <!-- Recent assignments -->
+    <div class="section-card">
+      <div class="section-head">
+        <span class="section-title">Recent Assignments</span>
+        <a href="{% url 'assets:list' %}" class="qa-btn" style="height:28px;font-size:12px">View Assets →</a>
+      </div>
+      <div class="section-body">
+        {% for asgn in recent_assignments %}
+        <div class="feed-item">
+          <div class="feed-dot {% if asgn.returned_at %}blue{% else %}green{% endif %}"></div>
+          <div class="feed-content">
+            <div class="feed-main">
+              <span class="asset-tag">{{ asgn.asset.asset_tag }}</span>
+              &nbsp;→&nbsp;
+              <strong>{{ asgn.holder_snapshot.display_name|default:"Unknown" }}</strong>
+              <span style="color:#6C757D;font-weight:400"> ({{ asgn.holder_snapshot.designation|default:"—"|truncatechars:40 }})</span>
+            </div>
+            <div class="feed-meta">
+              {% if asgn.returned_at %}
+                Returned {{ asgn.returned_at|date:"d M Y" }}
+              {% else %}
+                Assigned {{ asgn.assigned_at|date:"d M Y" }} · Active
+              {% endif %}
+              · by {{ asgn.performed_by.get_full_name|default:asgn.performed_by.username }}
+            </div>
+          </div>
+          {% if not asgn.returned_at %}
+          <span class="badge badge-ASSIGNED" style="flex-shrink:0;font-size:10px">Active</span>
+          {% endif %}
+        </div>
+        {% empty %}
+        <div class="empty-state">
+          <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          <div>No assignments yet</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Expiring warranties -->
+    {% if expiring_assets %}
+    <div class="section-card">
+      <div class="section-head">
+        <span class="section-title">Warranty / AMC Expiring Soon</span>
+        <span style="font-size:11px;color:#F59E0B;font-weight:700">Within 30 days</span>
+      </div>
+      <div class="section-body">
+        {% for asset in expiring_assets %}
+        <div class="expiry-row">
+          <span class="expiry-tag">{{ asset.asset_tag }}</span>
+          <span style="flex:1;font-size:12.5px;color:#212529;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ asset.brand }} {{ asset.model_name }}</span>
+          {% if asset.warranty_expiry %}
+          <span>
+            <span style="font-size:10px;color:#6C757D;margin-right:3px">WTY</span>
+            <span class="expiry-date warn">{{ asset.warranty_expiry|date:"d M Y" }}</span>
+          </span>
+          {% endif %}
+          {% if asset.amc_expiry %}
+          <span>
+            <span style="font-size:10px;color:#6C757D;margin-right:3px">AMC</span>
+            <span class="expiry-date warn">{{ asset.amc_expiry|date:"d M Y" }}</span>
+          </span>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- Right column: quick actions + sync status + alerts list -->
+  <div style="display:flex;flex-direction:column;gap:16px">
+
+    <!-- Quick actions -->
+    <div class="section-card">
+      <div class="section-head"><span class="section-title">Quick Actions</span></div>
+      <div class="quick-actions">
+        <a href="{% url 'assets:list' %}" class="qa-btn primary">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Asset
+        </a>
+        <a href="/admin/assignees/" class="qa-btn">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
+          Manage Holders
+        </a>
+        <a href="/admin/sync_prp/synclog/" class="qa-btn">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+          Sync Logs
+        </a>
+        <a href="/admin/" class="qa-btn">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+          Admin Panel
+        </a>
+      </div>
+    </div>
+
+    <!-- PRP Sync status -->
+    <div class="section-card">
+      <div class="section-head"><span class="section-title">PRP API Sync</span></div>
+      {% if last_sync %}
+      <div class="sync-strip">
+        <div class="sync-dot {{ last_sync.status|lower }}"></div>
+        <span>
+          Last sync: <strong>{{ last_sync.started_at|date:"d M Y, H:i" }}</strong>
+          &nbsp;·&nbsp; {{ last_sync.get_status_display }}
+        </span>
+      </div>
+      <div style="padding:12px 16px;font-size:12px;color:#495057;display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+        <div style="text-align:center">
+          <div style="font-size:20px;font-weight:800;color:#212529">{{ last_sync.total_added }}</div>
+          <div style="color:#6C757D">Added</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:20px;font-weight:800;color:#212529">{{ last_sync.total_updated }}</div>
+          <div style="color:#6C757D">Updated</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:20px;font-weight:800;color:{% if last_sync.total_flagged %}#EF4444{% else %}#212529{% endif %}">{{ last_sync.total_flagged }}</div>
+          <div style="color:#6C757D">Flagged</div>
+        </div>
+      </div>
+      {% if last_sync.error_message %}
+      <div style="padding:8px 16px 12px">
+        <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;padding:8px 10px;font-size:11.5px;color:#991B1B;font-family:'JetBrains Mono',monospace;white-space:pre-wrap">{{ last_sync.error_message }}</div>
+      </div>
+      {% endif %}
+      {% else %}
+      <div class="sync-strip">
+        <div class="sync-dot never"></div>
+        <span>Never synced — click <strong>Sync Now</strong> to pull PRP data.</span>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Open alerts -->
+    {% if open_alerts %}
+    <div class="section-card">
+      <div class="section-head">
+        <span class="section-title">Inactive Holder Alerts</span>
+        <span style="background:#FEF2F2;color:#EF4444;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px">{{ open_alerts|length }}</span>
+      </div>
+      <div class="section-body">
+        {% for alert in open_alerts %}
+        <div class="feed-item">
+          <div class="feed-dot red"></div>
+          <div class="feed-content">
+            <div class="feed-main">{{ alert.assignee.display_name }}</div>
+            <div class="feed-meta">{{ alert.assignee.get_assignee_type_display }} · Raised {{ alert.raised_at|date:"d M Y" }}</div>
+          </div>
+        </div>
+        {% endfor %}
+        <div style="padding:8px 16px 10px;text-align:right">
+          <a href="/admin/assignments/inactiveholderalert/" style="font-size:12px;color:#0076A7;font-weight:600;text-decoration:none">View all in Admin →</a>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent lifecycle events -->
+    {% if recent_events %}
+    <div class="section-card">
+      <div class="section-head"><span class="section-title">Recent Events</span></div>
+      <div class="section-body">
+        {% for ev in recent_events %}
+        <div class="feed-item">
+          <div class="feed-dot
+            {% if ev.event_type == 'DISPOSED' %}red
+            {% elif ev.event_type == 'MAINTENANCE_SENT' or ev.event_type == 'MAINTENANCE_RETURN' %}amber
+            {% elif ev.event_type == 'LOST' or ev.event_type == 'DAMAGED' %}red
+            {% else %}blue{% endif %}"></div>
+          <div class="feed-content">
+            <div class="feed-main">
+              <span class="asset-tag" style="font-size:11px">{{ ev.asset.asset_tag }}</span>
+              &nbsp;{{ ev.get_event_type_display }}
+            </div>
+            <div class="feed-meta">{{ ev.occurred_at|date:"d M Y, H:i" }} · {{ ev.performed_by.get_full_name|default:ev.performed_by.username }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+<script>
+  // Update sync button label based on HTMX response
+  document.body.addEventListener('htmx:afterRequest', function(e) {
+    if (e.detail.elt.id === 'sync-btn') {
+      try {
+        const data = JSON.parse(e.detail.xhr.responseText);
+        const el = document.getElementById('sync-result');
+        if (data.status === 'SUCCESS') {
+          el.innerHTML = '&nbsp;✓ Sync complete — +' + data.added + ' updated ' + data.updated + ' flagged ' + data.flagged;
+          el.style.color = '#10B981';
+        } else if (data.status === 'PARTIAL') {
+          el.textContent = ' ⚠ Partial sync';
+          el.style.color = '#F59E0B';
+        } else {
+          el.textContent = ' ✕ Sync failed';
+          el.style.color = '#EF4444';
+        }
+        // Reload page after 1.5s to refresh counts
+        setTimeout(() => location.reload(), 1500);
+      } catch(err) {}
+    }
+  });
+</script>
+{% endblock %}

@@ -1,14 +1,13 @@
-from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_http_methods
 
 from assets.models import AssetItem
+from config.permissions import it_officer_required
 
 from .models import EventType
 from .services import APPLICABLE_EVENTS, EVENT_HANDLERS
 
-# Human-readable labels for each event action
 _EVENT_LABELS = {
     EventType.MAINTENANCE_SENT:   "Send to Maintenance",
     EventType.MAINTENANCE_RETURN: "Return from Maintenance",
@@ -32,7 +31,7 @@ _EVENT_DESCRIPTIONS = {
 _EVENT_DANGER = {EventType.DISPOSED, EventType.LOST}
 
 
-@login_required
+@it_officer_required
 @require_http_methods(["GET", "POST"])
 def event_panel(request, asset_pk):
     asset = get_object_or_404(AssetItem, pk=asset_pk, is_deleted=False)
@@ -86,7 +85,6 @@ def event_panel(request, asset_pk):
             "selected_type": event_type,
         })
 
-    # GET — pre-select type from query string if provided
     selected_type = request.GET.get("type", applicable[0] if applicable else "")
     return render(request, "lifecycle/event_panel.html", {
         "asset": asset,

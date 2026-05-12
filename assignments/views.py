@@ -1,16 +1,16 @@
-from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_http_methods
 
 from assets.models import AssetItem
 from assignees.models import Assignee
+from config.permissions import it_officer_required
 
 from .models import Assignment
 from .services import perform_transfer, return_to_stock
 
 
-@login_required
+@it_officer_required
 @require_http_methods(["GET", "POST"])
 def assign_panel(request, asset_pk):
     asset = get_object_or_404(AssetItem, pk=asset_pk, is_deleted=False)
@@ -56,13 +56,13 @@ def assign_panel(request, asset_pk):
     })
 
 
-@login_required
+@it_officer_required
 def clear_assignee(request, asset_pk):
     asset = get_object_or_404(AssetItem, pk=asset_pk, is_deleted=False)
     return render(request, "assignments/assignee_field.html", {"asset": asset})
 
 
-@login_required
+@it_officer_required
 @require_http_methods(["GET", "POST"])
 def return_panel(request, asset_pk):
     asset = get_object_or_404(AssetItem, pk=asset_pk, is_deleted=False)

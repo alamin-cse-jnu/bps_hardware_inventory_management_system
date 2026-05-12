@@ -96,6 +96,9 @@ class CachedEmployee(models.Model):
         self.is_active = False
         self.inactive_since = timezone.now()
         self.save(update_fields=["is_active", "inactive_since", "updated_at"])
+        # Cascade: the Assignee wrapper should also become inactive so it
+        # disappears from assignment search results immediately.
+        Assignee.objects.filter(employee=self).update(is_active=False)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -159,6 +162,7 @@ class CachedMP(models.Model):
         self.is_active = False
         self.inactive_since = timezone.now()
         self.save(update_fields=["is_active", "inactive_since", "updated_at"])
+        Assignee.objects.filter(mp=self).update(is_active=False)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -206,6 +210,7 @@ class CachedOffice(models.Model):
         self.is_active = False
         self.inactive_since = timezone.now()
         self.save(update_fields=["is_active", "inactive_since", "updated_at"])
+        Assignee.objects.filter(office=self).update(is_active=False)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

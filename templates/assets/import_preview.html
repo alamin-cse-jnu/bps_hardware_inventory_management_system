@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Import Preview{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:list' %}" style="color:#6C757D">Assets</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+  <a href="{% url 'assets:import_upload' %}" style="color:#6C757D">Bulk Import</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>Preview</strong>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:960px">
+
+  <!-- Step indicator -->
+  <div style="display:flex;margin-bottom:28px;border-radius:6px;overflow:hidden;border:1px solid #E5E7EB">
+    <div style="flex:1;padding:10px 16px;background:#E8F3F8;color:#0076A7;font-size:13px;font-weight:700;text-align:center;border-right:1px solid #E5E7EB">
+      <svg width="12" height="12" fill="none" stroke="#0076A7" stroke-width="2.5" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:4px"><polyline points="20 6 9 17 4 12"/></svg>
+      1 — Upload File
+    </div>
+    <div style="flex:1;padding:10px 16px;background:#0076A7;color:#fff;font-size:13px;font-weight:700;text-align:center">2 — Preview</div>
+    <div style="flex:1;padding:10px 16px;background:#E8F3F8;color:#9CA3AF;font-size:13px;text-align:center;border-left:1px solid #E5E7EB">3 — Confirm</div>
+  </div>
+
+  <!-- Summary stats -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px">
+    <div class="card card-body" style="text-align:center">
+      <div style="font-size:28px;font-weight:700;color:#212529">{{ total_count }}</div>
+      <div class="text-muted text-small" style="margin-top:4px">Rows in file</div>
+    </div>
+    <div class="card card-body" style="text-align:center;background:#ECFDF5;border-color:#A7F3D0">
+      <div style="font-size:28px;font-weight:700;color:#10B981">{{ valid_count }}</div>
+      <div style="color:#065F46;font-size:12px;margin-top:4px;font-weight:600">Ready to import</div>
+    </div>
+    <div class="card card-body" style="text-align:center;{% if error_count > 0 %}background:#FEF2F2;border-color:#FECACA{% endif %}">
+      <div style="font-size:28px;font-weight:700;color:{% if error_count > 0 %}#EF4444{% else %}#9CA3AF{% endif %}">{{ error_count }}</div>
+      <div style="color:{% if error_count > 0 %}#7F1D1D{% else %}#9CA3AF{% endif %};font-size:12px;margin-top:4px;font-weight:600">{% if error_count > 0 %}Will be skipped{% else %}No errors{% endif %}</div>
+    </div>
+  </div>
+
+  <!-- Type info -->
+  <div class="callout callout-gold" style="margin-bottom:16px">
+    <svg width="14" height="14" fill="none" stroke="#C8A951" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+    <div style="font-size:12.5px">
+      <strong>Asset Type:</strong> {{ asset_type.category.name }} — {{ asset_type.name }}.
+      {% if error_count > 0 %}Rows with errors are highlighted in red and will not be imported.{% endif %}
+    </div>
+  </div>
+
+  <!-- Preview table -->
+  <div class="table-wrap" style="margin-bottom:20px">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:50px">Row</th>
+          <th style="width:90px">Status</th>
+          <th>Brand</th>
+          <th>Model</th>
+          <th>Serial No.</th>
+          <th>Tag</th>
+          <th>Issues</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr style="{% if row.status == 'error' %}background:#FEF2F2{% elif row.status == 'warning' %}background:#FFFBEB{% endif %}">
+          <td style="font-size:12px;color:#9CA3AF">{{ row.row }}</td>
+          <td>
+            {% if row.status == 'valid' %}
+              <span style="color:#10B981;font-weight:700;font-size:12px">✓ Valid</span>
+            {% elif row.status == 'warning' %}
+              <span style="color:#F59E0B;font-weight:700;font-size:12px">⚠ Warning</span>
+            {% else %}
+              <span style="color:#EF4444;font-weight:700;font-size:12px">✗ Error</span>
+            {% endif %}
+          </td>
+          <td>{{ row.data.brand|default:"—" }}</td>
+          <td>{{ row.data.model_name|default:"—" }}</td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:11px">{{ row.data.serial_number|default:"—" }}</td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:11px">
+            {% if row.data.asset_tag %}{{ row.data.asset_tag }}{% else %}<span class="text-muted">auto</span>{% endif %}
+          </td>
+          <td>
+            {% for err in row.errors %}
+              <div style="color:#EF4444;font-size:11px;line-height:1.5">{{ err }}</div>
+            {% endfor %}
+            {% for w in row.warnings %}
+              <div style="color:#F59E0B;font-size:11px;line-height:1.5">{{ w }}</div>
+            {% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Actions -->
+  {% if valid_count > 0 %}
+  <div style="display:flex;align-items:center;gap:12px">
+    <form method="post" action="{% url 'assets:import_confirm' %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary btn-lg">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        Import {{ valid_count }} Asset{{ valid_count|pluralize }}
+      </button>
+    </form>
+    <a href="{% url 'assets:import_upload' %}" class="btn btn-outline btn-lg">Re-upload</a>
+    <a href="{% url 'assets:list' %}" class="btn btn-outline btn-lg" style="margin-left:auto">Cancel</a>
+  </div>
+  {% else %}
+  <div class="callout callout-red" style="margin-bottom:16px">
+    <svg width="15" height="15" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <div>All rows have errors. Please fix the issues and re-upload.</div>
+  </div>
+  <div style="display:flex;gap:12px">
+    <a href="{% url 'assets:import_upload' %}" class="btn btn-primary">Re-upload</a>
+    <a href="{% url 'assets:list' %}" class="btn btn-outline">Cancel</a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

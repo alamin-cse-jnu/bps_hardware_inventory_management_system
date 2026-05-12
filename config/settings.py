@@ -88,6 +88,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "config.context_processors.role_flags",
             ],
         },
     },
@@ -162,6 +163,21 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
+
+try:
+    from celery.schedules import crontab
+    CELERY_BEAT_SCHEDULE = {
+        "prp-daily-sync": {
+            "task": "sync_prp.scheduled_sync",
+            "schedule": crontab(hour=1, minute=0),  # 1 AM Dhaka time
+        },
+        "check-warranty-expiry": {
+            "task": "sync_prp.check_expiry",
+            "schedule": crontab(hour=6, minute=0),  # 6 AM Dhaka time
+        },
+    }
+except ImportError:
+    pass
 
 # ---------------------------------------------------------------------------
 # Django REST Framework

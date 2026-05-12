@@ -26,5 +26,8 @@ WeasyPrint==63.1
 qrcode==8.0
 Pillow==11.1.0
 
+# HTTP client (PRP API sync)
+requests==2.32.3
+
 # Dev utilities
 django-extensions==3.2.3

@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DejaVu Sans', Arial, sans-serif;
+    font-size: 10pt;
+    color: #1a1a1a;
+    background: #fff;
+  }
+
+  /* ── Page ── */
+  @page {
+    size: A4;
+    margin: 18mm 18mm 20mm 18mm;
+  }
+
+  /* ── Header ── */
+  .letterhead {
+    border-bottom: 3px solid #0076A7;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+  .org-name {
+    font-size: 14pt;
+    font-weight: bold;
+    color: #0076A7;
+    line-height: 1.2;
+  }
+  .org-sub {
+    font-size: 9pt;
+    color: #555;
+    margin-top: 2px;
+  }
+  .doc-meta {
+    text-align: right;
+    font-size: 8.5pt;
+    color: #555;
+    line-height: 1.6;
+  }
+
+  /* ── Title ── */
+  .doc-title {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .doc-title h1 {
+    font-size: 15pt;
+    font-weight: bold;
+    color: #0076A7;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .doc-title p {
+    font-size: 8.5pt;
+    color: #888;
+    margin-top: 3px;
+  }
+
+  /* ── Sections ── */
+  .section {
+    margin-bottom: 18px;
+  }
+  .section-title {
+    font-size: 9pt;
+    font-weight: bold;
+    color: #fff;
+    background: #0076A7;
+    padding: 5px 10px;
+    margin-bottom: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Detail table ── */
+  .detail-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #ccc;
+  }
+  .detail-table tr:nth-child(even) {
+    background: #E8F3F8;
+  }
+  .detail-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid #ddd;
+    font-size: 9.5pt;
+    vertical-align: top;
+  }
+  .detail-table td.label {
+    width: 35%;
+    font-weight: bold;
+    color: #333;
+    white-space: nowrap;
+  }
+  .detail-table td.value {
+    color: #111;
+  }
+  .asset-tag {
+    font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+    font-weight: bold;
+    font-size: 11pt;
+    color: #0076A7;
+  }
+
+  /* ── Signature block ── */
+  .sig-row {
+    display: flex;
+    gap: 24px;
+    margin-top: 32px;
+  }
+  .sig-box {
+    flex: 1;
+    border-top: 1.5px solid #333;
+    padding-top: 6px;
+  }
+  .sig-box .sig-label {
+    font-size: 8.5pt;
+    font-weight: bold;
+    color: #444;
+  }
+  .sig-box .sig-detail {
+    font-size: 8pt;
+    color: #666;
+    margin-top: 2px;
+  }
+  .sig-space {
+    height: 40px;
+  }
+
+  /* ── Footer ── */
+  .doc-footer {
+    margin-top: 24px;
+    border-top: 1px solid #ddd;
+    padding-top: 6px;
+    font-size: 7.5pt;
+    color: #aaa;
+    text-align: center;
+  }
+
+  /* ── Gold accent bar ── */
+  .gold-bar {
+    height: 4px;
+    background: #C8A951;
+    margin-bottom: 8px;
+    border-radius: 2px;
+  }
+</style>
+</head>
+<body>
+
+<div class="gold-bar"></div>
+
+<!-- Letterhead -->
+<div class="letterhead">
+  <div style="display:flex;align-items:center;gap:12px">
+    {% if logo_data_url %}<img src="{{ logo_data_url }}" alt="Parliament" style="width:52px;height:52px;object-fit:contain">{% endif %}
+    <div>
+      <div class="org-name">Bangladesh Parliament Secretariat</div>
+      <div class="org-sub">Information Technology Division · IT Inventory Management</div>
+    </div>
+  </div>
+  <div class="doc-meta">
+    Generated: {{ today|date:"d M Y" }}<br>
+    Document No: HO-{{ assignment.pk|stringformat:"06d" }}<br>
+    {% if assignment.batch %}Batch: {{ assignment.batch.reference }}{% endif %}
+  </div>
+</div>
+
+<!-- Title -->
+<div class="doc-title">
+  <h1>Asset Handover Form</h1>
+  <p>This document certifies the transfer of IT equipment listed below</p>
+</div>
+
+<!-- Asset Details -->
+<div class="section">
+  <div class="section-title">Asset Details</div>
+  <table class="detail-table">
+    <tr>
+      <td class="label">Asset Tag</td>
+      <td class="value"><span class="asset-tag">{{ asset.asset_tag }}</span></td>
+      <td class="label">Category / Type</td>
+      <td class="value">{{ asset.asset_type.category.name }} / {{ asset.asset_type.name }}</td>
+    </tr>
+    <tr>
+      <td class="label">Brand / Model</td>
+      <td class="value">{{ asset.brand }} {{ asset.model_name }}</td>
+      <td class="label">Serial Number</td>
+      <td class="value">{{ asset.serial_number|default:"—" }}</td>
+    </tr>
+    <tr>
+      <td class="label">Status</td>
+      <td class="value">{{ asset.get_status_display }}</td>
+      <td class="label">Storage Location</td>
+      <td class="value">{{ asset.storage_location.full_path|default:"—" }}</td>
+    </tr>
+    {% if asset.purchase_date %}
+    <tr>
+      <td class="label">Purchase Date</td>
+      <td class="value">{{ asset.purchase_date|date:"d M Y" }}</td>
+      <td class="label">Warranty Expiry</td>
+      <td class="value">{{ asset.warranty_expiry|date:"d M Y"|default:"—" }}</td>
+    </tr>
+    {% endif %}
+    {% if asset.notes %}
+    <tr>
+      <td class="label">Notes</td>
+      <td class="value" colspan="3">{{ asset.notes }}</td>
+    </tr>
+    {% endif %}
+  </table>
+</div>
+
+<!-- Holder Details -->
+<div class="section">
+  <div class="section-title">Assigned To</div>
+  <table class="detail-table">
+    <tr>
+      <td class="label">Name</td>
+      <td class="value">{{ snap.display_name|default:"—" }}</td>
+      <td class="label">Holder Type</td>
+      <td class="value">{{ snap.assignee_type|default:"—" }}</td>
+    </tr>
+    <tr>
+      <td class="label">Designation</td>
+      <td class="value">{{ snap.designation|default:"—" }}</td>
+      <td class="label">Department</td>
+      <td class="value">{{ snap.department|default:"—" }}</td>
+    </tr>
+    <tr>
+      <td class="label">Assignment Date</td>
+      <td class="value">{{ assignment.assigned_at|date:"d M Y" }}</td>
+      <td class="label">Performed By</td>
+      <td class="value">{{ assignment.performed_by.get_full_name|default:assignment.performed_by.username }}</td>
+    </tr>
+    {% if assignment.notes %}
+    <tr>
+      <td class="label">Transfer Notes</td>
+      <td class="value" colspan="3">{{ assignment.notes }}</td>
+    </tr>
+    {% endif %}
+  </table>
+</div>
+
+<!-- Signature Block -->
+<div class="sig-space"></div>
+<div class="sig-row">
+  <div class="sig-box">
+    <div class="sig-label">Issued By (IT Officer)</div>
+    <div class="sig-detail">{{ assignment.performed_by.get_full_name|default:assignment.performed_by.username }}</div>
+    <div class="sig-detail">Bangladesh Parliament Secretariat</div>
+    <div class="sig-detail" style="margin-top:4px">Date: ___________________</div>
+    <div style="height:36px"></div>
+    <div style="border-top:1px solid #555;padding-top:4px;font-size:8pt;color:#444">Signature &amp; Seal</div>
+  </div>
+  <div class="sig-box">
+    <div class="sig-label">Received By</div>
+    <div class="sig-detail">{{ snap.display_name|default:"_________________________" }}</div>
+    <div class="sig-detail">{{ snap.designation|default:"" }}</div>
+    <div class="sig-detail" style="margin-top:4px">Date: ___________________</div>
+    <div style="height:36px"></div>
+    <div style="border-top:1px solid #555;padding-top:4px;font-size:8pt;color:#444">Signature</div>
+  </div>
+  <div class="sig-box">
+    <div class="sig-label">Verified By (Section Head)</div>
+    <div class="sig-detail">Name: _______________________</div>
+    <div class="sig-detail">Designation: _________________</div>
+    <div class="sig-detail" style="margin-top:4px">Date: ___________________</div>
+    <div style="height:36px"></div>
+    <div style="border-top:1px solid #555;padding-top:4px;font-size:8pt;color:#444">Signature &amp; Seal</div>
+  </div>
+</div>
+
+<div class="doc-footer">
+  Bangladesh Parliament Secretariat · IT Inventory Management System ·
+  Generated {{ generated_at|date:"d M Y H:i" }} ·
+  This is a computer-generated document.
+</div>
+
+</body>
+</html>

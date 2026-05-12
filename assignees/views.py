@@ -1,17 +1,23 @@
-from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, render
+
+from config.permissions import it_officer_required
 
 from .models import Assignee
 
 
-@login_required
+@it_officer_required
 def search(request):
     q = request.GET.get("q", "").strip()
     results = []
     if len(q) >= 2:
         qs = (
             Assignee.objects.filter(is_active=True)
+            .exclude(
+                Q(assignee_type="EMPLOYEE", employee__is_active=False)
+                | Q(assignee_type="MP", mp__is_active=False)
+                | Q(assignee_type="OFFICE", office__is_active=False)
+            )
             .filter(
                 Q(employee__name_en__icontains=q)
                 | Q(employee__section_name_en__icontains=q)
@@ -33,7 +39,7 @@ def search(request):
     })
 
 
-@login_required
+@it_officer_required
 def select_card(request, pk):
     assignee = get_object_or_404(Assignee, pk=pk)
     asset_pk = request.GET.get("asset_pk", "")

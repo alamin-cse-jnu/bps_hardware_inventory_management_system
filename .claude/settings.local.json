@@ -16,7 +16,11 @@
       "Bash(docker compose exec web python manage.py shell -c ' *)",
       "Bash(docker compose exec *)",
       "Bash(dir E:\\\\projects\\\\bps_hardware_inventory_management_system\\\\templates *)",
-      "Bash(docker compose ps *)"
+      "Bash(docker compose ps *)",
+      "Bash(python manage.py makemigrations sync_prp)",
+      "Bash(New-Item -ItemType Directory -Force -Path \"assets\\\\management\\\\commands\")",
+      "Bash(Out-Null)",
+      "Bash(docker compose *)"
     ]
   }
 }

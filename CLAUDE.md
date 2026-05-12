@@ -468,6 +468,14 @@ Location
 
 > Updated after each significant Claude Code session. Newest entries at the top.
 
+- **Session 6.1:** Phase 6 — Asset CRUD + Excel Import in main system. `assets/views.py`: added `asset_create` (GET/POST — auto-tag via `_generate_asset_tag`, inline validation via `_validate_asset_form`, `messages.success` on save), `asset_edit` (GET pre-fills dict from `AssetItem` fields, POST updates in-place; status not editable here — use lifecycle), `asset_delete` (GET returns HTMX delete-confirm panel, POST calls `asset.soft_delete()`), `asset_spec_fields` (HTMX endpoint — returns spec fields partial when asset_type select changes; `hx-include="this"` passes `asset_type` GET param), `asset_tag_check` (HTMX live uniqueness check, returns ✓/✗ span), `import_template` (downloads `.xlsx` template via `ExcelTemplateGenerator`), `import_upload` (GET=form, POST=validate → store rows in session → render preview), `import_confirm` (POST=`ExcelImportExecutor.execute()` → clears session → redirect to list). `assets/urls.py`: 8 new patterns: `new/`, `import/`, `import/confirm/`, `import/template/`, `spec-fields/`, `tag-check/`, `<pk>/edit/`, `<pk>/delete/`. Templates: `assets/asset_form.html` (shared add/edit form — 2-col grid: Identity card left + Status/Location card right; HTMX spec fields section updates on type change; 3-col procurement grid; inline field error display), `assets/asset_delete_confirm.html` (HTMX slide-over panel with red confirmation + soft-delete explanation + ASSIGNED warning), `assets/import_upload.html` (3-step indicator; template download by JS; file upload form), `assets/import_preview.html` (3-stat summary cards; per-row valid/warning/error colour coding; confirm/re-upload actions), `assets/partials/spec_fields.html` (HTMX-swappable spec field grid, rendered via `{% include %}` on page load and swapped by HTMX on type change). `templates/asset_list.html`: topbar now has "Import" + "Add Asset" buttons (hidden for Viewers via `user_is_it_officer`); per-row Edit (pencil) + Delete (trash) icon buttons added (Viewer-hidden); empty-state shows Import/Add shortcuts. `templates/base.html`: sidebar restructured with Holders section (Employees/MPs/Offices — disabled), Setup section (Locations — disabled), correct active highlighting for new asset URL names; role label in footer uses `user_is_admin/it_officer/viewer` flags; flash messages block added above `{% block content %}` using `.flash-success/error/warning/info` CSS classes; `.nav-badge` utility class added. **247 tests still pass** (no new tests added — CRUD covered by system check + manual verification).
+
+- **Session 5.1:** Phase 5 — RBAC, logo integration, 2FA, nginx. `config/permissions.py`: 3 predicates (`is_admin`, `is_it_officer_or_above`, `is_viewer_or_above`) + 3 decorators (`viewer_required`, `it_officer_required`, `admin_required`) using `redirect_to_login` for unauthenticated + `PermissionDenied` for unauthorised. Superusers bypass all checks. `config/context_processors.py`: `role_flags` context processor injects `user_is_admin/it_officer/viewer` booleans into every template. All views updated: read-only views use `viewer_required`, write views use `it_officer_required`, sync trigger uses `it_officer_required`. `assets/management/commands/create_groups.py`: `create_groups` management command creates Admin (all perms), IT Officer (32 perms: operational), Viewer (16 perms: read-only) — idempotent, runs on every container start via docker-compose. `allauth.mfa` added to INSTALLED_APPS (requires `fido2==1.1.3` dep added to requirements.txt). 3 MFA migrations applied. `config/middleware.py`: `AdminMFARequiredMiddleware` checks Admin-group users have TOTP configured; if not, redirects to `/accounts/2fa/totp/activate/` (superusers exempt). `MFA_TOTP_ISSUER = "Parliament IT Inventory"` in settings. **Logo** in `static/images/parliament_logo.png` now shown in: sidebar (`base.html`), allauth login page (`account/login.html`), both PDF templates (`reports/pdf/handover.html` + `disposal.html` — logo loaded as base64 data URL in generator, cached via `@lru_cache`). `templates/403.html`: custom 403 page with red X icon + Parliament logo. `nginx/nginx.conf`: HTTP→HTTPS redirect, TLS 1.2/1.3, static/media served directly, proxy to gunicorn. `docker-compose.yml`: nginx service added (ports 80+443); `web` changed to `expose: 8000` (no longer directly mapped); `create_groups` added to startup command. `.env.example` updated with production defaults and deployment notes. `config/tests.py`: 30 RBAC tests — predicate tests (is_admin/officer/viewer for all role combinations + superuser), decorator tests (viewer/officer/admin required with all role types), role_context tests, create_groups idempotency test, HTTP 403 integration tests. Test users in reports/tests.py and qrcodes/tests.py updated to `is_superuser=True` so existing view tests pass. **247 tests pass** (30 new: config RBAC).
+
+- **Session 4.2:** Phase 4 — reports app complete. `reports/generators/excel.py`: 5 Excel report functions — `inventory_excel` (14 cols: asset tag → AMC expiry, with active-assignment holder lookup), `transfer_log_excel` (13 cols, date-range filter, 5000-row cap), `lifecycle_events_excel` (11 cols, date+event_type filters), `warranty_expiry_excel` (days-ahead window, Q filter for warranty OR amc), `asset_history_excel` (per-asset full assignment history including "Current" for active rows). All use Parliament Blue `#0076A7` headers + `#E8F3F8` alternating rows. `reports/generators/pdf.py`: `handover_pdf(assignment_pk)` and `disposal_pdf(asset_pk)` using WeasyPrint — both call `render_to_string` then `HTML(string=...).write_pdf()`; WeasyPrint import wrapped in try/except for environments without display. `reports/views.py`: login-required views for all 5 Excel downloads (with query param parsing for filters, date ranges, days) + 2 PDF downloads (mocked in tests). `reports/urls.py`: 8 URL patterns under `/reports/`. `reports/tests.py`: 25 tests — Excel byte output (XLSX magic bytes check), view HTTP responses (Content-Type checks), PDF views (mocked), 404 for missing objects, unauthenticated redirects, filter/param edge cases. `templates/reports/index.html`: report catalog page (2 sections: Excel with inline filter forms, PDF section with navigation hints). `templates/reports/pdf/handover.html`: A4 WeasyPrint template — letterhead, 3-sig-block (IT Officer + Receiver + Verifier). `templates/reports/pdf/disposal.html`: A4 WeasyPrint disposal certificate — red disposal banner, 3-sig-block (Recommended + Approved + Authorised). Wired into `config/urls.py`. Reports nav link in `base.html` made active. `assets/asset_detail.html`: added "Handover PDF" link on active-assignment card, "Disposal PDF" + "History XLS" buttons in topbar. Bug fixed: `LifecycleEvent.EventType` is a standalone class — `pdf.py` imports it directly (not as `LifecycleEvent.EventType`). Tests import `AssigneeType` from `assignees.models` (standalone, not nested). **217 tests pass** (25 new: reports).
+
+- **Session 4.1:** Phase 4 — sync_prp + Dashboard. `sync_prp` app: `SyncLog` model (status: RUNNING/SUCCESS/PARTIAL/FAILED; per-entity counts for employees/mps/offices; `total_added`/`total_updated`/`total_flagged` properties; `duration_seconds`). `sync_prp/client.py`: `PRPApiClient` with JWT auth (`_fetch_token`, `_token_ttl` parses exp claim without a JWT library), Bearer token cached in Django cache, transparent 401-retry with `_raw_get`. `sync_prp/services.py`: `run_full_sync()` orchestrates all three endpoints independently (partial failure model); `_sync_employees/mps/offices` use `update_or_create` matching on `prp_id + source=PRP_API`; flags missing records as inactive via `mark_inactive()`; `_maybe_raise_alert` creates `InactiveHolderAlert` (get_or_create) only when holder has active assignments — MANUAL records completely invisible to sync. `sync_prp/tasks.py`: `scheduled_sync` (daily 1 AM) and `check_expiry` (daily 6 AM) Celery Beat tasks. `sync_prp/admin.py`: `SyncLogAdmin` fully read-only with colored status badges and +/~/! columns. `sync_prp/views.py`: `trigger_sync` (POST, returns JSON) and `sync_status` (GET). `sync_prp/urls.py` + wired into `config/urls.py`. Added `requests==2.32.3` to requirements (missing dep). Celery Beat schedule added to `config/settings.py` behind `try/except ImportError`. `config/__init__.py` celery import also wrapped in try/except for local dev. Dashboard: new `dashboard` view in `assets/views.py` — KPI counts (total/assigned/in_stock/issues), expiring assets within 30 days, open `InactiveHolderAlert` records, recent assignments + lifecycle events, last sync log. `templates/dashboard.html`: 4 gradient KPI cards (violet/blue/teal/orange), alert banners (inactive holders + expiry), two-column layout (activity feed + quick actions + sync status + alerts sidebar), HTMX Sync Now button with JS page-reload on success. Dashboard added to sidebar nav. `assets/urls.py` updated with `dashboard/` path. **192 tests pass** (22 new: sync_prp).
+
 - **Session 3.2:** UI access fixes. Created `templates/account/login.html` — allauth login page at `/accounts/login/` now uses the same dark split-card design as the admin login (left panel with geo SVG background + Parliament branding + stats, right panel with dark inputs, purple CTA, password toggle, secure strip, footer credit). This is what `@login_required` redirects unauthenticated users to. Fixed logout in `base.html` to use a `<form method="post">` instead of an `<a>` href — allauth 65+ rejects GET-based logouts as a CSRF protection measure. Loaded `assets/fixtures/initial_data.json` and `locations/fixtures/initial_data.json` into the dev database (32 objects: 5 categories, 12 types, 15 locations). Main app now accessible at `http://localhost:8000/` with dark login → asset list flow working end-to-end. **170 tests still pass.**
 
 - **Session 3.1:** Phase 3 — Lifecycle & QR. `lifecycle` app: `LifecycleEvent` model (8 event types: MAINTENANCE_SENT, MAINTENANCE_RETURN, LOST, DAMAGED, RECOVERED, REPAIRED, DISPOSED, COMPONENT_SWAP; records old_status/new_status pair + performed_by + optional component FK); `lifecycle/services.py` with 7 public service functions (`send_to_maintenance`, `return_from_maintenance`, `report_lost`, `report_damaged`, `recover_asset`, `repair_asset`, `dispose_asset`) + `swap_component`; each validates current status explicitly (e.g. `repair_asset` guards `asset.status == DAMAGED`) then delegates to `asset.change_status()`; `_close_active_assignment()` helper uses `update()` to bypass immutability guard; `EVENT_HANDLERS` dict maps EventType → service fn; `APPLICABLE_EVENTS` dict maps Status → applicable event list. `lifecycle/views.py`: `event_panel()` with GET (radio buttons for applicable events) and POST (dispatch via EVENT_HANDLERS, returns success overlay or panel with error). `lifecycle/admin.py`: LifecycleEventAdmin fully read-only with colored event type badges. `lifecycle/tests.py`: 22 tests covering all service functions and edge cases (invalid status guards, assignment closure on transition from ASSIGNED). `qrcodes` app: `AuditSession` (auto-reference `AUD-YYYY-NNNN`, `is_complete` property, `complete()` method) + `AuditScan` (unique_together session+asset). `qrcodes/views.py`: `mobile_scan()` (standalone green-header mobile page), `qr_download()` (returns image/png with Parliament Green fill), `qr_label()` (base64 QR embedded in printable label). `qrcodes/admin.py`: AuditSessionAdmin with AuditScanInline. `qrcodes/tests.py`: 18 tests. Templates: `lifecycle/event_panel.html` (radio-button event selector, JS highlight), `lifecycle/event_success.html` (checkmark overlay with new status badge), `qrcodes/mobile_scan.html` (standalone, green header, own HTMX CSRF, #panel-container), `qrcodes/qr_label.html` (print-ready label with base64 QR + Print/Download/Back). `assets/asset_detail.html` updated with amber "Event" button (hx-get lifecycle:event_panel) and QR label link. `assets/views.py` updated to pass `lifecycle_events` to detail context. Bug fixed: `repair_asset()` must guard `status == DAMAGED` explicitly because MAINTENANCE→IN_STOCK is also a valid state-machine transition. **170 tests pass** (40 new: 22 lifecycle + 18 qrcodes). **Phase 3 complete.**
@@ -498,25 +506,34 @@ Location
 
 ---
 
-## Current State (as of Session 3.2)
+## Current State (as of Session 6.1)
 
 ### What exists
-| App | Status | Key files |
+| App / Module | Status | Key files |
 |---|---|---|
 | `locations` | ✅ Complete | `models.py`, `admin.py`, `tests.py`, migration `0001` |
-| `assets` | ✅ Complete | `models.py`, `admin.py`, `tests.py`, migrations `0001`–`0002`, `services/excel_import.py`, `urls.py`, `views.py` |
+| `assets` | ✅ Complete | `models.py`, `admin.py`, `tests.py`, migrations `0001`–`0002`, `services/excel_import.py`, `urls.py`, `views.py`, `management/commands/create_groups.py` |
 | `assignees` | ✅ Complete | `models.py`, `admin.py`, `tests.py`, migration `0001`, `urls.py`, `views.py` |
 | `assignments` | ✅ Complete | `models.py`, `services.py`, `admin.py`, `tests.py`, migration `0001`, `urls.py`, `views.py` |
 | `lifecycle` | ✅ Complete | `models.py`, `services.py`, `admin.py`, `views.py`, `tests.py`, migration `0001`, `urls.py` |
 | `qrcodes` | ✅ Complete | `models.py`, `admin.py`, `views.py`, `tests.py`, migration `0001`, `urls.py` |
-| `sync_prp` | ⬜ Skeleton only | stub files only |
-| `reports` | ⬜ Skeleton only | stub files only |
+| `sync_prp` | ✅ Complete | `models.py`, `client.py`, `services.py`, `tasks.py`, `admin.py`, `views.py`, `urls.py`, `tests.py`, migration `0001` |
+| `reports` | ✅ Complete | `generators/excel.py`, `generators/pdf.py`, `views.py`, `urls.py`, `tests.py` |
+| `config` (RBAC) | ✅ Complete | `permissions.py`, `context_processors.py`, `middleware.py`, `tests.py` |
+| Asset CRUD (main UI) | ✅ Complete | `assets/views.py` (create/edit/delete/spec_fields/tag_check), `assets/urls.py`, `templates/assets/asset_form.html`, `asset_delete_confirm.html`, `import_upload.html`, `import_preview.html`, `partials/spec_fields.html` |
 
-**Frontend templates:** `base.html`, `account/login.html` (allauth dark login), `assets/asset_list.html`, `assets/asset_detail.html`, `assignments/assign_panel.html`, `assignments/assignee_field.html`, `assignments/assign_success.html`, `assignments/return_confirm.html`, `assignments/return_success.html`, `assignees/search_results.html`, `assignees/selected_card.html`, `lifecycle/event_panel.html`, `lifecycle/event_success.html`, `qrcodes/mobile_scan.html`, `qrcodes/qr_label.html`
+**Frontend templates:** `base.html` (Parliament logo in sidebar, flash messages, updated sidebar nav), `account/login.html` (logo), `403.html`, `assets/asset_list.html` (Add Asset + Import buttons, edit/delete per row), `assets/asset_detail.html`, `assets/asset_form.html` (new), `assets/asset_delete_confirm.html` (new), `assets/import_upload.html` (new), `assets/import_preview.html` (new), `assets/partials/spec_fields.html` (new), `assignments/*`, `assignees/*`, `lifecycle/*`, `qrcodes/*`, `dashboard.html`, `reports/index.html`, `reports/pdf/handover.html` (logo), `reports/pdf/disposal.html` (logo)
 
-**Dev database:** Fixtures loaded — 5 categories, 12 asset types, 15 locations (2 buildings, 9 floors, 4 rooms). No AssetItems yet.
+**Infrastructure:** `nginx/nginx.conf` (HTTPS, TLS 1.2/1.3, static serving), `docker-compose.yml` (nginx service added), `.env.example` (production guidance)
 
-**Test count:** 170 passing (13 locations + 61 assets + 31 assignees + 25 assignments + 22 lifecycle + 18 qrcodes)
+**RBAC Groups (auto-created on startup):**
+- `Admin` — all permissions (enforced 2FA via AdminMFARequiredMiddleware)
+- `IT Officer` — operational: assign/transfer/lifecycle/sync
+- `Viewer` — read-only: browse + download reports
+
+**Dev database:** Fixtures loaded — 5 categories, 12 asset types, 15 locations. Groups created.
+
+**Test count:** 247 passing (13 locations + 61 assets + 31 assignees + 25 assignments + 22 lifecycle + 18 qrcodes + 22 sync_prp + 25 reports + 30 config/RBAC)
 
 ### Phase completion
 | Phase | Status |
@@ -524,26 +541,280 @@ Location
 | Phase 1 — Foundation | ✅ Complete |
 | Phase 2 — Assignment Engine | ✅ Complete |
 | Phase 3 — Lifecycle & QR | ✅ Complete |
-| Phase 4 — Reports & Alerts | ⬜ Not started |
-| Phase 5 — Hardening | ⬜ Not started |
+| Phase 4 — Reports & Alerts | ✅ Complete |
+| Phase 5 — Hardening | ✅ Complete |
 
 ---
 
-## Next To Do
+## Phase 6 Plan — UI Completeness (replacing Django admin for daily work)
 
-### Phase 3 (Lifecycle & QR)
-- [x] `lifecycle` app: `LifecycleEvent` (maintenance, lost, damaged, disposed, component swap) ✅
-- [x] `qrcodes` app: QR generation, mobile scan view, `AuditSession` + `AuditScan` ✅
+> Goal: Every operation an IT Officer or Viewer performs day-to-day must be doable from the main system — no Django admin required. Admin panel remains only for superuser/developer use.
 
-### Phase 4 (Reports & Alerts)
-- [ ] `reports` app: Excel + PDF generation (openpyxl + WeasyPrint)
-- [ ] `sync_prp` app: PRP API client, token refresh, sync process, `SyncLog`
-- [ ] Celery Beat scheduled tasks (warranty alerts, inactive holder detection)
-- [ ] Dashboard with KPI cards, activity feed, alert banners
+### Gap analysis (what exists vs what is needed)
 
-### Phase 5 (Hardening)
-- [ ] Frontend templates (login dark theme, dashboard, asset list, asset detail)
-- [ ] Role-based access control (Admin / IT Officer / Viewer groups)
-- [ ] 2FA for Admin role
-- [ ] Nginx config refinement, production `.env` guidance
-- [ ] UAT + backup/restore test
+| Feature | Current state | Target |
+|---|---|---|
+| Add / Edit / Delete asset | Admin only | Custom forms in main system |
+| Excel import | Admin-only tool | `/assets/import/` in main system |
+| Excel download reports | `/reports/` page exists | Keep + improve placement |
+| Sync | Single "Sync All" on dashboard | Custom sync page with per-entity (Employee/MP/Office) control |
+| Employee/MP/Office lists | Admin only | Sidebar pages with search & filter |
+| Manual holder add | Admin only | Forms in main system |
+| Location CRUD | Admin only (`locations/urls.py` is empty stubs) | Sidebar page with tree view + CRUD forms |
+| Assign asset | From asset detail only | Also accessible from asset list + dedicated assign flow |
+| Return to stock | From asset detail only | Also from asset list |
+| Inactive holder alerts | Dashboard banner only | Dedicated management page |
+| Batch transfer | Model exists, no UI | Multi-select on asset list → batch transfer wizard |
+| Audit sessions | QR scan exists, no session management UI | Audit session list + start/complete UI |
+| Handover PDF | Button on asset detail | Also from assignment history list |
+| User management | Admin only | Basic page for Admins: create user, assign group |
+
+---
+
+### Session 6.1 — Asset CRUD + Excel Import in main system
+
+**Scope:** Full asset lifecycle management without touching Django admin.
+
+**Views to add (`assets/views.py`):**
+- `asset_create` (GET/POST) — form with category/type/brand/model/serial/specs/procurement fields; auto-tag generation option
+- `asset_edit` (GET/POST) — same form pre-filled; only non-readonly fields editable
+- `asset_delete` (POST) — soft-delete with confirmation modal (HTMX overlay); Admin + IT Officer only
+- `import_template` (GET) — download Excel template for the chosen asset type
+- `import_upload` (GET/POST) — upload → validate → preview rows → confirm → execute; uses existing `ExcelImportValidator` + `ExcelImportExecutor`
+- `import_confirm` (POST) — session-based preview→confirm handoff (same pattern as admin import)
+
+**URL patterns to add (`assets/urls.py`):**
+```
+assets/new/                    → asset_create
+assets/<pk>/edit/              → asset_edit
+assets/<pk>/delete/            → asset_delete
+assets/import/                 → import_upload (GET=form, POST=preview)
+assets/import/confirm/         → import_confirm
+assets/import/template/        → import_template (query: ?type_id=N)
+```
+
+**Templates:**
+- `assets/asset_form.html` — shared add/edit form; Parliament Blue header, spec fields rendered dynamically from `asset_type.spec_schema`
+- `assets/asset_delete_confirm.html` — HTMX slide-over modal with red confirmation
+- `assets/import_upload.html` — drag-and-drop file input + asset type selector
+- `assets/import_preview.html` — table of parsed rows (valid/invalid highlighted); Confirm or Cancel
+
+**Asset list changes:**
+- Add "New Asset" (primary button) and "Import" (outline button) to topbar
+- Add Edit (pencil) and Delete (trash) icon buttons per row — hidden for Viewers
+
+**Permission:** `asset_create`, `asset_edit`, `asset_delete` → `it_officer_required`; import → `it_officer_required`
+
+---
+
+### Session 6.2 — Location CRUD in main system
+
+**Scope:** Full location hierarchy management from sidebar. Currently `locations/urls.py` is empty stubs.
+
+**Views to add (`locations/views.py`):**
+- `location_list` — table of all locations grouped by building; shows Building → Floor → Room tree
+- `location_create` (GET/POST) — form with name, level_type, parent (filtered dropdown based on level_type)
+- `location_edit` (GET/POST) — same form pre-filled
+- `location_delete` (POST) — soft-delete or deactivate; block if assets are stored there
+
+**URL patterns:**
+```
+locations/                  → location_list
+locations/new/              → location_create
+locations/<pk>/edit/        → location_edit
+locations/<pk>/delete/      → location_delete (POST only)
+```
+
+**Templates:**
+- `locations/location_list.html` — tree-structured table; Building rows span floors; room column optional
+- `locations/location_form.html` — add/edit form with HTMX-powered parent dropdown (parent options update when level_type changes)
+- `locations/location_delete_confirm.html` — HTMX modal
+
+**Sidebar change:** Add "Locations" nav item under a new "Setup" section.
+
+**Permission:** list → `viewer_required`; create/edit/delete → `it_officer_required`
+
+---
+
+### Session 6.3 — Employee / MP / Office list pages + manual holder creation
+
+**Scope:** IT Officers need to browse holders and create manual records without Django admin.
+
+**Views to add (`assignees/views.py`):**
+- `employee_list` — paginated list; filter by source (API/Manual), active status; search by name/designation/department
+- `employee_create` (GET/POST) — manual employee form; shows API badge warning if similar name found
+- `employee_edit` (GET/POST) — edit manual records only (API records show as read-only with edit blocked)
+- `mp_list` — similar; filter by parliament_no, status
+- `mp_create` / `mp_edit` — manual MP forms
+- `office_list` — hierarchical; filter by active
+- `office_create` / `office_edit` — manual office forms
+- `assignee_detail` — shows all assignments for a holder with history
+
+**URL patterns:**
+```
+assignees/employees/                → employee_list
+assignees/employees/new/            → employee_create
+assignees/employees/<pk>/edit/      → employee_edit
+assignees/mps/                      → mp_list
+assignees/mps/new/                  → mp_create
+assignees/mps/<pk>/edit/            → mp_edit
+assignees/offices/                  → office_list
+assignees/offices/new/              → office_create
+assignees/offices/<pk>/edit/        → office_edit
+assignees/<pk>/                     → assignee_detail (all assignments)
+```
+
+**Templates:**
+- `assignees/employee_list.html` — table with source badge (API=blue, Manual=gold), active pill, search bar
+- `assignees/mp_list.html` — similar with parliament_no column
+- `assignees/office_list.html` — indented hierarchy
+- `assignees/holder_form.html` — shared form partial (name, designation, department fields); warning banner if similar name found
+- `assignees/assignee_detail.html` — holder card + assignment history table + "Assign Asset" button
+
+**Sidebar change:** Add "Holders" section with Employee, MP, Office sub-items.
+
+**Permission:** lists → `viewer_required`; create/edit → `it_officer_required`
+
+---
+
+### Session 6.4 — Custom Sync page (per-entity control)
+
+**Scope:** Replace single "Sync All" with separate Employee/MP/Office controls and full sync history.
+
+**Backend changes (`sync_prp/`):**
+- Add per-entity sync functions in `services.py`: `sync_employees_only()`, `sync_mps_only()`, `sync_offices_only()` — each creates its own SyncLog with entity type tag
+- Add `entity` field to `SyncLog` model: `ALL | EMPLOYEES | MPS | OFFICES` (migration needed)
+- New views: `trigger_sync_entity` (POST, accepts `entity` param) + `sync_page` (GET — renders full page)
+
+**URL changes:**
+```
+sync/                       → sync_page (full management page)
+sync/trigger/               → trigger_sync (existing, ALL entities)
+sync/trigger/<entity>/      → trigger_sync_entity (EMPLOYEES | MPS | OFFICES)
+sync/status/                → sync_status (JSON)
+```
+
+**Template `sync_prp/sync_page.html`:**
+- 3 panels side by side: Employees | MPs | Offices
+- Each panel: last sync time, records (added/updated/flagged), status badge, "Sync Now" HTMX button
+- Below panels: sync history table (last 20 SyncLog rows) with status, duration, counts
+- Error messages displayed inline per entity
+
+**Sidebar change:** "Sync" nav item links to `/sync/` (not just the dashboard trigger button). Remove the sync widget from dashboard or keep as summary only.
+
+**Permission:** `sync_page` → `viewer_required`; `trigger_sync_entity` → `it_officer_required`
+
+---
+
+### Session 6.5 — Assignment from asset list + Inactive Alerts page
+
+**Scope:** Make assignment accessible without entering asset detail; manage inactive holder alerts.
+
+**Assignment from list:**
+- Asset list: each row's "Assign" / "Transfer" button triggers the same HTMX slide-over panel that currently exists on asset detail — no page navigation needed
+- Return to stock also accessible from list row
+
+**Inactive holder alerts page (`assignments/views.py`):**
+- `alert_list` — paginated list of InactiveHolderAlerts; filter by status (Open/Resolved/Dismissed); shows holder, raised date, number of affected assets, action buttons
+- `alert_resolve` (POST) — resolves an alert with a note
+- `alert_dismiss` (POST) — dismisses an alert with a note
+
+**URL patterns:**
+```
+assignments/alerts/              → alert_list
+assignments/alerts/<pk>/resolve/ → alert_resolve (POST)
+assignments/alerts/<pk>/dismiss/ → alert_dismiss (POST)
+```
+
+**Template `assignments/alert_list.html`:**
+- Amber header for Open alerts, grey for Resolved/Dismissed
+- Each row: holder name, source badge, raised date, asset count, Resolve/Dismiss HTMX buttons
+- Resolve/Dismiss opens a mini modal for note input
+
+**Sidebar change:** Add "Alerts" nav item with open-alert count badge; this replaces the current disabled "Alerts" link.
+
+**Batch transfer (stretch goal for this session):**
+- Asset list: checkbox column (hidden unless IT Officer)
+- "Transfer Selected" sticky bar appears when ≥1 asset checked
+- Links to batch transfer wizard (existing `TransferBatch` model)
+
+**Permission:** `alert_list` → `viewer_required`; resolve/dismiss → `it_officer_required`
+
+---
+
+### Session 6.6 — Reports polish, Audit sessions, User management
+
+**Scope:** Fill remaining gaps — reports in right places, audit UI, basic user management.
+
+**Reports placement:**
+- Asset list topbar: "Export" dropdown (Current Inventory Excel, Warranty Report)
+- Asset detail topbar: already has History XLS + Handover PDF + Disposal PDF — add "Transfer Log for this asset" link
+- Assignment history table: per-row "Handover PDF" link
+- Reports sidebar link already active — keep as central catalog
+
+**Audit session UI (`qrcodes/views.py`):**
+- `audit_list` — list of AuditSessions with status, date, scan counts
+- `audit_start` (POST) — create new AuditSession; returns to session detail
+- `audit_detail` — show scanned assets, missing assets (in-stock but not scanned), unexpected assets
+- `audit_complete` (POST) — mark session complete
+
+**URL patterns:**
+```
+qr/audits/                 → audit_list
+qr/audits/start/           → audit_start (POST)
+qr/audits/<pk>/            → audit_detail
+qr/audits/<pk>/complete/   → audit_complete (POST)
+```
+
+**User management page (Admin only, `config/views.py`):**
+- `user_list` — list all users with group badges, last login, active status
+- `user_create` (GET/POST) — create user + assign groups
+- `user_edit` (GET/POST) — change groups, active status, reset password link
+- Accessible via sidebar Admin section
+
+**URL patterns:**
+```
+users/                     → user_list
+users/new/                 → user_create
+users/<pk>/edit/           → user_edit
+```
+
+**Permission:** All user management → `admin_required`
+
+---
+
+### What else is necessary (not explicitly requested but essential)
+
+1. **Asset type selector in asset form is HTMX-powered** — when type changes, spec fields re-render dynamically from `spec_schema`
+2. **Duplicate asset tag warning** — HTMX live check on asset tag field during create
+3. **Inactive/API-source guard on holder edit** — API-sourced holders show read-only badge; only manual holders are editable
+4. **Pagination on all list pages** — employees, MPs, offices, locations, alerts, audit sessions (use Django Paginator, 25/page)
+5. **"Assign Asset" entry point from holder detail** — from Employee/MP/Office detail, click "Assign Asset" → asset search → assign flow
+6. **Dashboard quick-action cards** — "Add Asset", "Assign Asset", "Run Sync", "View Alerts" — replace current static quick-action list
+7. **Breadcrumb consistency** — all new pages need correct breadcrumb block
+8. **403 shown for Viewer on write actions** — already wired but confirm UI hides write buttons for Viewers using `user_is_it_officer` template flag
+
+---
+
+### Session execution order
+
+| Session | Effort | Dependency |
+|---|---|---|
+| **6.1** Asset CRUD + Import | Large | ✅ Complete |
+| **6.2** Location CRUD | Medium | None — can be parallel |
+| **6.3** Employee/MP/Office lists | Large | None |
+| **6.4** Custom Sync page | Medium | 6.3 (needs entity context) |
+| **6.5** Assignment from list + Alerts | Medium | 6.1 (asset list changes) |
+| **6.6** Reports polish + Audit + Users | Medium | 6.1, 6.3, 6.5 |
+
+---
+
+## Deployment Checklist (when ready for production)
+
+- [ ] UAT with Software Development Branch team (after 6.x sessions)
+- [ ] Backup/restore drill (PostgreSQL pg_dump + restore test)
+- [ ] Production SSL certs installed at `nginx/ssl/`
+- [ ] `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d`
+- [ ] Superuser creation + group assignment for pilot users
+- [ ] Load real asset data via Excel import
+- [ ] Verify PRP API credentials in `.env`
