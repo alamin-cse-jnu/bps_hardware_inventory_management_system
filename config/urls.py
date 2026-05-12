@@ -11,6 +11,11 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("allauth.urls")),
     path("api/", include("rest_framework.urls")),
+    path("", include("assets.urls", namespace="assets")),
+    path("assignees/", include("assignees.urls", namespace="assignees")),
+    path("assignments/", include("assignments.urls", namespace="assignments")),
+    path("lifecycle/", include("lifecycle.urls", namespace="lifecycle")),
+    path("qr/", include("qrcodes.urls", namespace="qrcodes")),
 ]
 
 if settings.DEBUG:

@@ -1,0 +1,22 @@
+<div class="panel-overlay">
+  <div class="panel-backdrop" onclick="document.getElementById('panel-container').innerHTML=''"></div>
+  <div class="panel-drawer" style="align-items:center;justify-content:center">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:16px;padding:40px;text-align:center;max-width:360px">
+      <div style="width:64px;height:64px;border-radius:50%;background:#ECFDF5;display:flex;align-items:center;justify-content:center">
+        <svg width="28" height="28" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div style="font-size:18px;font-weight:700;color:#212529">Returned to Stock</div>
+      <div style="font-size:13.5px;color:#6C757D;line-height:1.6">
+        <span class="asset-tag">{{ asset.asset_tag }}</span> is now <strong style="color:#10B981">In Stock</strong>.
+        The assignment record has been closed.
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px;width:100%">
+        <button onclick="document.getElementById('panel-container').innerHTML=''"
+                class="btn btn-outline" style="flex:1">Close</button>
+        <a href="{% url 'assets:detail' asset.pk %}" class="btn btn-primary" style="flex:1">
+          View Asset
+        </a>
+      </div>
+    </div>
+  </div>
+</div>

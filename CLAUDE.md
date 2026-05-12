@@ -468,6 +468,14 @@ Location
 
 > Updated after each significant Claude Code session. Newest entries at the top.
 
+- **Session 3.1:** Phase 3 — Lifecycle & QR. `lifecycle` app: `LifecycleEvent` model (8 event types: MAINTENANCE_SENT, MAINTENANCE_RETURN, LOST, DAMAGED, RECOVERED, REPAIRED, DISPOSED, COMPONENT_SWAP; records old_status/new_status pair + performed_by + optional component FK); `lifecycle/services.py` with 7 public service functions (`send_to_maintenance`, `return_from_maintenance`, `report_lost`, `report_damaged`, `recover_asset`, `repair_asset`, `dispose_asset`) + `swap_component`; each validates current status explicitly (e.g. `repair_asset` guards `asset.status == DAMAGED`) then delegates to `asset.change_status()`; `_close_active_assignment()` helper uses `update()` to bypass immutability guard; `EVENT_HANDLERS` dict maps EventType → service fn; `APPLICABLE_EVENTS` dict maps Status → applicable event list. `lifecycle/views.py`: `event_panel()` with GET (radio buttons for applicable events) and POST (dispatch via EVENT_HANDLERS, returns success overlay or panel with error). `lifecycle/admin.py`: LifecycleEventAdmin fully read-only with colored event type badges. `lifecycle/tests.py`: 22 tests covering all service functions and edge cases (invalid status guards, assignment closure on transition from ASSIGNED). `qrcodes` app: `AuditSession` (auto-reference `AUD-YYYY-NNNN`, `is_complete` property, `complete()` method) + `AuditScan` (unique_together session+asset). `qrcodes/views.py`: `mobile_scan()` (standalone green-header mobile page), `qr_download()` (returns image/png with Parliament Green fill), `qr_label()` (base64 QR embedded in printable label). `qrcodes/admin.py`: AuditSessionAdmin with AuditScanInline. `qrcodes/tests.py`: 18 tests. Templates: `lifecycle/event_panel.html` (radio-button event selector, JS highlight), `lifecycle/event_success.html` (checkmark overlay with new status badge), `qrcodes/mobile_scan.html` (standalone, green header, own HTMX CSRF, #panel-container), `qrcodes/qr_label.html` (print-ready label with base64 QR + Print/Download/Back). `assets/asset_detail.html` updated with amber "Event" button (hx-get lifecycle:event_panel) and QR label link. `assets/views.py` updated to pass `lifecycle_events` to detail context. Bug fixed: `repair_asset()` must guard `status == DAMAGED` explicitly because MAINTENANCE→IN_STOCK is also a valid state-machine transition. **170 tests pass** (40 new: 22 lifecycle + 18 qrcodes). **Phase 3 complete.**
+
+- **Session 2.2:** HTMX-based assign/transfer UI. Wired up URL routing: `assets/` → asset list, `assets/<pk>/` → detail, `assignees/search/` → live search endpoint, `assignees/<pk>/select/` → select card, `assignments/<pk>/assign/` (GET/POST) → slide-over panel + confirmation, `assignments/<pk>/assign/clear/` → reset assignee field, `assignments/<pk>/return/` (GET/POST) → return confirmation. Views: `assets/views.py` (list with status/type/q filters + `(asset, asgn)` tuple rows), `assignees/views.py` (search with Q filter across all holder types, `select_card` returns swappable partial), `assignments/views.py` (assign_panel handles GET → panel HTML, POST → success/error; _past_holders helper de-dupes and caps at 4 active past holders). Templates: `base.html` (dark sidebar #13122A + HTMX CDN + `hx-headers` CSRF on body), `assets/asset_list.html` (filter bar, status pills, Assign/Transfer HTMX buttons), `assets/asset_detail.html` (gradient header card, JS tab switcher for Overview/History/Components), `assignments/assign_panel.html` (480px slide-over, HTMX form), `assignments/assignee_field.html` (search box with HTMX live results, JS show/hide dropdown), `assignees/search_results.html` (HTMX-swappable results list), `assignees/selected_card.html` (green card with hidden `assignee_id` input, clear button), `assignments/assign_success.html` (checkmark success state), `assignments/return_confirm.html` (return confirmation panel), `assignments/return_success.html`. All 130 tests still pass. **Phase 2 complete.**
+
+- **Session 2.1:** Phase 2 — Assignment Engine. `assignees` app: `CachedEmployee` (all office-placement fields: wing/branch/section/unit/office, `designation` property, `mark_inactive()`), `CachedMP` (parliament_no, constituency, raw office details), `CachedOffice` (parent_prp_id for hierarchy), all three with dual-source (`PRP_API`/`MANUAL`), null prp_id for MANUAL records (PostgreSQL allows multiple NULLs in unique column), `is_active`/`inactive_since`/`last_seen_active`. `Assignee` unified table: 4 FK fields (employee/mp/office/location), `AssigneeType` choices, `clean()` validates exactly one FK matches `assignee_type`, `display_name` property, `holder_source` property, `build_snapshot()` freezes name+designation+department at assignment time. Admin: PRP_API records are locked readonly (sync owns them), source/active badges, designation column. `assignments` app: `TransferBatch` with auto-reference `TB-YYYY-NNNN`, `Assignment` with `holder_snapshot` JSONField + immutability guard in `save()` (raises ValidationError if DB `returned_at` already set), `is_active` property, indexes on `(asset, returned_at)` and `(assignee, returned_at)`. `InactiveHolderAlert` with `resolve()`/`dismiss()` methods. `assignments/services.py`: `perform_transfer()` (handles IN_STOCK→ASSIGNED and ASSIGNED→ASSIGNED transfers, closes old assignment via `update()` to bypass immutability guard, validates asset status/deleted/assignee active) and `return_to_stock()`. Admin: Assignment fully readonly (no add/change permissions). **130 tests pass** (56 new: 31 assignees + 25 assignments).
+
+- **Session 1.5:** Admin login + interface redesign. Created `templates/admin/login.html` — complete standalone dark split-card login (no Django admin chrome): left panel (#0E0D20) with 7×10 rotated-rect geo background SVG, Parliament logo, IT Inventory title, 3 stats; right panel (#1A1830) with dark inputs (#252340), purple CTA button (#6D5AE6 with glow), SSO ghost button, password show/hide toggle, error box, security strip, footer credit. Rewrote `templates/admin/base_site.html`: full CSS variable coverage for Django admin 5.x, dark sidebar (#13122A) with gold captions and purple hover, per-app gradient module captions (assets=green, locations=violet, assignments=blue, lifecycle=red/amber, auth=grey), styled changelist table with hover rows, filter sidebar, paginator, submit rows, messages, delete buttons, search bar, object-tools. All existing import/changelist templates inherit cleanly.
+
 - **Session 1.4:** Admin branding + fixtures. `templates/admin/base_site.html`: Parliament Green `#006633` header with gold `#C8A951` border and branding text, dark sidebar `#13122A`, Inter/JetBrains Mono fonts via Google Fonts, full CSS-variable override for buttons/links/breadcrumbs/module headers/login page. Footer credit. Admin site title/header/index set in `config/urls.py`. Assets fixture: 5 categories, 12 types with realistic `spec_schema` arrays. Locations fixture: 15 locations (2 buildings, 9 floors, 4 rooms) with correct hierarchy. Both fixtures load cleanly (17 + 15 objects). Fix noted: `loaddata` uses `raw=True` — `auto_now_add` fields must be explicit in fixtures.
 
 - **Session 1.3:** Excel import/export tool — `assets/services/excel_import.py`. Three service classes: `ExcelTemplateGenerator` (3-sheet workbook: Data Entry with dynamic `spec_*` cols + Parliament Green headers + example row, Instructions, Valid Locations), `ExcelImportValidator` (column-position-agnostic, location path normalisation for `→`/`>`, intra-batch duplicate tag detection, date/decimal parsing), `ExcelImportExecutor` (auto-tag `LAP-YYYY-NNNN`, per-type batch counter, full `transaction.atomic()` rollback on any failure). Admin: `get_urls()` wires download-template, import (GET form + POST preview), import/confirm views. Session-based preview→confirm handoff. Three admin templates. 24 new tests. **74 total tests pass.**
@@ -488,28 +496,30 @@ Location
 
 ---
 
-## Current State (as of Session 1.3)
+## Current State (as of Session 3.1)
 
 ### What exists
 | App | Status | Key files |
 |---|---|---|
 | `locations` | ✅ Complete | `models.py`, `admin.py`, `tests.py`, migration `0001` |
-| `assets` | ✅ Complete | `models.py`, `admin.py`, `tests.py`, migrations `0001`–`0002`, `services/excel_import.py` |
-| `assignees` | ⬜ Skeleton only | stub files only |
-| `assignments` | ⬜ Skeleton only | stub files only |
-| `lifecycle` | ⬜ Skeleton only | stub files only |
-| `qrcodes` | ⬜ Skeleton only | stub files only |
+| `assets` | ✅ Complete | `models.py`, `admin.py`, `tests.py`, migrations `0001`–`0002`, `services/excel_import.py`, `urls.py`, `views.py` |
+| `assignees` | ✅ Complete | `models.py`, `admin.py`, `tests.py`, migration `0001`, `urls.py`, `views.py` |
+| `assignments` | ✅ Complete | `models.py`, `services.py`, `admin.py`, `tests.py`, migration `0001`, `urls.py`, `views.py` |
+| `lifecycle` | ✅ Complete | `models.py`, `services.py`, `admin.py`, `views.py`, `tests.py`, migration `0001`, `urls.py` |
+| `qrcodes` | ✅ Complete | `models.py`, `admin.py`, `views.py`, `tests.py`, migration `0001`, `urls.py` |
 | `sync_prp` | ⬜ Skeleton only | stub files only |
 | `reports` | ⬜ Skeleton only | stub files only |
 
-**Test count:** 74 passing (13 locations + 61 assets)
+**Frontend templates:** `base.html`, `assets/asset_list.html`, `assets/asset_detail.html`, `assignments/assign_panel.html`, `assignments/assignee_field.html`, `assignments/assign_success.html`, `assignments/return_confirm.html`, `assignments/return_success.html`, `assignees/search_results.html`, `assignees/selected_card.html`, `lifecycle/event_panel.html`, `lifecycle/event_success.html`, `qrcodes/mobile_scan.html`, `qrcodes/qr_label.html`
+
+**Test count:** 170 passing (13 locations + 61 assets + 31 assignees + 25 assignments + 22 lifecycle + 18 qrcodes)
 
 ### Phase completion
 | Phase | Status |
 |---|---|
-| Phase 1 — Foundation | 🔄 In progress (scaffold ✅, locations ✅, assets ✅, Excel import ✅) |
-| Phase 2 — Assignment Engine | ⬜ Not started |
-| Phase 3 — Lifecycle & QR | ⬜ Not started |
+| Phase 1 — Foundation | ✅ Complete |
+| Phase 2 — Assignment Engine | ✅ Complete |
+| Phase 3 — Lifecycle & QR | ✅ Complete |
 | Phase 4 — Reports & Alerts | ⬜ Not started |
 | Phase 5 — Hardening | ⬜ Not started |
 
@@ -517,19 +527,9 @@ Location
 
 ## Next To Do
 
-### Phase 1 remaining
-- [x] Polished Django admin (branding, custom admin `base_site.html` with Parliament Green, logo) ✅
-- [x] Load initial fixture data (categories, types, example locations) for development ✅
-
-### Phase 2 (Assignment Engine)
-- [ ] `assignees` app: `CachedEmployee`, `CachedMP`, `CachedOffice` models (dual-source: `PRP_API` / `MANUAL`), unified `Assignee` table (4 FK fields, no GenericForeignKey)
-- [ ] `assignments` app: `Assignment` model (immutable once `returned_at` set), `TransferBatch`, holder snapshot (JSONField), `perform_transfer()` service
-- [ ] HTMX-based assign/transfer UI (slide-over panel, assignee search, confirmation)
-- [ ] Inactive holder alert model (`InactiveHolderAlert`)
-
 ### Phase 3 (Lifecycle & QR)
-- [ ] `lifecycle` app: `LifecycleEvent` (maintenance, lost, damaged, disposed, component swap)
-- [ ] `qrcodes` app: QR generation, mobile scan view, `AuditSession` + `AuditScan`
+- [x] `lifecycle` app: `LifecycleEvent` (maintenance, lost, damaged, disposed, component swap) ✅
+- [x] `qrcodes` app: QR generation, mobile scan view, `AuditSession` + `AuditScan` ✅
 
 ### Phase 4 (Reports & Alerts)
 - [ ] `reports` app: Excel + PDF generation (openpyxl + WeasyPrint)

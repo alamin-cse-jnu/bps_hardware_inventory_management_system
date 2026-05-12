@@ -8,7 +8,15 @@
       "Bash(Select-Object Name)",
       "Bash(mkdir -p \"D:/Development/projects/it-inventory-final/assets/services\")",
       "Bash(mkdir -p \"D:/Development/projects/it-inventory-final/assets/templates/admin/assets/assetitem\")",
-      "Bash(docker-compose run *)"
+      "Bash(docker-compose run *)",
+      "Bash(python3 -c \"import secrets; print\\(secrets.token_urlsafe\\(50\\)\\)\")",
+      "Bash(node -e \"const c='abcdefghijklmnopqrstuvwxyz0123456789!@#%^&*\\(-_=+\\)';let k='';for\\(let i=0;i<50;i++\\)k+=c[Math.floor\\(Math.random\\(\\)*c.length\\)];console.log\\(k\\)\")",
+      "PowerShell(Get-Random *)",
+      "Bash(docker compose up *)",
+      "Bash(docker compose exec web python manage.py shell -c ' *)",
+      "Bash(docker compose exec *)",
+      "Bash(dir E:\\\\projects\\\\bps_hardware_inventory_management_system\\\\templates *)",
+      "Bash(docker compose ps *)"
     ]
   }
 }

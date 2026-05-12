@@ -1,7 +1,9 @@
 from django.urls import path
+from . import views
 
 app_name = "assignees"
 
 urlpatterns = [
-    # URL patterns will be added in subsequent phases.
+    path("search/", views.search, name="search"),
+    path("<int:pk>/select/", views.select_card, name="select"),
 ]

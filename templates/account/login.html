@@ -1,0 +1,353 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign In | Parliament IT Inventory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #13122A;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+}
+.login-card {
+    display: flex;
+    width: min(900px, 96vw);
+    min-height: min(580px, 92vh);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06);
+}
+.login-left {
+    width: 46%;
+    background: #0E0D20;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 36px 40px;
+    overflow: hidden;
+}
+.geo-bg {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    opacity: 0.06; pointer-events: none;
+}
+.radial-glow {
+    position: absolute; top: -80px; left: -80px;
+    width: 360px; height: 360px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(109,90,230,0.18) 0%, transparent 70%);
+    pointer-events: none;
+}
+.left-inner { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%; }
+.logo-row { display: flex; align-items: center; gap: 10px; margin-bottom: auto; }
+.logo-icon {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: linear-gradient(135deg, #006633, #10B981);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; border: 1.5px solid rgba(200,169,81,0.4);
+}
+.logo-text-bd { font-size: 10px; font-weight: 700; color: #C8A951; letter-spacing: 0.12em; text-transform: uppercase; line-height: 1.2; }
+.logo-text-parl { font-size: 10px; font-weight: 700; color: #C8A951; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1.2; }
+.left-body { flex: 1; display: flex; flex-direction: column; justify-content: center; padding-top: 32px; }
+.left-eyebrow { font-size: 9.5px; font-weight: 700; letter-spacing: 0.2em; color: #6D5AE6; margin-bottom: 14px; text-transform: uppercase; opacity: 0.9; }
+.left-h1 { font-size: 28px; font-weight: 800; color: #F0EEF8; line-height: 1.2; margin-bottom: 12px; letter-spacing: -0.02em; }
+.left-sub { font-size: 13px; color: #8886A6; line-height: 1.6; margin-bottom: 32px; }
+.stats { display: flex; flex-direction: column; gap: 10px; }
+.stat-row { display: flex; align-items: center; gap: 10px; }
+.stat-num { width: 48px; text-align: right; font-size: 14px; font-weight: 800; color: #F0EEF8; flex-shrink: 0; }
+.stat-div { width: 1px; height: 12px; background: #2A2845; flex-shrink: 0; }
+.stat-label { font-size: 11.5px; color: #8886A6; }
+.left-footer { font-size: 10.5px; color: #5A5878; letter-spacing: 0.04em; margin-top: 24px; }
+.login-right {
+    flex: 1; background: #1A1830;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 36px 44px; border-left: 1px solid rgba(255,255,255,0.05);
+}
+.form-wrap { width: 100%; max-width: 340px; }
+.form-title { font-size: 22px; font-weight: 800; color: #F0EEF8; margin-bottom: 4px; letter-spacing: -0.02em; }
+.form-sub { font-size: 13px; color: #8886A6; margin-bottom: 24px; }
+.error-box {
+    display: flex; align-items: flex-start; gap: 9px;
+    padding: 10px 13px; background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.35); border-radius: 8px;
+    margin-bottom: 18px; font-size: 13px; color: #FCA5A5; font-weight: 500;
+}
+.error-icon { flex-shrink: 0; width: 16px; height: 16px; margin-top: 1px; }
+.field-group { margin-bottom: 14px; }
+.field-label { display: block; font-size: 11px; font-weight: 600; color: #8886A6; margin-bottom: 6px; letter-spacing: 0.06em; text-transform: uppercase; }
+.field-wrap { position: relative; }
+.field-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; display: flex; color: #5A5878; }
+.field-input {
+    width: 100%; height: 44px; padding: 0 14px 0 40px;
+    background: #252340; border: 1px solid #35325A; border-radius: 8px;
+    font-size: 14px; color: #F0EEF8; font-family: 'Inter', sans-serif;
+    outline: none; transition: border-color 180ms, box-shadow 180ms; color-scheme: dark;
+}
+.field-input::placeholder { color: #5A5878; }
+.field-input:focus { border-color: #6D5AE6; box-shadow: 0 0 0 3px rgba(109,90,230,0.25); }
+.field-input:-webkit-autofill { -webkit-box-shadow: 0 0 0 100px #252340 inset !important; -webkit-text-fill-color: #F0EEF8 !important; }
+.toggle-pass { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; color: #5A5878; }
+.toggle-pass:hover { color: #8886A6; }
+.meta-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; margin-top: 4px; }
+.remember-label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #8886A6; cursor: pointer; user-select: none; }
+.remember-label input[type="checkbox"] { width: 16px; height: 16px; accent-color: #6D5AE6; cursor: pointer; }
+.forgot-link { font-size: 13px; color: #6D5AE6; text-decoration: none; font-weight: 500; }
+.forgot-link:hover { color: #8B7CF8; text-decoration: underline; }
+.btn-signin {
+    width: 100%; height: 46px; background: #6D5AE6; color: #fff;
+    border: none; border-radius: 8px; font-size: 14.5px; font-weight: 700;
+    cursor: pointer; font-family: 'Inter', sans-serif; letter-spacing: 0.01em;
+    transition: background 150ms, transform 100ms;
+    box-shadow: 0 4px 18px rgba(109,90,230,0.35);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-signin:hover { background: #5B49D4; transform: translateY(-1px); }
+.btn-signin:active { transform: none; }
+.secure-strip {
+    display: flex; align-items: center; gap: 6px; margin-top: 16px;
+    padding: 7px 10px; background: rgba(255,255,255,0.03);
+    border-radius: 6px; border: 1px solid #2A2845; font-size: 11px; color: #5A5878;
+}
+.form-credit { margin-top: 16px; text-align: center; font-size: 11px; color: #5A5878; line-height: 1.6; }
+@media (max-width: 640px) {
+    .login-left { display: none; }
+    .login-card { width: 96vw; }
+    .login-right { padding: 32px 24px; }
+}
+</style>
+</head>
+<body>
+
+<div class="login-card">
+  <!-- LEFT PANEL -->
+  <div class="login-left">
+    <svg class="geo-bg" viewBox="0 0 500 700" preserveAspectRatio="xMidYMid slice">
+      <rect x="-10" y="-10" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 16 16)"/>
+      <rect x="62"  y="-10" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 88 16)"/>
+      <rect x="134" y="-10" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 160 16)"/>
+      <rect x="206" y="-10" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 232 16)"/>
+      <rect x="278" y="-10" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 304 16)"/>
+      <rect x="350" y="-10" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 376 16)"/>
+      <rect x="422" y="-10" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 448 16)"/>
+      <rect x="-10" y="62"  width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 16 88)"/>
+      <rect x="62"  y="62"  width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 88 88)"/>
+      <rect x="134" y="62"  width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 160 88)"/>
+      <rect x="206" y="62"  width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 232 88)"/>
+      <rect x="278" y="62"  width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 304 88)"/>
+      <rect x="350" y="62"  width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 376 88)"/>
+      <rect x="422" y="62"  width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 448 88)"/>
+      <rect x="-10" y="134" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 16 160)"/>
+      <rect x="62"  y="134" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 88 160)"/>
+      <rect x="134" y="134" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 160 160)"/>
+      <rect x="206" y="134" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 232 160)"/>
+      <rect x="278" y="134" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 304 160)"/>
+      <rect x="350" y="134" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 376 160)"/>
+      <rect x="422" y="134" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 448 160)"/>
+      <rect x="-10" y="206" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 16 232)"/>
+      <rect x="62"  y="206" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 88 232)"/>
+      <rect x="134" y="206" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 160 232)"/>
+      <rect x="206" y="206" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 232 232)"/>
+      <rect x="278" y="206" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 304 232)"/>
+      <rect x="350" y="206" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 376 232)"/>
+      <rect x="422" y="206" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 448 232)"/>
+      <rect x="-10" y="278" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 16 304)"/>
+      <rect x="62"  y="278" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 88 304)"/>
+      <rect x="134" y="278" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 160 304)"/>
+      <rect x="206" y="278" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 232 304)"/>
+      <rect x="278" y="278" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 304 304)"/>
+      <rect x="350" y="278" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 376 304)"/>
+      <rect x="422" y="278" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 448 304)"/>
+      <rect x="-10" y="350" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 16 376)"/>
+      <rect x="62"  y="350" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 88 376)"/>
+      <rect x="134" y="350" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 160 376)"/>
+      <rect x="206" y="350" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 232 376)"/>
+      <rect x="278" y="350" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 304 376)"/>
+      <rect x="350" y="350" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 376 376)"/>
+      <rect x="422" y="350" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 448 376)"/>
+      <rect x="-10" y="422" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 16 448)"/>
+      <rect x="62"  y="422" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 88 448)"/>
+      <rect x="134" y="422" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 160 448)"/>
+      <rect x="206" y="422" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 232 448)"/>
+      <rect x="278" y="422" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 304 448)"/>
+      <rect x="350" y="422" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 376 448)"/>
+      <rect x="422" y="422" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 448 448)"/>
+      <rect x="-10" y="494" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 16 520)"/>
+      <rect x="62"  y="494" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 88 520)"/>
+      <rect x="134" y="494" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 160 520)"/>
+      <rect x="206" y="494" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 232 520)"/>
+      <rect x="278" y="494" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 304 520)"/>
+      <rect x="350" y="494" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 376 520)"/>
+      <rect x="422" y="494" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 448 520)"/>
+      <rect x="-10" y="566" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 16 592)"/>
+      <rect x="62"  y="566" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 88 592)"/>
+      <rect x="134" y="566" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 160 592)"/>
+      <rect x="206" y="566" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 232 592)"/>
+      <rect x="278" y="566" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 304 592)"/>
+      <rect x="350" y="566" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 376 592)"/>
+      <rect x="422" y="566" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 448 592)"/>
+      <rect x="-10" y="638" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 16 664)"/>
+      <rect x="62"  y="638" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 88 664)"/>
+      <rect x="134" y="638" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 160 664)"/>
+      <rect x="206" y="638" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 232 664)"/>
+      <rect x="278" y="638" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 304 664)"/>
+      <rect x="350" y="638" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 376 664)"/>
+      <rect x="422" y="638" width="52" height="52" fill="none" stroke="white" stroke-width="0.8" transform="rotate(15 448 664)"/>
+      <circle cx="250" cy="350" r="70"  fill="none" stroke="white" stroke-width="0.6"/>
+      <circle cx="250" cy="350" r="130" fill="none" stroke="white" stroke-width="0.6"/>
+      <circle cx="250" cy="350" r="190" fill="none" stroke="white" stroke-width="0.6"/>
+      <circle cx="250" cy="350" r="250" fill="none" stroke="white" stroke-width="0.6"/>
+      <circle cx="250" cy="350" r="310" fill="none" stroke="white" stroke-width="0.6"/>
+    </svg>
+    <div class="radial-glow"></div>
+
+    <div class="left-inner">
+      <div class="logo-row">
+        <div class="logo-icon">
+          <svg width="22" height="22" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="1.8" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </div>
+        <div>
+          <div class="logo-text-bd">Bangladesh</div>
+          <div class="logo-text-parl">Parliament</div>
+        </div>
+      </div>
+
+      <div class="left-body">
+        <div class="left-eyebrow">National Parliament Secretariat</div>
+        <h1 class="left-h1">IT Inventory<br>Management<br>System</h1>
+        <p class="left-sub">Track every asset.<br>Every handover. Every transfer.</p>
+        <div class="stats">
+          <div class="stat-row">
+            <span class="stat-num">3,247</span>
+            <div class="stat-div"></div>
+            <span class="stat-label">Assets tracked</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-num">18</span>
+            <div class="stat-div"></div>
+            <span class="stat-label">Departments</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-num">99.2%</span>
+            <div class="stat-div"></div>
+            <span class="stat-label">Audit accuracy</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="left-footer">Authorized personnel only</div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="login-right">
+    <div class="form-wrap">
+      <h2 class="form-title">Sign in</h2>
+      <p class="form-sub">Enter your credentials to continue</p>
+
+      {% if form.errors %}
+      <div class="error-box">
+        <svg class="error-icon" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="1.8">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <span>Incorrect username or password. Please try again.</span>
+      </div>
+      {% endif %}
+
+      <form method="post" action="{% url 'account_login' %}">
+        {% csrf_token %}
+        {% if redirect_field_value %}
+          <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+        {% endif %}
+
+        <!-- Username/Login -->
+        <div class="field-group">
+          <label class="field-label" for="id_login">Username</label>
+          <div class="field-wrap">
+            <span class="field-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+              </svg>
+            </span>
+            <input type="text" name="login" id="id_login" autocomplete="username"
+                   class="field-input" placeholder="Enter your username" autofocus
+                   value="{{ form.login.value|default:'' }}">
+          </div>
+        </div>
+
+        <!-- Password -->
+        <div class="field-group" style="margin-bottom:8px;">
+          <label class="field-label" for="id_password">Password</label>
+          <div class="field-wrap">
+            <span class="field-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <rect x="3" y="11" width="18" height="11" rx="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+            </span>
+            <input type="password" name="password" id="id_password" autocomplete="current-password"
+                   class="field-input" placeholder="••••••••"
+                   style="padding-right:42px;">
+            <button type="button" class="toggle-pass" onclick="togglePass(this)" title="Show/hide password">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Remember -->
+        <div class="meta-row">
+          <label class="remember-label">
+            <input type="checkbox" name="remember"> Remember me
+          </label>
+        </div>
+
+        <button type="submit" class="btn-signin">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+            <polyline points="10 17 15 12 10 7"/>
+            <line x1="15" y1="12" x2="3" y2="12"/>
+          </svg>
+          Sign In
+        </button>
+      </form>
+
+      <div class="secure-strip">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        Secure intranet — Parliament of Bangladesh
+      </div>
+
+      <p class="form-credit">
+        Need access? Contact IT Branch &nbsp;·&nbsp; v1.0<br>
+        <span>Designed &amp; Developed by <strong style="color:#8886A6;">Md. Al-Amin Hossain</strong></span>
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+function togglePass(btn) {
+  var inp = document.getElementById('id_password');
+  var icon = btn.querySelector('svg');
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    icon.innerHTML = '<path d="M17.94 17.94A10 10 0 0 1 12 20c-7 0-10-7-10-7a18 18 0 0 1 4-5.3"/><path d="M9.9 4.24A9 9 0 0 1 12 4c7 0 10 7 10 7a18 18 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>';
+  } else {
+    inp.type = 'password';
+    icon.innerHTML = '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>';
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,187 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>{{ asset.asset_tag }} — Parliament IT</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Inter',sans-serif;font-size:14px;color:#212529;background:#F8F9FA;min-height:100vh}
+    .green-header{background:#006633;padding:16px 20px 24px}
+    .header-brand{display:flex;align-items:center;gap:8px;margin-bottom:16px}
+    .brand-icon{width:24px;height:24px;border-radius:5px;background:rgba(200,169,81,.7);display:flex;align-items:center;justify-content:center}
+    .brand-name{font-size:12.5px;font-weight:700;color:#fff;letter-spacing:.04em}
+    .asset-tag-big{font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:#fff;letter-spacing:.04em;line-height:1;margin-bottom:6px}
+    .asset-model{font-size:13.5px;color:rgba(255,255,255,.75)}
+    .status-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:99px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);margin-top:12px}
+    .status-dot{width:7px;height:7px;border-radius:50%}
+    .status-dot-IN_STOCK{background:#6EE7B7}
+    .status-dot-ASSIGNED{background:#93C5FD}
+    .status-dot-MAINTENANCE{background:#FCD34D}
+    .status-dot-LOST,.status-dot-DAMAGED{background:#FCA5A5}
+    .status-dot-DISPOSED{background:#D1D5DB}
+    .status-label{font-size:12.5px;color:#fff;font-weight:600}
+    .content{padding:16px}
+    .card{background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:14px;margin-bottom:12px}
+    .card-label{font-size:10.5px;font-weight:700;color:#6C757D;text-transform:uppercase;letter-spacing:.09em;margin-bottom:10px}
+    .holder-row{display:flex;align-items:center;gap:12px}
+    .holder-avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#006633,#10B981);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0}
+    .holder-name{font-size:15px;font-weight:700;color:#212529}
+    .holder-dept{font-size:12.5px;color:#6C757D}
+    .info-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #F3F4F6}
+    .info-row:last-child{border-bottom:none}
+    .info-icon{width:28px;height:28px;border-radius:6px;background:#F0F7F3;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .info-label{font-size:11.5px;color:#6C757D;line-height:1.2}
+    .info-val{font-size:13px;font-weight:600;color:#212529;line-height:1.2;margin-top:1px}
+    .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+    .action-btn{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 8px;border-radius:10px;border:1px solid #E5E7EB;background:#fff;cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:#212529;text-align:center;text-decoration:none;transition:background 150ms}
+    .action-btn:hover{background:#F8F9FA}
+    .action-btn.primary{background:#006633;border-color:#006633;color:#fff}
+    .action-btn.primary:hover{background:#005229}
+    .action-btn.danger{background:#FEF2F2;border-color:#FECACA;color:#EF4444}
+    .action-btn svg{flex-shrink:0}
+    .footer{text-align:center;padding:20px;color:#9CA3AF;font-size:11.5px}
+  </style>
+</head>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+
+<!-- Green header -->
+<div class="green-header">
+  <div class="header-brand">
+    <div class="brand-icon">
+      <svg width="13" height="13" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    </div>
+    <span class="brand-name">Parliament IT</span>
+    <span style="margin-left:auto;font-size:10.5px;color:rgba(255,255,255,.6)">QR Result</span>
+  </div>
+  <div class="asset-tag-big">{{ asset.asset_tag }}</div>
+  <div class="asset-model">{{ asset.brand }} {{ asset.model_name }}</div>
+  <div class="status-pill">
+    <div class="status-dot status-dot-{{ asset.status }}"></div>
+    <span class="status-label">{{ asset.get_status_display }}</span>
+  </div>
+</div>
+
+<div class="content">
+  <!-- Current holder -->
+  {% if active_assignment %}
+  <div class="card">
+    <div class="card-label">Current Holder</div>
+    <div class="holder-row">
+      <div class="holder-avatar">
+        {{ active_assignment.assignee.display_name|slice:":1"|upper }}{{ active_assignment.assignee.display_name|slice:"1:2"|upper }}
+      </div>
+      <div>
+        <div class="holder-name">{{ active_assignment.assignee.display_name }}</div>
+        <div class="holder-dept">{{ active_assignment.assignee.get_assignee_type_display }}</div>
+        {% if active_assignment.assignee.assignee_type == 'EMPLOYEE' and active_assignment.assignee.employee.designation %}
+          <div class="holder-dept">{{ active_assignment.assignee.employee.designation }}</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="card-label">Current Holder</div>
+    <div style="color:#9CA3AF;font-size:13px;font-style:italic">Not currently assigned</div>
+  </div>
+  {% endif %}
+
+  <!-- Asset info -->
+  <div class="card">
+    {% if asset.storage_location %}
+    <div class="info-row">
+      <div class="info-icon">
+        <svg width="14" height="14" fill="none" stroke="#006633" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      </div>
+      <div>
+        <div class="info-label">Location</div>
+        <div class="info-val">{{ asset.storage_location.full_path }}</div>
+      </div>
+    </div>
+    {% endif %}
+    {% if active_assignment %}
+    <div class="info-row">
+      <div class="info-icon">
+        <svg width="14" height="14" fill="none" stroke="#006633" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+      <div>
+        <div class="info-label">Assigned Since</div>
+        <div class="info-val">{{ active_assignment.assigned_at|date:"d M Y" }}</div>
+      </div>
+    </div>
+    {% endif %}
+    {% if asset.warranty_expiry %}
+    <div class="info-row">
+      <div class="info-icon">
+        <svg width="14" height="14" fill="none" stroke="#006633" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      <div>
+        <div class="info-label">Warranty</div>
+        <div class="info-val">Expires {{ asset.warranty_expiry|date:"d M Y" }}</div>
+      </div>
+    </div>
+    {% endif %}
+    <div class="info-row">
+      <div class="info-icon">
+        <svg width="14" height="14" fill="none" stroke="#006633" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+      </div>
+      <div>
+        <div class="info-label">Asset Type</div>
+        <div class="info-val">{{ asset.asset_type.category.name }} › {{ asset.asset_type.name }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="actions">
+    {% if asset.status == 'IN_STOCK' %}
+    <button class="action-btn primary"
+            hx-get="{% url 'assignments:assign_panel' asset.pk %}"
+            hx-target="#panel-container"
+            hx-swap="innerHTML">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      Assign Asset
+    </button>
+    {% elif asset.status == 'ASSIGNED' %}
+    <button class="action-btn primary"
+            hx-get="{% url 'assignments:assign_panel' asset.pk %}"
+            hx-target="#panel-container"
+            hx-swap="innerHTML">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
+      Transfer
+    </button>
+    <button class="action-btn"
+            hx-get="{% url 'assignments:return_panel' asset.pk %}"
+            hx-target="#panel-container"
+            hx-swap="innerHTML">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+      Return to Stock
+    </button>
+    {% endif %}
+
+    {% if asset.status != 'DISPOSED' %}
+    <button class="action-btn"
+            hx-get="{% url 'lifecycle:event_panel' asset.pk %}"
+            hx-target="#panel-container"
+            hx-swap="innerHTML">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Report Event
+    </button>
+    {% endif %}
+
+    <a href="{% url 'assets:detail' asset.pk %}" class="action-btn">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Full Detail
+    </a>
+  </div>
+</div>
+
+<div class="footer">Parliament Secretariat · IT Inventory System</div>
+
+<div id="panel-container"></div>
+
+</body>
+</html>

@@ -1,0 +1,30 @@
+<div id="assignee-field">
+  <input type="hidden" name="assignee_id" value="{{ assignee.pk }}">
+  <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #006633;border-radius:6px;background:#ECFDF5">
+    <div class="assignee-initials" style="background:#006633;color:#fff">
+      {{ assignee.display_name|slice:":1"|upper }}{{ assignee.display_name|slice:"1:2"|upper }}
+    </div>
+    <div style="flex:1">
+      <div style="font-size:13.5px;font-weight:700;color:#212529">{{ assignee.display_name }}</div>
+      <div style="font-size:11.5px;color:#6C757D;margin-top:1px">
+        {{ assignee.get_assignee_type_display }}
+        {% if assignee.assignee_type == 'EMPLOYEE' and assignee.employee.designation %}
+          · {{ assignee.employee.designation }}
+        {% elif assignee.assignee_type == 'MP' and assignee.mp.constituency %}
+          · {{ assignee.mp.constituency }}
+        {% elif assignee.assignee_type == 'OFFICE' %}
+          {# no extra designation #}
+        {% elif assignee.assignee_type == 'LOCATION' %}
+          · {{ assignee.location.full_path }}
+        {% endif %}
+      </div>
+    </div>
+    <button type="button"
+            hx-get="{% url 'assignments:clear_assignee' asset_pk %}"
+            hx-target="#assignee-field"
+            hx-swap="outerHTML"
+            style="background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;color:#6C757D">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+</div>

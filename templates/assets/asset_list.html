@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Assets{% endblock %}
+
+{% block breadcrumb %}
+  <span>Assets</span>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>All Assets</strong>
+{% endblock %}
+
+{% block topbar_actions %}
+  <a href="/admin/assets/assetitem/add/" class="btn btn-primary btn-sm">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add Asset
+  </a>
+{% endblock %}
+
+{% block content %}
+<form method="get" class="filter-bar">
+  <div class="filter-group" style="flex:1;min-width:200px">
+    <label class="filter-label">Search</label>
+    <input name="q" value="{{ q }}" class="filter-input" placeholder="Tag, brand, model, serial…" autocomplete="off">
+  </div>
+  <div class="filter-group">
+    <label class="filter-label">Status</label>
+    <select name="status" class="filter-input" style="min-width:140px">
+      <option value="">All Statuses</option>
+      {% for val, label in statuses.choices %}
+        <option value="{{ val }}" {% if val == current_status %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="filter-group">
+    <label class="filter-label">Asset Type</label>
+    <select name="type" class="filter-input" style="min-width:160px">
+      <option value="">All Types</option>
+      {% for atype in asset_types %}
+        <option value="{{ atype.pk }}" {% if atype.pk|stringformat:"s" == current_type %}selected{% endif %}>{{ atype.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="btn btn-primary">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    Search
+  </button>
+  {% if q or current_status or current_type %}
+    <a href="{% url 'assets:list' %}" class="btn btn-outline">Clear</a>
+  {% endif %}
+</form>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Assets</h1>
+    <p class="text-muted text-small" style="margin-top:4px">{{ asset_rows|length }} asset{{ asset_rows|length|pluralize }}</p>
+  </div>
+</div>
+
+<div class="table-wrap">
+  {% if asset_rows %}
+  <table>
+    <thead>
+      <tr>
+        <th>Asset Tag</th>
+        <th>Type / Brand &amp; Model</th>
+        <th>Status</th>
+        <th>Current Holder</th>
+        <th>Location</th>
+        <th style="width:1px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for asset, asgn in asset_rows %}
+      <tr>
+        <td>
+          <a href="{% url 'assets:detail' asset.pk %}">
+            <span class="asset-tag">{{ asset.asset_tag }}</span>
+          </a>
+          {% if asset.serial_number %}
+            <div class="text-muted" style="margin-top:2px;font-family:'JetBrains Mono',monospace;font-size:11px">{{ asset.serial_number }}</div>
+          {% endif %}
+        </td>
+        <td>
+          <div style="font-weight:600">{{ asset.asset_type.name }}</div>
+          <div class="text-muted text-small">{{ asset.brand }} {{ asset.model_name }}</div>
+        </td>
+        <td><span class="badge badge-{{ asset.status }}">{{ asset.get_status_display }}</span></td>
+        <td>
+          {% if asgn %}
+            <div style="font-weight:600;font-size:13px">{{ asgn.assignee.display_name }}</div>
+            <div class="text-muted text-small">{{ asgn.assignee.get_assignee_type_display }}</div>
+          {% else %}
+            <span class="text-muted text-small">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if asset.storage_location %}
+            <span class="text-small">{{ asset.storage_location.full_path }}</span>
+          {% else %}
+            <span class="text-muted text-small">—</span>
+          {% endif %}
+        </td>
+        <td style="white-space:nowrap">
+          <a href="{% url 'assets:detail' asset.pk %}" class="btn btn-outline btn-sm" style="margin-right:6px">View</a>
+          {% if asset.status == 'IN_STOCK' %}
+            <button class="btn btn-primary btn-sm"
+                    hx-get="{% url 'assignments:assign_panel' asset.pk %}"
+                    hx-target="#panel-container"
+                    hx-swap="innerHTML">Assign</button>
+          {% elif asset.status == 'ASSIGNED' %}
+            <button class="btn btn-blue btn-sm"
+                    hx-get="{% url 'assignments:assign_panel' asset.pk %}"
+                    hx-target="#panel-container"
+                    hx-swap="innerHTML">Transfer</button>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="padding:60px 24px;text-align:center">
+    <svg width="40" height="40" fill="none" stroke="#D1D5DB" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:12px"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+    <p style="font-size:15px;font-weight:600;color:#9CA3AF;margin-bottom:6px">No assets found</p>
+    <p class="text-muted text-small">Try adjusting your search or filters.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -3,82 +3,101 @@
 
 {% block title %}{{ title }} | Parliament IT Inventory{% endblock %}
 
-{# ── Branding: logo + site name ───────────────────────────────────────── #}
+{# ── Branding ──────────────────────────────────────────────────────────── #}
 {% block branding %}
 <div id="site-name">
-    <a href="{% url 'admin:index' %}" style="display:flex; align-items:center; gap:10px; text-decoration:none; color:inherit;">
+    <a href="{% url 'admin:index' %}" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;">
         <img src="{% static 'images/parliament_logo.png' %}"
              alt="Bangladesh Parliament"
-             style="height:40px; width:auto; object-fit:contain; flex-shrink:0;">
-        <span style="font-size:17px; font-weight:700; letter-spacing:0.01em; line-height:1.2;">
+             style="height:38px;width:auto;object-fit:contain;flex-shrink:0;">
+        <span style="font-size:16px;font-weight:700;letter-spacing:0.01em;line-height:1.2;">
             IT Inventory Admin
         </span>
     </a>
 </div>
 {% endblock %}
 
-{# ── Parliament Green theme injected via CSS variables ────────────────── #}
+{# ── Styles ────────────────────────────────────────────────────────────── #}
 {% block extrahead %}
 {{ block.super }}
 <style>
-/* ── Google Fonts ─────────────────────────────────────── */
+/* ── Fonts ─────────────────────────────────────────────── */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-/* ── Force light mode — prevents browser dark mode from corrupting inputs ── */
-:root {
-    color-scheme: light;
-}
+/* ── Force light mode ──────────────────────────────────── */
+:root { color-scheme: light; }
 
-/* ── CSS variable overrides (Django admin 4.x / 5.x theming) ─── */
+/* ═══════════════════════════════════════════════════════
+   CSS VARIABLE OVERRIDES (Django admin 5.x theming)
+═══════════════════════════════════════════════════════ */
 :root,
 html[data-theme="light"],
 html[data-theme="dark"] {
-    /* Core brand */
-    --primary:                  #006633;
-    --accent:                   #005229;
-    --primary-fg:               #ffffff;
+    --primary:                   #006633;
+    --accent:                    #005229;
+    --primary-fg:                #ffffff;
 
-    /* Header */
-    --header-color:             #ffffff;
-    --header-branding-color:    #C8A951;
-    --header-bg:                #006633;
-    --header-link-color:        #ffffff;
+    --header-color:              #ffffff;
+    --header-branding-color:     #C8A951;
+    --header-bg:                 #006633;
+    --header-link-color:         #ffffff;
 
-    /* Breadcrumbs */
-    --breadcrumbs-fg:           #ffffff;
-    --breadcrumbs-link-fg:      #C8A951;
-    --breadcrumbs-bg:           #005229;
+    --breadcrumbs-fg:            #ffffff;
+    --breadcrumbs-link-fg:       #C8A951;
+    --breadcrumbs-bg:            #005229;
 
-    /* Links */
-    --link-fg:                  #006633;
-    --link-hover-color:         #005229;
-    --link-selected-fg:         #004d26;
+    --link-fg:                   #006633;
+    --link-hover-color:          #004d26;
+    --link-selected-fg:          #004d26;
 
-    /* Table row selection */
-    --selected-bg:              #FBF5E6;
-    --selected-row:             #FBF5E6;
+    --hairline-color:            #e5e7eb;
+    --border-color:              #d1d5db;
 
-    /* Buttons (default + primary) */
-    --button-fg:                #ffffff;
-    --button-bg:                #006633;
-    --button-hover-bg:          #005229;
-    --default-button-bg:        #006633;
-    --default-button-hover-bg:  #005229;
+    --selected-bg:               #FBF5E6;
+    --selected-row:              #FBF5E6;
+    --close-button-bg:           #888;
+    --close-button-hover-bg:     #555;
 
-    /* Object tools (e.g. "Add" button on changelist) */
-    --object-tools-fg:          #ffffff;
-    --object-tools-bg:          #006633;
-    --object-tools-hover-bg:    #005229;
+    --button-fg:                 #ffffff;
+    --button-bg:                 #006633;
+    --button-hover-bg:           #005229;
+    --default-button-bg:         #006633;
+    --default-button-hover-bg:   #005229;
 
-    /* Delete — intentionally keeps the default red */
-    --delete-button-bg:         #ba2121;
-    --delete-button-hover-bg:   #a41515;
+    --object-tools-fg:           #ffffff;
+    --object-tools-bg:           #006633;
+    --object-tools-hover-bg:     #005229;
 
-    /* Sidebar / darkened areas */
-    --darkened-bg:              #f8f9fa;
+    --delete-button-bg:          #ba2121;
+    --delete-button-hover-bg:    #a41515;
+
+    --darkened-bg:               #f0f4f2;
+    --nav-sidebar-width:         240px;
+
+    /* Form widgets */
+    --input-border-color:        #d1d5db;
+    --focus-color:               #006633;
+    --body-bg:                   #F8F9FA;
+    --body-fg:                   #212529;
+    --body-quiet-color:          #495057;
+    --body-loud-color:           #000;
 }
 
-/* ── Force light inputs regardless of OS/browser dark mode ──── */
+/* ═══════════════════════════════════════════════════════
+   GLOBAL BASE
+═══════════════════════════════════════════════════════ */
+body,
+input, select, textarea, button {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    font-size: 13px;
+}
+
+body {
+    background: #F8F9FA !important;
+    color: #212529;
+}
+
+/* Light inputs regardless of OS dark mode */
 input[type="text"],
 input[type="password"],
 input[type="email"],
@@ -88,257 +107,625 @@ input[type="url"],
 input[type="tel"],
 input[type="date"],
 input[type="datetime-local"],
-select,
-textarea {
+select, textarea {
     background-color: #ffffff !important;
     color: #212529 !important;
     border-color: #d1d5db !important;
     color-scheme: light;
 }
 
-/* ── Typography ──────────────────────────────────────── */
-body,
-input, select, textarea, button {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-    font-size: 13px;
-}
+a:link, a:visited { color: #006633; }
+a:hover { color: #004d26; }
 
-/* ── Header bar ──────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════════════════ */
 #header {
     background: #006633 !important;
     color: #fff !important;
     border-bottom: 3px solid #C8A951;
-    padding: 8px 24px;
+    padding: 0 24px;
+    height: 56px;
     display: flex;
     align-items: center;
 }
 
 #header a:link,
-#header a:visited {
-    color: #fff !important;
-}
+#header a:visited { color: #fff !important; }
+#header a:hover   { color: #C8A951 !important; text-decoration: none; }
 
-#header a:hover {
-    color: #C8A951 !important;
-    text-decoration: none;
-}
+#branding h1 { font-size: 16px; font-weight: 700; }
+#branding h1 a:link,
+#branding h1 a:visited { color: #fff !important; }
 
-/* User tools (logout link etc.) */
 #user-tools {
     font-size: 12px;
+    gap: 8px;
 }
-
 #user-tools a {
     color: rgba(255,255,255,0.85) !important;
-    border-bottom: 1px solid rgba(255,255,255,0.3);
+    border-bottom: 1px solid rgba(255,255,255,0.25);
+    padding-bottom: 1px;
 }
-
 #user-tools a:hover {
     color: #C8A951 !important;
     border-bottom-color: #C8A951;
 }
+#user-tools strong { color: rgba(255,255,255,0.95) !important; }
 
-/* ── Breadcrumbs ─────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════
+   BREADCRUMBS
+═══════════════════════════════════════════════════════ */
 div.breadcrumbs {
     background: #005229 !important;
     color: #fff !important;
     padding: 8px 24px;
     font-size: 12px;
-    border-bottom: 1px solid #C8A951;
+    border-bottom: 1px solid rgba(200,169,81,0.4);
 }
+div.breadcrumbs a { color: #C8A951 !important; }
+div.breadcrumbs a:hover { color: #fff !important; text-decoration: underline; }
 
-div.breadcrumbs a {
-    color: #C8A951 !important;
-}
-
-div.breadcrumbs a:hover {
-    color: #fff !important;
-    text-decoration: underline;
-}
-
-/* ── Module / section headers ────────────────────────── */
-.module h2,
-.module caption,
-.inline-group h2,
-.inline-group .tabular thead th {
-    background: #006633 !important;
-    color: #fff !important;
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    padding: 6px 10px;
-}
-
-.module caption {
-    border-radius: 4px 4px 0 0;
-}
-
-/* ── Sidebar / navigation ────────────────────────────── */
+/* ═══════════════════════════════════════════════════════
+   NAVIGATION SIDEBAR (dark)
+═══════════════════════════════════════════════════════ */
 #nav-sidebar {
     background: #13122A !important;
     border-right: 1px solid #35325A;
+    width: 240px;
+}
+
+#nav-sidebar .module {
+    background: transparent;
+    border: none;
+    margin-bottom: 4px;
 }
 
 #nav-sidebar .module caption,
 #nav-sidebar .module h2 {
     background: #252340 !important;
     color: #C8A951 !important;
+    border: none;
     border-bottom: 1px solid #35325A;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.1em !important;
+    text-transform: uppercase !important;
+    padding: 8px 12px !important;
 }
 
-#nav-sidebar a {
-    color: rgba(255,255,255,0.85) !important;
+#nav-sidebar th { background: transparent; }
+
+#nav-sidebar a:link,
+#nav-sidebar a:visited {
+    color: rgba(255,255,255,0.75) !important;
+    display: block;
+    padding: 6px 14px;
+    border-radius: 4px;
+    margin: 1px 6px;
+    font-size: 12.5px;
+    transition: background 120ms, color 120ms;
 }
 
 #nav-sidebar a:hover {
-    color: #C8A951 !important;
-    background: rgba(200,169,81,0.1) !important;
-}
-
-/* ── Content links ───────────────────────────────────── */
-a:link, a:visited {
-    color: #006633;
-}
-
-a:hover {
-    color: #005229;
-}
-
-/* ── Submit buttons ──────────────────────────────────── */
-.submit-row input,
-.submit-row button,
-input[type="submit"],
-.button,
-a.button {
-    font-family: 'Inter', sans-serif !important;
-}
-
-.submit-row input.default,
-input[type="submit"].default,
-.submit-row input[type="submit"]:not(.deletelink-box *) {
-    background: #006633;
-    border-color: #005229;
-    color: #fff;
-}
-
-.submit-row input.default:hover,
-input[type="submit"].default:hover {
-    background: #005229;
-}
-
-/* ── Login page ──────────────────────────────────────── */
-body.login {
-    background: #13122A;
-}
-
-#login-form input[type="submit"] {
-    background: #006633 !important;
-    border-color: #005229 !important;
     color: #fff !important;
-    font-weight: 600;
-    padding: 10px 24px;
-    border-radius: 4px;
-    width: 100%;
-    font-size: 14px;
-    cursor: pointer;
+    background: rgba(109,90,230,0.18) !important;
+    text-decoration: none;
 }
 
-#login-form input[type="submit"]:hover {
-    background: #005229 !important;
+#nav-sidebar .current-model a,
+#nav-sidebar .model-link.selected a {
+    color: #C8A951 !important;
+    background: rgba(200,169,81,0.12) !important;
+}
+
+/* Sidebar toggle button */
+.toggle-nav-sidebar {
+    background: #252340 !important;
+    border-color: #35325A !important;
+    color: #8886A6 !important;
+}
+
+/* ═══════════════════════════════════════════════════════
+   CONTENT AREA
+═══════════════════════════════════════════════════════ */
+#content {
+    padding: 16px 24px 24px;
 }
 
 #content-main {
-    background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    padding: 20px;
+    padding: 0;
+    background: transparent;
 }
 
-/* ── Changelist table ────────────────────────────────── */
-#result_list thead th {
-    background: #f0f7f3;
-    border-bottom: 2px solid #006633;
-    font-weight: 600;
-    font-size: 12px;
-    color: #212529;
+/* ═══════════════════════════════════════════════════════
+   MODULE / SECTION CARDS
+═══════════════════════════════════════════════════════ */
+.module {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
+
+.module h2,
+.module caption {
+    background: #006633 !important;
+    color: #fff !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    padding: 9px 14px !important;
+    border: none !important;
+}
+
+.module caption { border-radius: 0 !important; }
+
+.module h3 {
+    color: #006633;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 8px 14px 4px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.9;
+}
+
+.module table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.module table th,
+.module table td {
+    padding: 7px 12px;
+    font-size: 12.5px;
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: middle;
+}
+
+.module table th {
+    font-weight: 600;
+    color: #495057;
+    background: #f8f9fa;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* ── App index cards ─────────────────────────── */
+#content-main .module.dashboard {
+    background: #fff;
+}
+
+/* App list on the admin index */
+#content-main .app-assets    .module caption { background: linear-gradient(135deg,#006633,#10B981) !important; }
+#content-main .app-locations .module caption { background: linear-gradient(135deg,#6D5AE6,#8B5CF6) !important; }
+#content-main .app-assignees .module caption { background: linear-gradient(135deg,#F59E0B,#EF8A20) !important; }
+#content-main .app-assignments .module caption { background: linear-gradient(135deg,#3B82F6,#6D5AE6) !important; }
+#content-main .app-lifecycle .module caption { background: linear-gradient(135deg,#EF4444,#F59E0B) !important; }
+#content-main .app-auth      .module caption { background: linear-gradient(135deg,#495057,#212529) !important; }
+
+/* ── Inline groups ───────────────────────────── */
+.inline-group {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.inline-group h2,
+.inline-group .tabular thead th {
+    background: #006633 !important;
+    color: #fff !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
+}
+
+.inline-group h2 { padding: 9px 14px !important; }
+
+/* ═══════════════════════════════════════════════════════
+   CHANGELIST TABLE
+═══════════════════════════════════════════════════════ */
+#changelist {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+#changelist-form {
+    background: transparent;
+}
+
+#result_list {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#result_list thead th {
+    background: #f0f7f3 !important;
+    border-bottom: 2px solid #006633;
+    font-weight: 700;
+    font-size: 11px;
+    color: #212529;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 9px 12px;
+    white-space: nowrap;
+}
+
+#result_list thead th a:link,
+#result_list thead th a:visited { color: #212529 !important; }
+#result_list thead th a:hover   { color: #006633 !important; }
+
+#result_list tbody td,
+#result_list tbody th {
+    padding: 9px 12px;
+    font-size: 13px;
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: middle;
+}
+
+tr.row1 { background: #fff; }
+tr.row2 { background: #fafafa; }
+tr.row1:hover,
+tr.row2:hover { background: #f0f7f3 !important; }
 
 #result_list tr.selected td,
 #result_list tr.selected th {
     background: #FBF5E6 !important;
 }
 
-tr.row1 { background: #fff; }
-tr.row2 { background: #f8f9fa; }
-
-/* ── Paginator ───────────────────────────────────────── */
-.paginator a:link,
-.paginator a:visited {
-    color: #006633;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
-    padding: 2px 8px;
+/* ── Search bar above changelist ─────────────── */
+#changelist-search {
+    padding: 14px 16px;
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
+#searchbar {
+    flex: 1;
+    min-width: 200px;
+    height: 34px;
+    padding: 0 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #212529;
+    background: #fff;
+    outline: none;
+}
+#searchbar:focus {
+    border-color: #006633;
+    box-shadow: 0 0 0 2px rgba(0,102,51,0.12);
+}
+
+/* ── Object tools (Add button) ───────────────── */
+.object-tools { margin: 0; padding: 14px 16px 0; list-style: none; display: flex; gap: 8px; }
+.object-tools a.addlink {
+    background: #006633 !important;
+    color: #fff !important;
+    border-radius: 6px;
+    padding: 7px 16px;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-decoration: none;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: background 150ms;
+}
+.object-tools a.addlink:hover { background: #005229 !important; }
+
+.object-tools a.viewsitelink {
+    background: transparent !important;
+    border: 1px solid #d1d5db !important;
+    color: #495057 !important;
+    border-radius: 6px;
+    padding: 7px 16px;
+    font-size: 12.5px;
+    font-weight: 500;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: border-color 150ms, color 150ms;
+}
+.object-tools a.viewsitelink:hover {
+    border-color: #006633 !important;
+    color: #006633 !important;
+}
+
+/* ═══════════════════════════════════════════════════════
+   FILTERS SIDEBAR
+═══════════════════════════════════════════════════════ */
+#changelist-filter {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+#changelist-filter h2 {
+    background: #006633 !important;
+    color: #fff !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    padding: 9px 14px !important;
+    margin: 0;
+}
+
+#changelist-filter h3 {
+    color: #006633;
+    font-weight: 700;
+    font-size: 11px;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 10px 14px 6px;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+#changelist-filter ul {
+    padding: 4px 0;
+    margin: 0;
+    list-style: none;
+}
+
+#changelist-filter li a {
+    display: block;
+    padding: 5px 14px;
+    font-size: 12.5px;
+    color: #495057 !important;
+    text-decoration: none;
+}
+#changelist-filter li a:hover { color: #006633 !important; background: #f0f7f3; }
+#changelist-filter li.selected a { color: #006633 !important; font-weight: 700; }
+
+/* ═══════════════════════════════════════════════════════
+   CHANGE FORM
+═══════════════════════════════════════════════════════ */
+.change-form .form-row {
+    padding: 10px 14px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.change-form .form-row:last-child { border-bottom: none; }
+
+.change-form label {
+    font-weight: 600;
+    color: #212529;
+    font-size: 12.5px;
+}
+
+/* ── Submit row ──────────────────────────────── */
+.submit-row {
+    background: #f8f9fa;
+    border-top: 1px solid #e5e7eb;
+    border-radius: 0 0 8px 8px;
+    padding: 12px 16px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.submit-row input,
+.submit-row button,
+input[type="submit"],
+.button, a.button {
+    font-family: 'Inter', sans-serif !important;
+    border-radius: 6px;
+    padding: 8px 18px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: background 150ms;
+}
+
+.submit-row input[type="submit"],
+input[type="submit"].default {
+    background: #006633 !important;
+    color: #fff !important;
+    border-color: #005229 !important;
+}
+.submit-row input[type="submit"]:hover,
+input[type="submit"].default:hover { background: #005229 !important; }
+
+.submit-row .deletelink-box a,
+a.deletelink {
+    background: #fef2f2 !important;
+    color: #dc2626 !important;
+    border: 1px solid #fecaca !important;
+    border-radius: 6px;
+    padding: 7px 16px;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background 150ms;
+}
+.submit-row .deletelink-box a:hover,
+a.deletelink:hover { background: #fee2e2 !important; }
+
+/* ═══════════════════════════════════════════════════════
+   PAGINATOR
+═══════════════════════════════════════════════════════ */
+.paginator {
+    padding: 12px 16px;
+    font-size: 12.5px;
+    color: #495057;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.paginator a:link,
+.paginator a:visited {
+    color: #006633 !important;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    padding: 3px 9px;
+    text-decoration: none;
+    transition: background 120ms, color 120ms;
+}
 .paginator a:hover {
     background: #006633;
-    color: #fff;
+    color: #fff !important;
     border-color: #006633;
 }
 
 .paginator .this-page {
     background: #006633;
-    color: #fff;
-    border-radius: 4px;
-    padding: 2px 8px;
-}
-
-/* ── Filters sidebar ─────────────────────────────────── */
-#changelist-filter h2 {
-    background: #006633 !important;
     color: #fff !important;
+    border-radius: 4px;
+    padding: 3px 9px;
+    border: 1px solid #006633;
+    font-weight: 700;
 }
 
-#changelist-filter h3 {
-    color: #006633;
-    font-weight: 600;
-    border-bottom: 1px solid #e5e7eb;
-    padding-bottom: 4px;
+/* ═══════════════════════════════════════════════════════
+   MESSAGES / ALERTS
+═══════════════════════════════════════════════════════ */
+ul.messagelist { padding: 0; list-style: none; margin: 0 0 16px; }
+
+ul.messagelist li {
+    border-radius: 6px;
+    margin-bottom: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-#changelist-filter li.selected a,
-#changelist-filter li.selected a:visited {
-    color: #006633;
-    font-weight: 600;
+ul.messagelist li.success {
+    background: #ecfdf5;
+    color: #065f46;
+    border-left: 4px solid #10b981;
+}
+ul.messagelist li.warning {
+    background: #fffbeb;
+    color: #92400e;
+    border-left: 4px solid #f59e0b;
+}
+ul.messagelist li.error {
+    background: #fef2f2;
+    color: #991b1b;
+    border-left: 4px solid #ef4444;
+}
+ul.messagelist li.info {
+    background: #eff6ff;
+    color: #1e40af;
+    border-left: 4px solid #3b82f6;
 }
 
-/* ── Asset tag monospace ─────────────────────────────── */
+/* ═══════════════════════════════════════════════════════
+   FIELD — ASSET TAG MONOSPACE
+═══════════════════════════════════════════════════════ */
 .field-asset_tag,
 td.field-asset_tag {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'JetBrains Mono', monospace !important;
     font-size: 12px;
+    color: #006633;
+    font-weight: 600;
 }
 
-/* ── Django messages ─────────────────────────────────── */
-ul.messagelist li {
-    border-radius: 4px;
-    margin-bottom: 6px;
-    font-size: 13px;
+/* ═══════════════════════════════════════════════════════
+   HELP TEXT & ERROR LISTS
+═══════════════════════════════════════════════════════ */
+.help { color: #6c757d; font-size: 12px; }
+.errornote,
+ul.errorlist li {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12.5px;
+    margin-bottom: 8px;
+}
+ul.errorlist { padding: 0; list-style: none; }
+
+/* ═══════════════════════════════════════════════════════
+   CALENDAR WIDGET
+═══════════════════════════════════════════════════════ */
+.calendarbox, .clockbox {
+    border-radius: 8px;
+    border-color: #e5e7eb;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
 }
 
-ul.messagelist li.success { background: #ecfdf5; color: #065f46; border-left: 4px solid #10b981; }
-ul.messagelist li.warning { background: #fffbeb; color: #92400e; border-left: 4px solid #f59e0b; }
-ul.messagelist li.error   { background: #fef2f2; color: #991b1b; border-left: 4px solid #ef4444; }
-ul.messagelist li.info    { background: #eff6ff; color: #1e40af; border-left: 4px solid #3b82f6; }
+/* ═══════════════════════════════════════════════════════
+   RECENTLY ACTIONS
+═══════════════════════════════════════════════════════ */
+#recent-actions-module .actionlist {
+    padding: 0;
+    list-style: none;
+}
+#recent-actions-module .actionlist li {
+    padding: 7px 12px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 12.5px;
+}
+#recent-actions-module .actionlist li:last-child { border-bottom: none; }
+#recent-actions-module .actionlist li a { color: #006633 !important; }
+
+/* ═══════════════════════════════════════════════════════
+   RELATED POPUP
+═══════════════════════════════════════════════════════ */
+.related-popup { border-radius: 8px; overflow: hidden; }
+
+/* ═══════════════════════════════════════════════════════
+   MISC
+═══════════════════════════════════════════════════════ */
+/* Django 5.x uses <details> for some collapsible sections */
+details > summary {
+    cursor: pointer;
+    color: #006633;
+    font-weight: 600;
+    font-size: 12.5px;
+}
+
+/* Checkbox styling */
+input[type="checkbox"] { accent-color: #006633; }
+
+/* Select widget */
+.selector-chosen h2 { background: #006633 !important; color: #fff !important; }
+.selector-available h2 { background: #495057 !important; color: #fff !important; }
 </style>
 {% endblock %}
 
 {# ── Footer ───────────────────────────────────────────────────────────── #}
 {% block footer %}
-<div id="footer" style="padding: 14px 24px; text-align: center; border-top: 1px solid #e5e7eb; margin-top: 24px; font-size: 12px; color: #6c757d;">
+<div id="footer" style="
+    padding: 14px 24px;
+    text-align: center;
+    border-top: 1px solid #e5e7eb;
+    margin-top: 24px;
+    font-size: 12px;
+    color: #6c757d;
+    background: #fff;
+">
     Parliament IT Inventory &nbsp;·&nbsp; Bangladesh Parliament Secretariat
     &nbsp;&nbsp;|&nbsp;&nbsp;
-    Design &amp; Developed by <strong style="color:#006633;">Md. Al-Amin Hossain</strong>
+    Designed &amp; Developed by <strong style="color:#006633;">Md. Al-Amin Hossain</strong>
 </div>
 {% endblock %}

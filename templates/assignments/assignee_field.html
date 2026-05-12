@@ -1,0 +1,30 @@
+<div id="assignee-field" style="position:relative">
+  <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;z-index:1">
+    <svg width="14" height="14" fill="none" stroke="#9CA3AF" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+  </span>
+  <input name="q"
+         class="form-input"
+         style="padding-left:34px"
+         placeholder="Search by name, designation, department…"
+         autocomplete="off"
+         hx-get="{% url 'assignees:search' %}?asset_pk={{ asset.pk }}"
+         hx-trigger="keyup changed delay:300ms"
+         hx-target="#search-results"
+         hx-swap="innerHTML">
+  <div id="search-results"
+       style="position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #E5E7EB;border-radius:6px;z-index:20;box-shadow:0 4px 16px rgba(0,0,0,.1);display:none">
+  </div>
+</div>
+<script>
+  (function(){
+    var inp = document.querySelector('#assignee-field input[name="q"]');
+    var res = document.getElementById('search-results');
+    if(inp && res){
+      inp.addEventListener('keyup', function(){ res.style.display = 'block'; });
+      inp.addEventListener('focus', function(){ if(inp.value.length >= 2) res.style.display = 'block'; });
+      document.addEventListener('click', function(e){
+        if(!inp.contains(e.target) && !res.contains(e.target)) res.style.display = 'none';
+      });
+    }
+  })();
+</script>

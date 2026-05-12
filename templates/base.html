@@ -1,0 +1,204 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Assets{% endblock %} — Parliament IT Inventory</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Inter',sans-serif;font-size:14px;color:#212529;background:#F8F9FA;display:flex;height:100vh;overflow:hidden}
+    a{color:inherit;text-decoration:none}
+
+    /* ── Sidebar ── */
+    .sidebar{width:240px;flex-shrink:0;background:#13122A;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+    .sidebar-logo{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0}
+    .logo-mark{width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#006633,#10B981);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;flex-shrink:0}
+    .logo-title{font-size:12.5px;font-weight:700;color:#fff;line-height:1.2}
+    .logo-sub{font-size:10px;color:rgba(255,255,255,.4);line-height:1.4}
+    .nav-section{padding:16px 12px 8px;flex:1;overflow-y:auto}
+    .nav-label{font-size:9.5px;font-weight:700;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.1em;padding:0 8px;margin-bottom:6px;margin-top:12px}
+    .nav-label:first-child{margin-top:0}
+    .nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:6px;color:rgba(255,255,255,.55);font-size:13px;font-weight:500;margin-bottom:2px;transition:background 150ms,color 150ms;cursor:pointer;border:none;background:none;width:100%;text-align:left}
+    .nav-item:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.9)}
+    .nav-item.active{background:rgba(109,90,230,.18);color:#fff;border-left:3px solid #006633;padding-left:7px}
+    .nav-item.disabled{opacity:.3;cursor:default;pointer-events:none}
+    .nav-item svg{flex-shrink:0}
+    .sidebar-footer{padding:12px 16px;border-top:1px solid rgba(255,255,255,.07);flex-shrink:0}
+    .sidebar-user{display:flex;align-items:center;gap:10px}
+    .sidebar-user-avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#6D5AE6,#8B5CF6);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+    .sidebar-user-name{font-size:12px;font-weight:600;color:rgba(255,255,255,.8);line-height:1.2}
+    .sidebar-user-role{font-size:10.5px;color:rgba(255,255,255,.35)}
+
+    /* ── Main ── */
+    .main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+    .topbar{height:56px;background:#fff;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;padding:0 24px;gap:16px;flex-shrink:0;z-index:10}
+    .topbar-breadcrumb{font-size:13px;color:#6C757D;display:flex;align-items:center;gap:6px;flex:1}
+    .topbar-breadcrumb strong{color:#212529}
+    .topbar-actions{display:flex;align-items:center;gap:8px}
+    .content{flex:1;overflow-y:auto;padding:24px}
+
+    /* ── Cards ── */
+    .card{background:#fff;border:1px solid #E5E7EB;border-radius:8px}
+    .card-body{padding:20px}
+
+    /* ── Buttons ── */
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:0 16px;height:36px;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:'Inter',sans-serif;transition:background 150ms,opacity 150ms;white-space:nowrap}
+    .btn-primary{background:#006633;color:#fff}
+    .btn-primary:hover{background:#005229}
+    .btn-blue{background:#3B82F6;color:#fff}
+    .btn-blue:hover{background:#2563EB}
+    .btn-outline{background:#fff;color:#495057;border:1px solid #E5E7EB}
+    .btn-outline:hover{background:#F8F9FA}
+    .btn-danger-soft{background:#FEF2F2;color:#EF4444;border:1px solid #FECACA}
+    .btn-danger-soft:hover{background:#FEE2E2}
+    .btn-sm{height:30px;padding:0 12px;font-size:12px}
+    .btn-lg{height:42px;padding:0 24px;font-size:14px}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+
+    /* ── Status badges ── */
+    .badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:99px;font-size:11.5px;font-weight:700;white-space:nowrap}
+    .badge-IN_STOCK{background:#ECFDF5;color:#10B981}
+    .badge-ASSIGNED{background:#EFF6FF;color:#3B82F6}
+    .badge-MAINTENANCE{background:#FFFBEB;color:#F59E0B}
+    .badge-LOST{background:#FEF2F2;color:#EF4444}
+    .badge-DAMAGED{background:#FEF2F2;color:#EF4444}
+    .badge-DISPOSED{background:#F3F4F6;color:#9CA3AF}
+
+    /* ── Asset tag ── */
+    .asset-tag{font-family:'JetBrains Mono',monospace;font-weight:700;color:#006633;font-size:13px}
+
+    /* ── Table ── */
+    .table-wrap{overflow:hidden;border:1px solid #E5E7EB;border-radius:8px;background:#fff}
+    table{width:100%;border-collapse:collapse}
+    thead th{background:#F0F7F3;border-bottom:2px solid #006633;padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:#495057;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+    tbody td{padding:11px 14px;font-size:13.5px;color:#212529;border-bottom:1px solid #E5E7EB;vertical-align:middle}
+    tbody tr:last-child td{border-bottom:none}
+    tbody tr:hover td{background:#F8FAF9}
+
+    /* ── Filter bar ── */
+    .filter-bar{background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:16px;margin-bottom:16px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+    .filter-group{display:flex;flex-direction:column;gap:4px}
+    .filter-label{font-size:10.5px;font-weight:700;color:#6C757D;text-transform:uppercase;letter-spacing:.07em}
+    .filter-input{height:36px;padding:0 10px;border:1px solid #E5E7EB;border-radius:4px;font-size:13px;color:#495057;background:#fff;outline:none;font-family:'Inter',sans-serif}
+    .filter-input:focus{border-color:#006633;box-shadow:0 0 0 2px rgba(0,102,51,.1)}
+    select.filter-input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236C757D' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
+
+    /* ── Panel overlay (HTMX slide-over) ── */
+    .panel-overlay{position:fixed;inset:0;z-index:500;display:flex}
+    .panel-backdrop{flex:1;background:rgba(0,0,0,.3);backdrop-filter:blur(1px)}
+    .panel-drawer{width:480px;background:#fff;display:flex;flex-direction:column;box-shadow:-8px 0 32px rgba(0,0,0,.14);overflow:hidden;height:100vh}
+    .panel-header{padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #E5E7EB;flex-shrink:0}
+    .panel-body{flex:1;overflow-y:auto;padding:20px}
+    .panel-footer{padding:14px 20px;border-top:1px solid #E5E7EB;display:flex;gap:10px;background:#fff;flex-shrink:0}
+
+    /* ── Form inputs ── */
+    .form-group{margin-bottom:16px}
+    .form-label{display:block;font-size:12px;font-weight:600;color:#495057;margin-bottom:6px;letter-spacing:.01em}
+    .form-input{width:100%;height:38px;padding:0 12px;border:1px solid #E5E7EB;border-radius:4px;font-size:13px;color:#212529;outline:none;font-family:'Inter',sans-serif;background:#fff}
+    .form-input:focus{border-color:#006633;box-shadow:0 0 0 2px rgba(0,102,51,.1)}
+    textarea.form-input{height:auto;padding:9px 12px;resize:vertical;line-height:1.5}
+
+    /* ── Callout boxes ── */
+    .callout{display:flex;gap:10px;padding:11px 14px;border-radius:6px;font-size:13px;margin-bottom:16px}
+    .callout-gold{background:#FBF5E6;border:1px solid rgba(200,169,81,.4)}
+    .callout-red{background:#FEF2F2;border:1px solid #FECACA}
+    .callout-green{background:#ECFDF5;border:1px solid #A7F3D0}
+
+    /* ── Misc ── */
+    .divider{height:1px;background:#E5E7EB;margin:8px 0 20px}
+    .text-muted{color:#6C757D}
+    .text-small{font-size:12px}
+    .assignee-initials{width:32px;height:32px;border-radius:50%;background:#E5E7EB;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#495057;flex-shrink:0}
+    .htmx-indicator{display:none}
+    .htmx-request .htmx-indicator{display:inline}
+    .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+    .page-title{font-size:20px;font-weight:700;color:#212529}
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+
+<!-- ── Sidebar ── -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">P</div>
+    <div>
+      <div class="logo-title">IT Inventory</div>
+      <div class="logo-sub">Parliament Secretariat</div>
+    </div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">Main</div>
+
+    <a href="{% url 'assets:list' %}" class="nav-item {% if request.resolver_match.url_name in 'list detail' and request.resolver_match.app_name == 'assets' %}active{% endif %}">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+      Assets
+    </a>
+
+    <a class="nav-item disabled">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
+      Transfers
+    </a>
+
+    <a class="nav-item disabled">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      Lifecycle
+    </a>
+
+    <div class="nav-label">Monitoring</div>
+
+    <a class="nav-item disabled">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Alerts
+    </a>
+
+    <a class="nav-item disabled">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Reports
+    </a>
+
+    <div class="nav-label">Admin</div>
+
+    <a href="/admin/" class="nav-item">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
+      Admin Panel
+    </a>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="sidebar-user-avatar">{{ request.user.username|slice:":1"|upper }}</div>
+      <div>
+        <div class="sidebar-user-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+        <div class="sidebar-user-role">IT Officer</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ── Main ── -->
+<div class="main">
+  <header class="topbar">
+    <div class="topbar-breadcrumb">{% block breadcrumb %}<strong>IT Inventory</strong>{% endblock %}</div>
+    <div class="topbar-actions">
+      {% block topbar_actions %}{% endblock %}
+      <form method="post" action="{% url 'account_logout' %}" style="display:inline">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline btn-sm">Sign out</button>
+      </form>
+    </div>
+  </header>
+  <main class="content">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+<!-- HTMX panel mount point -->
+<div id="panel-container"></div>
+
+</body>
+</html>

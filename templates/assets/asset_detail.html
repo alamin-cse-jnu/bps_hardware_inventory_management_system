@@ -1,0 +1,302 @@
+{% extends "base.html" %}
+
+{% block title %}{{ asset.asset_tag }}{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:list' %}">Assets</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong class="asset-tag">{{ asset.asset_tag }}</strong>
+{% endblock %}
+
+{% block topbar_actions %}
+  <!-- Assignment actions -->
+  {% if asset.status == 'IN_STOCK' %}
+    <button class="btn btn-primary btn-sm"
+            hx-get="{% url 'assignments:assign_panel' asset.pk %}"
+            hx-target="#panel-container"
+            hx-swap="innerHTML">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      Assign
+    </button>
+  {% elif asset.status == 'ASSIGNED' %}
+    <button class="btn btn-blue btn-sm"
+            hx-get="{% url 'assignments:assign_panel' asset.pk %}"
+            hx-target="#panel-container"
+            hx-swap="innerHTML">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
+      Transfer
+    </button>
+    <button class="btn btn-outline btn-sm"
+            hx-get="{% url 'assignments:return_panel' asset.pk %}"
+            hx-target="#panel-container"
+            hx-swap="innerHTML">Return</button>
+  {% endif %}
+
+  <!-- Lifecycle event button (not for DISPOSED) -->
+  {% if asset.status != 'DISPOSED' %}
+  <button class="btn btn-outline btn-sm"
+          style="color:#F59E0B;border-color:#FCD34D"
+          hx-get="{% url 'lifecycle:event_panel' asset.pk %}"
+          hx-target="#panel-container"
+          hx-swap="innerHTML">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Event
+  </button>
+  {% endif %}
+
+  <!-- QR label -->
+  <a href="{% url 'qrcodes:qr_label' asset.pk %}" class="btn btn-outline btn-sm" target="_blank" title="Print QR Label">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    QR
+  </a>
+{% endblock %}
+
+{% block content %}
+<!-- Asset header card -->
+<div class="card" style="margin-bottom:20px">
+  <div class="card-body" style="display:flex;align-items:flex-start;gap:20px">
+    <div style="width:56px;height:56px;border-radius:10px;background:linear-gradient(135deg,#006633,#10B981);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      <svg width="24" height="24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+    </div>
+    <div style="flex:1">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px">
+        <span class="asset-tag" style="font-size:18px">{{ asset.asset_tag }}</span>
+        <span class="badge badge-{{ asset.status }}">{{ asset.get_status_display }}</span>
+      </div>
+      <div style="font-size:15px;font-weight:600;color:#212529">{{ asset.brand }} {{ asset.model_name }}</div>
+      <div class="text-muted text-small" style="margin-top:2px">
+        {{ asset.asset_type.category.name }} › {{ asset.asset_type.name }}
+        {% if asset.serial_number %} · S/N: <span style="font-family:'JetBrains Mono',monospace">{{ asset.serial_number }}</span>{% endif %}
+      </div>
+    </div>
+    {% if active_assignment %}
+    <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:12px 16px;min-width:200px">
+      <div class="text-small" style="font-weight:600;color:#3B82F6;margin-bottom:4px">Currently assigned to</div>
+      <div style="font-weight:700;font-size:13.5px">{{ active_assignment.assignee.display_name }}</div>
+      <div class="text-muted text-small">{{ active_assignment.assignee.get_assignee_type_display }}</div>
+      <div class="text-muted text-small" style="margin-top:4px">Since {{ active_assignment.assigned_at|date:"d M Y" }}</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Tabs -->
+<div style="display:flex;gap:0;border-bottom:2px solid #E5E7EB;margin-bottom:20px">
+  <button class="tab-btn active" onclick="showTab('overview', this)">Overview</button>
+  <button class="tab-btn" onclick="showTab('history', this)">
+    Assignment History
+    <span style="margin-left:6px;background:#EFF6FF;color:#3B82F6;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:99px">{{ history|length }}</span>
+  </button>
+  {% if asset.asset_type.has_components %}
+  <button class="tab-btn" onclick="showTab('components', this)">
+    Components
+    <span style="margin-left:6px;background:#ECFDF5;color:#10B981;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:99px">{{ components|length }}</span>
+  </button>
+  {% endif %}
+</div>
+
+<style>
+.tab-btn{background:none;border:none;padding:10px 18px;font-size:13.5px;font-weight:600;color:#6C757D;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:'Inter',sans-serif;transition:color 150ms}
+.tab-btn:hover{color:#212529}
+.tab-btn.active{color:#006633;border-bottom-color:#006633}
+.tab-content{display:none}
+.tab-content.active{display:block}
+</style>
+
+<!-- Overview tab -->
+<div id="tab-overview" class="tab-content active">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+    <!-- Specs -->
+    <div class="card">
+      <div class="card-body">
+        <h3 style="font-size:13px;font-weight:700;color:#495057;text-transform:uppercase;letter-spacing:.05em;margin-bottom:14px">Specifications</h3>
+        <dl style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px">
+          <div>
+            <dt class="text-muted text-small" style="font-weight:600">Brand</dt>
+            <dd style="font-size:13px;font-weight:600;margin-top:2px">{{ asset.brand }}</dd>
+          </div>
+          <div>
+            <dt class="text-muted text-small" style="font-weight:600">Model</dt>
+            <dd style="font-size:13px;font-weight:600;margin-top:2px">{{ asset.model_name }}</dd>
+          </div>
+          {% if asset.serial_number %}
+          <div>
+            <dt class="text-muted text-small" style="font-weight:600">Serial Number</dt>
+            <dd style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;margin-top:2px">{{ asset.serial_number }}</dd>
+          </div>
+          {% endif %}
+          {% for key, val in asset.specifications.items %}
+          <div>
+            <dt class="text-muted text-small" style="font-weight:600;text-transform:capitalize">{{ key|title }}</dt>
+            <dd style="font-size:13px;font-weight:600;margin-top:2px">{{ val }}</dd>
+          </div>
+          {% endfor %}
+        </dl>
+      </div>
+    </div>
+
+    <!-- Procurement -->
+    <div class="card">
+      <div class="card-body">
+        <h3 style="font-size:13px;font-weight:700;color:#495057;text-transform:uppercase;letter-spacing:.05em;margin-bottom:14px">Procurement</h3>
+        <dl style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px">
+          {% if asset.purchase_date %}
+          <div>
+            <dt class="text-muted text-small" style="font-weight:600">Purchase Date</dt>
+            <dd style="font-size:13px;font-weight:600;margin-top:2px">{{ asset.purchase_date|date:"d M Y" }}</dd>
+          </div>
+          {% endif %}
+          {% if asset.purchase_cost %}
+          <div>
+            <dt class="text-muted text-small" style="font-weight:600">Cost</dt>
+            <dd style="font-size:13px;font-weight:600;margin-top:2px">৳ {{ asset.purchase_cost }}</dd>
+          </div>
+          {% endif %}
+          {% if asset.supplier %}
+          <div>
+            <dt class="text-muted text-small" style="font-weight:600">Supplier</dt>
+            <dd style="font-size:13px;font-weight:600;margin-top:2px">{{ asset.supplier }}</dd>
+          </div>
+          {% endif %}
+          {% if asset.purchase_order %}
+          <div>
+            <dt class="text-muted text-small" style="font-weight:600">PO Number</dt>
+            <dd style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;margin-top:2px">{{ asset.purchase_order }}</dd>
+          </div>
+          {% endif %}
+          {% if asset.warranty_expiry %}
+          <div>
+            <dt class="text-muted text-small" style="font-weight:600">Warranty Expiry</dt>
+            <dd style="font-size:13px;font-weight:600;margin-top:2px">{{ asset.warranty_expiry|date:"d M Y" }}</dd>
+          </div>
+          {% endif %}
+          {% if asset.amc_expiry %}
+          <div>
+            <dt class="text-muted text-small" style="font-weight:600">AMC Expiry</dt>
+            <dd style="font-size:13px;font-weight:600;margin-top:2px">{{ asset.amc_expiry|date:"d M Y" }}</dd>
+          </div>
+          {% endif %}
+          {% if not asset.purchase_date and not asset.purchase_cost and not asset.supplier %}
+            <div style="grid-column:1/-1"><span class="text-muted text-small">No procurement info recorded.</span></div>
+          {% endif %}
+        </dl>
+      </div>
+    </div>
+  </div>
+
+  {% if asset.notes %}
+  <div class="card" style="margin-top:16px">
+    <div class="card-body">
+      <h3 style="font-size:13px;font-weight:700;color:#495057;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Notes</h3>
+      <p style="font-size:13.5px;color:#495057;line-height:1.6">{{ asset.notes }}</p>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- History tab -->
+<div id="tab-history" class="tab-content">
+  {% if history %}
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Holder</th>
+          <th>Assigned</th>
+          <th>Returned</th>
+          <th>Duration</th>
+          <th>Performed By</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in history %}
+        <tr>
+          <td>
+            <div style="font-weight:600;font-size:13px">
+              {{ a.holder_snapshot.display_name|default:a.assignee.display_name }}
+            </div>
+            {% if a.holder_snapshot.designation %}
+              <div class="text-muted text-small">{{ a.holder_snapshot.designation }}</div>
+            {% endif %}
+            <div style="margin-top:3px">
+              {% if a.returned_at is None %}
+                <span class="badge badge-ASSIGNED" style="font-size:10px">Active</span>
+              {% else %}
+                <span class="badge badge-DISPOSED" style="font-size:10px;background:#F3F4F6;color:#6B7280">Returned</span>
+              {% endif %}
+            </div>
+          </td>
+          <td class="text-small">{{ a.assigned_at|date:"d M Y" }}</td>
+          <td class="text-small">{{ a.returned_at|date:"d M Y"|default:"—" }}</td>
+          <td class="text-small text-muted">
+            {% if a.returned_at %}
+              {% with delta=a.returned_at|timeuntil:a.assigned_at %}{{ delta }}{% endwith %}
+            {% else %}
+              Ongoing
+            {% endif %}
+          </td>
+          <td class="text-small">{{ a.performed_by.username }}</td>
+          <td class="text-small text-muted">{{ a.notes|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="card-body" style="text-align:center;padding:40px;color:#9CA3AF">No assignment history yet.</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Components tab -->
+{% if asset.asset_type.has_components %}
+<div id="tab-components" class="tab-content">
+  {% if components %}
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Brand / Model</th>
+          <th>Serial</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for comp in components %}
+        <tr>
+          <td style="font-weight:600">{{ comp.get_component_type_display }}</td>
+          <td class="text-small">{{ comp.brand }} {{ comp.model_name }}</td>
+          <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px">{{ comp.serial_number|default:"—" }}</span></td>
+          <td>
+            {% if comp.is_active %}
+              <span class="badge badge-IN_STOCK">Active</span>
+            {% else %}
+              <span class="badge badge-DISPOSED">Removed</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="card-body" style="text-align:center;padding:40px;color:#9CA3AF">No components recorded.</div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<script>
+function showTab(name, btn) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,101 @@
+<div class="panel-overlay">
+  <div class="panel-backdrop" onclick="document.getElementById('panel-container').innerHTML=''"></div>
+  <div class="panel-drawer">
+
+    <!-- Header -->
+    <div class="panel-header">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:#212529">{{ mode }} Asset</div>
+        <div class="asset-tag" style="font-size:11.5px;margin-top:1px">{{ asset.asset_tag }}</div>
+      </div>
+      <button type="button"
+              onclick="document.getElementById('panel-container').innerHTML=''"
+              style="width:30px;height:30px;border:1px solid #E5E7EB;border-radius:4px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center">
+        <svg width="14" height="14" fill="none" stroke="#495057" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="panel-body">
+
+      {% if error %}
+      <div class="callout callout-red" style="margin-bottom:16px">
+        <svg width="15" height="15" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div style="color:#991B1B;font-size:13px;line-height:1.5">{{ error }}</div>
+      </div>
+      {% endif %}
+
+      <!-- Info callout for transfer -->
+      {% if asset.status == 'ASSIGNED' %}
+      <div class="callout callout-gold">
+        <svg width="15" height="15" fill="none" stroke="#C8A951" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div style="color:#78350F;font-size:13px;line-height:1.5">
+          This asset is currently assigned. The current assignment will be closed when you confirm the transfer.
+        </div>
+      </div>
+      {% endif %}
+
+      <form id="assign-form"
+            hx-post="{% url 'assignments:assign_panel' asset.pk %}"
+            hx-target="#panel-container"
+            hx-swap="innerHTML">
+        {% csrf_token %}
+
+        <!-- Assignee field (search or selected card) -->
+        <div class="form-group">
+          <label class="form-label">{{ mode }} To</label>
+          {% include "assignments/assignee_field.html" %}
+        </div>
+
+        <!-- Quick picks from past holders -->
+        {% if past_holders %}
+        <div style="margin-bottom:20px">
+          <div style="font-size:11.5px;font-weight:600;color:#6C757D;display:flex;align-items:center;gap:5px;margin-bottom:8px">
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.28-4.91"/></svg>
+            Quick pick from past holders
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            {% for h in past_holders %}
+            <button type="button"
+                    hx-get="{% url 'assignees:select' h.assignee.pk %}?asset_pk={{ asset.pk }}"
+                    hx-target="#assignee-field"
+                    hx-swap="outerHTML"
+                    style="display:flex;align-items:center;gap:8px;padding:7px 12px;border:1px solid #E5E7EB;border-radius:6px;background:#fff;cursor:pointer;text-align:left;font-family:'Inter',sans-serif">
+              <div class="assignee-initials" style="width:28px;height:28px;font-size:10px">{{ h.assignee.display_name|slice:":1"|upper }}{{ h.assignee.display_name|slice:"1:2"|upper }}</div>
+              <div>
+                <div style="font-size:12px;font-weight:600;color:#212529;line-height:1.2">{{ h.assignee.display_name }}</div>
+                <div style="font-size:10.5px;color:#6C757D">returned {{ h.returned_at|timesince }} ago</div>
+              </div>
+            </button>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="divider"></div>
+
+        <!-- Notes -->
+        <div class="form-group">
+          <label class="form-label">
+            Notes
+            <span style="font-weight:400;color:#9CA3AF">(optional)</span>
+          </label>
+          <textarea name="notes" rows="3" class="form-input"
+                    placeholder="e.g. Workstation upgrade cycle — replacing older unit"></textarea>
+        </div>
+      </form>
+    </div>
+
+    <!-- Footer -->
+    <div class="panel-footer">
+      <button type="button"
+              onclick="document.getElementById('panel-container').innerHTML=''"
+              class="btn btn-outline" style="flex:1">Cancel</button>
+      <button type="submit" form="assign-form" class="btn btn-primary" style="flex:2">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        Confirm {{ mode }}
+      </button>
+    </div>
+
+  </div>
+</div>
