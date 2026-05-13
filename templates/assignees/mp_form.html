@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} MP{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assignees:mps' %}">MPs</a> ›
+  <strong>{{ action }} MP</strong>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">{{ action }} Member of Parliament</div>
+</div>
+
+<div style="max-width:560px">
+  <form method="post">
+    {% csrf_token %}
+
+    {% if duplicates %}
+    <div class="callout callout-gold" style="margin-bottom:16px">
+      <svg width="16" height="16" fill="none" stroke="#C8A951" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div style="font-size:13px">
+        <strong>Similar name already exists:</strong>
+        <ul style="margin-top:6px;padding-left:16px;line-height:1.8">
+          {% for dup in duplicates %}
+          <li><a href="{% url 'assignees:mp_detail' dup.pk %}" target="_blank" style="color:#0076A7">{{ dup.name_en }}</a>
+            {% if dup.constituency %} — {{ dup.constituency }}{% endif %}
+            {% if dup.source == 'MANUAL' %}<span style="background:#FBF5E6;color:#C8A951;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:99px;margin-left:4px">Manual</span>{% else %}<span style="background:#EFF6FF;color:#3B82F6;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:99px;margin-left:4px">API</span>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+          <input type="checkbox" name="confirmed" id="confirmed" style="accent-color:#0076A7;width:14px;height:14px" {% if form_data.confirmed %}checked{% endif %}>
+          <label for="confirmed" style="font-size:12.5px;cursor:pointer">I'm aware — create a new record anyway</label>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card" style="margin-bottom:16px">
+      <div style="padding:14px 20px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:8px">
+        <svg width="15" height="15" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span style="font-size:13px;font-weight:700;color:#212529">MP Details</span>
+        <span style="background:#FBF5E6;color:#C8A951;font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px;margin-left:auto">Manual Record</span>
+      </div>
+      <div class="card-body">
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Name (English) <span style="color:#EF4444">*</span></label>
+            <input type="text" name="name_en" class="form-input"
+              {% if errors.name_en %}style="border-color:#EF4444"{% endif %}
+              value="{% if form_data %}{{ form_data.name_en }}{% elif holder %}{{ holder.name_en }}{% endif %}"
+              placeholder="Full name in English" autofocus>
+            {% if errors.name_en %}<div style="color:#EF4444;font-size:12px;margin-top:4px">{{ errors.name_en }}</div>{% endif %}
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Name (Bengali) <span class="text-muted" style="font-weight:400">(optional)</span></label>
+            <input type="text" name="name_bn" class="form-input"
+              value="{% if form_data %}{{ form_data.name_bn }}{% elif holder %}{{ holder.name_bn }}{% endif %}"
+              placeholder="বাংলায় নাম">
+          </div>
+        </div>
+
+        <div class="divider" style="margin:16px 0 16px"></div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Constituency</label>
+            <input type="text" name="constituency" class="form-input"
+              value="{% if form_data %}{{ form_data.constituency }}{% elif holder %}{{ holder.constituency }}{% endif %}"
+              placeholder="e.g. Dhaka-1">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Parliament No.</label>
+            <input type="number" name="parliament_no" class="form-input"
+              value="{% if form_data %}{{ form_data.parliament_no }}{% elif holder %}{{ holder.parliament_no }}{% endif %}"
+              placeholder="e.g. 12">
+          </div>
+        </div>
+
+        <div class="divider" style="margin:16px 0 16px"></div>
+        <div style="font-size:11px;font-weight:700;color:#6C757D;text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px">Contact (optional)</div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Mobile</label>
+            <input type="text" name="mobile" class="form-input"
+              value="{% if form_data %}{{ form_data.mobile }}{% elif holder %}{{ holder.mobile }}{% endif %}"
+              placeholder="+880…">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Telephone</label>
+            <input type="text" name="telephone" class="form-input"
+              value="{% if form_data %}{{ form_data.telephone }}{% elif holder %}{{ holder.telephone }}{% endif %}"
+              placeholder="Office number">
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <button type="submit" class="btn btn-primary">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        {% if holder %}Save Changes{% else %}Create MP{% endif %}
+      </button>
+      {% if holder %}
+      <a href="{% url 'assignees:mp_detail' holder.pk %}" class="btn btn-outline">Cancel</a>
+      {% else %}
+      <a href="{% url 'assignees:mps' %}" class="btn btn-outline">Cancel</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+{% endblock %}

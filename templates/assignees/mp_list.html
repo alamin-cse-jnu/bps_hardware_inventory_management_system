@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}MPs{% endblock %}
+
+{% block breadcrumb %}Holders › <strong>MPs</strong>{% endblock %}
+
+{% block topbar_actions %}
+{% if user_is_it_officer %}
+<a href="{% url 'assignees:mp_create' %}" class="btn btn-primary btn-sm">
+  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  Add MP
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Members of Parliament</div>
+    <div class="text-muted text-small" style="margin-top:2px">API-synced and manually-added MP records</div>
+  </div>
+</div>
+
+<form method="get">
+  <div class="filter-bar">
+    <div class="filter-group" style="flex:1;min-width:160px">
+      <div class="filter-label">Search</div>
+      <input type="text" name="q" value="{{ q }}" class="filter-input" placeholder="Name or constituency…" style="width:100%">
+    </div>
+    {% if parliament_nos %}
+    <div class="filter-group">
+      <div class="filter-label">Parliament</div>
+      <select name="parliament_no" class="filter-input" style="width:130px">
+        <option value="">All Parliaments</option>
+        {% for pno in parliament_nos %}
+        <option value="{{ pno }}" {% if parl_filter == pno|stringformat:"s" %}selected{% endif %}>{{ pno }}th Parliament</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <div class="filter-group">
+      <div class="filter-label">Source</div>
+      <select name="source" class="filter-input" style="width:120px">
+        <option value="">All Sources</option>
+        <option value="PRP_API" {% if source_filter == 'PRP_API' %}selected{% endif %}>API Synced</option>
+        <option value="MANUAL" {% if source_filter == 'MANUAL' %}selected{% endif %}>Manual</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">Status</div>
+      <select name="active" class="filter-input" style="width:100px">
+        <option value="">All</option>
+        <option value="1" {% if active_filter == '1' %}selected{% endif %}>Active</option>
+        <option value="0" {% if active_filter == '0' %}selected{% endif %}>Inactive</option>
+      </select>
+    </div>
+    <button type="submit" class="btn btn-outline btn-sm" style="align-self:flex-end">Filter</button>
+    {% if q or source_filter or active_filter or parl_filter %}
+    <a href="{% url 'assignees:mps' %}" class="btn btn-outline btn-sm" style="align-self:flex-end">Clear</a>
+    {% endif %}
+  </div>
+</form>
+
+{% if page_obj.object_list %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Constituency</th>
+        <th style="width:110px">Parliament</th>
+        <th style="width:90px">Source</th>
+        <th style="width:80px">Status</th>
+        <th style="width:90px">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for mp in page_obj %}
+      <tr>
+        <td>
+          <a href="{% url 'assignees:mp_detail' mp.pk %}" style="font-weight:600;color:#0076A7">{{ mp.name_en }}</a>
+          {% if mp.name_bn %}<div class="text-muted text-small" style="margin-top:1px">{{ mp.name_bn }}</div>{% endif %}
+        </td>
+        <td style="font-size:13px">{{ mp.constituency|default:"—" }}</td>
+        <td style="font-size:12.5px;color:#495057">
+          {% if mp.parliament_no %}{{ mp.parliament_no }}th{% else %}—{% endif %}
+        </td>
+        <td>
+          {% if mp.source == 'PRP_API' %}
+          <span style="background:#EFF6FF;color:#3B82F6;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px">API</span>
+          {% else %}
+          <span style="background:#FBF5E6;color:#C8A951;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px">Manual</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if mp.is_active %}
+          <span style="background:#ECFDF5;color:#10B981;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px">Active</span>
+          {% else %}
+          <span style="background:#F3F4F6;color:#9CA3AF;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px">Inactive</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if user_is_it_officer %}
+          <div style="display:flex;gap:4px">
+            {% if mp.source == 'MANUAL' %}
+            <a href="{% url 'assignees:mp_edit' mp.pk %}" class="btn btn-outline btn-sm" style="padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center" title="Edit">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </a>
+            {% endif %}
+            {% if mp.is_active %}
+            <button type="button"
+                    hx-get="{% url 'assignees:mp_deactivate' mp.pk %}"
+                    hx-target="#panel-container"
+                    hx-swap="innerHTML"
+                    class="btn btn-danger-soft btn-sm" style="padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center" title="Deactivate">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            </button>
+            {% endif %}
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if page_obj.has_other_pages %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;font-size:13px;color:#6C757D">
+  <div>Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} MPs</div>
+  <div style="display:flex;gap:6px">
+    {% if page_obj.has_previous %}
+    <a href="?{% if q %}q={{ q }}&{% endif %}{% if source_filter %}source={{ source_filter }}&{% endif %}{% if active_filter %}active={{ active_filter }}&{% endif %}{% if parl_filter %}parliament_no={{ parl_filter }}&{% endif %}page={{ page_obj.previous_page_number }}" class="btn btn-outline btn-sm">‹ Prev</a>
+    {% endif %}
+    {% if page_obj.has_next %}
+    <a href="?{% if q %}q={{ q }}&{% endif %}{% if source_filter %}source={{ source_filter }}&{% endif %}{% if active_filter %}active={{ active_filter }}&{% endif %}{% if parl_filter %}parliament_no={{ parl_filter }}&{% endif %}page={{ page_obj.next_page_number }}" class="btn btn-outline btn-sm">Next ›</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+{% else %}
+<div style="background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:56px 24px;text-align:center">
+  <svg width="40" height="40" fill="none" stroke="#D1D5DB" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:12px"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+  <div style="font-size:14px;font-weight:600;color:#6C757D;margin-bottom:4px">
+    {% if q or source_filter or active_filter or parl_filter %}No MPs match your filters{% else %}No MPs yet{% endif %}
+  </div>
+  {% if user_is_it_officer and not q and not source_filter and not active_filter %}
+  <div class="text-muted text-small" style="margin-bottom:16px">Run a sync to pull MP records from the PRP API.</div>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

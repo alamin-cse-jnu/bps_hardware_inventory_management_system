@@ -20,7 +20,18 @@
       "Bash(python manage.py makemigrations sync_prp)",
       "Bash(New-Item -ItemType Directory -Force -Path \"assets\\\\management\\\\commands\")",
       "Bash(Out-Null)",
-      "Bash(docker compose *)"
+      "Bash(docker compose *)",
+      "Bash(New-Item -ItemType Directory -Force \"E:\\\\projects\\\\bps_hardware_inventory_management_system\\\\docs\")",
+      "Bash(Write-Output \"done\")",
+      "Bash(python manage.py test --verbosity=1)",
+      "Bash(python3 manage.py test --verbosity=1)",
+      "Bash(where.exe py *)",
+      "Bash(where.exe python3.12)",
+      "Bash(where.exe python3.11)",
+      "Bash(dir \"E:\\\\projects\\\\bps_hardware_inventory_management_system\\\\.venv\\\\Scripts\\\\python.exe\")",
+      "Bash(py manage.py test --verbosity=1)",
+      "Bash(dir \"E:\\\\projects\\\\bps_hardware_inventory_management_system\" /b)",
+      "Bash(py *)"
     ]
   }
 }

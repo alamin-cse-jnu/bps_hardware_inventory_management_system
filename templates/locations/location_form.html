@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Location{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'locations:list' %}">Locations</a> ›
+  <strong>{{ action }} Location</strong>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">{{ action }} Location</div>
+</div>
+
+<div style="max-width:560px">
+  <form method="post">
+    {% csrf_token %}
+
+    <div class="card" style="margin-bottom:16px">
+      <div style="padding:16px 20px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:8px">
+        <svg width="15" height="15" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        <span style="font-size:13px;font-weight:700;color:#212529">Location Details</span>
+      </div>
+      <div class="card-body">
+
+        {# ── Name ── #}
+        <div class="form-group">
+          <label class="form-label">Name (English) <span style="color:#EF4444">*</span></label>
+          <input
+            type="text"
+            name="name"
+            class="form-input"
+            {% if errors.name %}style="border-color:#EF4444"{% endif %}
+            value="{% if form_data %}{{ form_data.name }}{% elif location %}{{ location.name }}{% endif %}"
+            placeholder="e.g. Parliament Bhaban"
+            autofocus
+          >
+          {% if errors.name %}
+          <div style="color:#EF4444;font-size:12px;margin-top:4px">{{ errors.name }}</div>
+          {% endif %}
+        </div>
+
+        {# ── Bengali name ── #}
+        <div class="form-group">
+          <label class="form-label">Name (Bengali) <span class="text-muted" style="font-weight:400">(optional)</span></label>
+          <input
+            type="text"
+            name="name_bn"
+            class="form-input"
+            value="{% if form_data %}{{ form_data.name_bn }}{% elif location %}{{ location.name_bn }}{% endif %}"
+            placeholder="বাংলা নাম"
+          >
+        </div>
+
+        {# ── Level type ── #}
+        <div class="form-group">
+          <label class="form-label">Level Type <span style="color:#EF4444">*</span></label>
+          <select
+            name="level_type"
+            class="form-input"
+            {% if errors.level_type %}style="border-color:#EF4444"{% endif %}
+            hx-get="{% url 'locations:parent_options' %}"
+            hx-trigger="change"
+            hx-target="#parent-field"
+            hx-swap="innerHTML"
+          >
+            <option value="">— Select level —</option>
+            {% for value, label in level_types %}
+              {% if form_data %}
+                <option value="{{ value }}" {% if form_data.level_type == value %}selected{% endif %}>{{ label }}</option>
+              {% elif location %}
+                <option value="{{ value }}" {% if location.level_type == value %}selected{% endif %}>{{ label }}</option>
+              {% else %}
+                <option value="{{ value }}">{{ label }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+          {% if errors.level_type %}
+          <div style="color:#EF4444;font-size:12px;margin-top:4px">{{ errors.level_type }}</div>
+          {% endif %}
+        </div>
+
+        {# ── Parent location — HTMX-swapped on level_type change ── #}
+        <div id="parent-field">
+          {% if parents %}
+          <div class="form-group">
+            <label class="form-label">Parent Location <span style="color:#EF4444">*</span></label>
+            <select name="parent" class="form-input" {% if errors.parent %}style="border-color:#EF4444"{% endif %}>
+              <option value="">— Select parent —</option>
+              {% for p in parents %}
+                {% if form_data %}
+                  <option value="{{ p.pk }}" {% if form_data.parent == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>
+                {% elif location %}
+                  <option value="{{ p.pk }}" {% if location.parent_id == p.pk %}selected{% endif %}>{{ p.name }}</option>
+                {% else %}
+                  <option value="{{ p.pk }}">{{ p.name }}</option>
+                {% endif %}
+              {% endfor %}
+            </select>
+            {% if errors.parent %}
+            <div style="color:#EF4444;font-size:12px;margin-top:4px">{{ errors.parent }}</div>
+            {% endif %}
+          </div>
+          {% elif location and location.level_type == 'BUILDING' %}
+          <div style="color:#6C757D;font-size:12.5px;padding:6px 0 12px;display:flex;align-items:center;gap:6px">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Buildings have no parent — they are top-level locations.
+          </div>
+          {% endif %}
+        </div>
+
+        {# ── Active toggle — edit only ── #}
+        {% if location %}
+        <div class="form-group" style="display:flex;align-items:center;gap:10px;margin-top:4px">
+          <input type="checkbox" name="is_active" id="is_active"
+            style="width:16px;height:16px;accent-color:#0076A7"
+            {% if location.is_active %}checked{% endif %}
+          >
+          <label for="is_active" class="form-label" style="margin-bottom:0;cursor:pointer">Active</label>
+          <span class="text-muted text-small">(uncheck to deactivate this location)</span>
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <button type="submit" class="btn btn-primary">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        {% if location %}Save Changes{% else %}Create Location{% endif %}
+      </button>
+      <a href="{% url 'locations:list' %}" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

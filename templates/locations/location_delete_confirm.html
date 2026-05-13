@@ -1,0 +1,70 @@
+<div class="panel-overlay">
+  <div class="panel-backdrop" onclick="document.getElementById('panel-container').innerHTML=''"></div>
+  <div class="panel-drawer" style="width:420px">
+
+    <div class="panel-header">
+      <h2 style="font-size:15px;font-weight:700;color:#F59E0B;display:flex;align-items:center;gap:8px">
+        <svg width="16" height="16" fill="none" stroke="#F59E0B" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        Deactivate Location
+      </h2>
+      <button type="button" onclick="document.getElementById('panel-container').innerHTML=''" class="btn btn-outline btn-sm" style="padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="panel-body">
+
+      {# Location being deactivated #}
+      <div style="background:#F8F9FA;border:1px solid #E5E7EB;border-radius:8px;padding:16px;margin-bottom:16px">
+        <div class="text-muted text-small" style="margin-bottom:6px">Location to deactivate</div>
+        <div style="font-size:15px;font-weight:700;color:#212529">{{ location.name }}</div>
+        <div class="text-muted text-small" style="margin-top:4px">{{ location.get_level_type_display }} · {{ location.full_path }}</div>
+      </div>
+
+      {% if asset_count or child_count %}
+      {# Blocked — cannot deactivate #}
+      <div class="callout callout-red">
+        <svg width="16" height="16" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div style="font-size:13px">
+          <strong>Cannot deactivate</strong> — resolve the following first:
+          <ul style="margin-top:6px;padding-left:16px;line-height:1.8">
+            {% if asset_count %}
+            <li>{{ asset_count }} active asset{{ asset_count|pluralize }} stored at this location</li>
+            {% endif %}
+            {% if child_count %}
+            <li>{{ child_count }} active sub-location{{ child_count|pluralize }} under this location</li>
+            {% endif %}
+          </ul>
+        </div>
+      </div>
+
+      {% else %}
+      {# Safe to deactivate #}
+      <div class="callout callout-gold">
+        <svg width="16" height="16" fill="none" stroke="#C8A951" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div style="font-size:13px">
+          <strong>This location will be marked inactive.</strong>
+          <p class="text-muted text-small" style="margin-top:4px;line-height:1.5">It will no longer appear in asset assignment dropdowns. Existing asset records referencing it are preserved.</p>
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+
+    <div class="panel-footer">
+      {% if not asset_count and not child_count %}
+      <form method="post" action="{% url 'locations:delete' location.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn" style="background:#F59E0B;color:#fff;border:none">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          Yes, Deactivate
+        </button>
+      </form>
+      {% endif %}
+      <button type="button" onclick="document.getElementById('panel-container').innerHTML=''" class="btn btn-outline">
+        {% if asset_count or child_count %}Close{% else %}Cancel{% endif %}
+      </button>
+    </div>
+
+  </div>
+</div>

@@ -156,24 +156,24 @@
 
     <div class="nav-label">Holders</div>
 
-    <a class="nav-item disabled" title="Coming in Session 6.3">
+    <a href="{% url 'assignees:employees' %}" class="nav-item {% if request.resolver_match.namespace == 'assignees' and 'employee' in request.resolver_match.url_name %}active{% endif %}">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       Employees
     </a>
 
-    <a class="nav-item disabled" title="Coming in Session 6.3">
+    <a href="{% url 'assignees:mps' %}" class="nav-item {% if request.resolver_match.namespace == 'assignees' and 'mp' in request.resolver_match.url_name %}active{% endif %}">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       MPs
     </a>
 
-    <a class="nav-item disabled" title="Coming in Session 6.3">
+    <a href="{% url 'assignees:offices' %}" class="nav-item {% if request.resolver_match.namespace == 'assignees' and 'office' in request.resolver_match.url_name %}active{% endif %}">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
       Offices
     </a>
 
     <div class="nav-label">Setup</div>
 
-    <a class="nav-item disabled" title="Coming in Session 6.2">
+    <a href="{% url 'locations:list' %}" class="nav-item {% if request.resolver_match.namespace == 'locations' %}active{% endif %}">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
       Locations
     </a>

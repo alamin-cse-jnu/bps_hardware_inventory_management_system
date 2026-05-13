@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Employee{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assignees:employees' %}">Employees</a> ›
+  <strong>{{ action }} Employee</strong>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">{{ action }} Employee</div>
+</div>
+
+<div style="max-width:580px">
+  <form method="post">
+    {% csrf_token %}
+    {% if form_data and form_data.confirmed %}<input type="hidden" name="confirmed" value="1">{% endif %}
+
+    {# Duplicate warning — ask for confirmation before saving #}
+    {% if duplicates %}
+    <div class="callout callout-gold" style="margin-bottom:16px">
+      <svg width="16" height="16" fill="none" stroke="#C8A951" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div style="font-size:13px">
+        <strong>Similar name already exists:</strong>
+        <ul style="margin-top:6px;padding-left:16px;line-height:1.8">
+          {% for dup in duplicates %}
+          <li><a href="{% url 'assignees:employee_detail' dup.pk %}" target="_blank" style="color:#0076A7">{{ dup.name_en }}</a>
+            {% if dup.designation %} — {{ dup.designation }}{% endif %}
+            {% if dup.source == 'MANUAL' %}<span style="background:#FBF5E6;color:#C8A951;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:99px;margin-left:4px">Manual</span>{% else %}<span style="background:#EFF6FF;color:#3B82F6;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:99px;margin-left:4px">API</span>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+          <input type="checkbox" name="confirmed" id="confirmed" style="accent-color:#0076A7;width:14px;height:14px" {% if form_data.confirmed %}checked{% endif %}>
+          <label for="confirmed" style="font-size:12.5px;cursor:pointer">I'm aware — create a new record anyway</label>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card" style="margin-bottom:16px">
+      <div style="padding:14px 20px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:8px">
+        <svg width="15" height="15" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        <span style="font-size:13px;font-weight:700;color:#212529">Employee Details</span>
+        <span style="background:#FBF5E6;color:#C8A951;font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px;margin-left:auto">Manual Record</span>
+      </div>
+      <div class="card-body">
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Name (English) <span style="color:#EF4444">*</span></label>
+            <input type="text" name="name_en" class="form-input"
+              {% if errors.name_en %}style="border-color:#EF4444"{% endif %}
+              value="{% if form_data %}{{ form_data.name_en }}{% elif holder %}{{ holder.name_en }}{% endif %}"
+              placeholder="Full name in English" autofocus>
+            {% if errors.name_en %}<div style="color:#EF4444;font-size:12px;margin-top:4px">{{ errors.name_en }}</div>{% endif %}
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Name (Bengali) <span class="text-muted" style="font-weight:400">(optional)</span></label>
+            <input type="text" name="name_bn" class="form-input"
+              value="{% if form_data %}{{ form_data.name_bn }}{% elif holder %}{{ holder.name_bn }}{% endif %}"
+              placeholder="বাংলায় নাম">
+          </div>
+        </div>
+
+        <div class="divider" style="margin:16px 0 16px"></div>
+        <div style="font-size:11px;font-weight:700;color:#6C757D;text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px">Office / Designation (optional)</div>
+
+        <div class="form-group">
+          <label class="form-label">Department / Office</label>
+          <input type="text" name="office_name_en" class="form-input"
+            value="{% if form_data %}{{ form_data.office_name_en }}{% elif holder %}{{ holder.office_name_en }}{% endif %}"
+            placeholder="e.g. Parliament Secretariat">
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Wing</label>
+            <input type="text" name="wing_name_en" class="form-input"
+              value="{% if form_data %}{{ form_data.wing_name_en }}{% elif holder %}{{ holder.wing_name_en }}{% endif %}"
+              placeholder="Wing name">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Branch</label>
+            <input type="text" name="branch_name_en" class="form-input"
+              value="{% if form_data %}{{ form_data.branch_name_en }}{% elif holder %}{{ holder.branch_name_en }}{% endif %}"
+              placeholder="Branch name">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Section</label>
+            <input type="text" name="section_name_en" class="form-input"
+              value="{% if form_data %}{{ form_data.section_name_en }}{% elif holder %}{{ holder.section_name_en }}{% endif %}"
+              placeholder="Section name">
+          </div>
+        </div>
+
+        <div class="divider" style="margin:16px 0 16px"></div>
+        <div style="font-size:11px;font-weight:700;color:#6C757D;text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px">Contact (optional)</div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Mobile</label>
+            <input type="text" name="mobile" class="form-input"
+              value="{% if form_data %}{{ form_data.mobile }}{% elif holder %}{{ holder.mobile }}{% endif %}"
+              placeholder="+880…">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Telephone</label>
+            <input type="text" name="telephone" class="form-input"
+              value="{% if form_data %}{{ form_data.telephone }}{% elif holder %}{{ holder.telephone }}{% endif %}"
+              placeholder="Office number">
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <button type="submit" class="btn btn-primary">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        {% if holder %}Save Changes{% else %}Create Employee{% endif %}
+      </button>
+      {% if holder %}
+      <a href="{% url 'assignees:employee_detail' holder.pk %}" class="btn btn-outline">Cancel</a>
+      {% else %}
+      <a href="{% url 'assignees:employees' %}" class="btn btn-outline">Cancel</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Office{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assignees:offices' %}">Offices</a> ›
+  <strong>{{ action }} Office</strong>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">{{ action }} Office / Department</div>
+</div>
+
+<div style="max-width:480px">
+  <form method="post">
+    {% csrf_token %}
+
+    {% if duplicates %}
+    <div class="callout callout-gold" style="margin-bottom:16px">
+      <svg width="16" height="16" fill="none" stroke="#C8A951" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div style="font-size:13px">
+        <strong>Similar name already exists:</strong>
+        <ul style="margin-top:6px;padding-left:16px;line-height:1.8">
+          {% for dup in duplicates %}
+          <li><a href="{% url 'assignees:office_detail' dup.pk %}" target="_blank" style="color:#0076A7">{{ dup.name_en }}</a>
+            {% if dup.source == 'MANUAL' %}<span style="background:#FBF5E6;color:#C8A951;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:99px;margin-left:4px">Manual</span>{% else %}<span style="background:#EFF6FF;color:#3B82F6;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:99px;margin-left:4px">API</span>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+          <input type="checkbox" name="confirmed" id="confirmed" style="accent-color:#0076A7;width:14px;height:14px" {% if form_data.confirmed %}checked{% endif %}>
+          <label for="confirmed" style="font-size:12.5px;cursor:pointer">I'm aware — create a new record anyway</label>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card" style="margin-bottom:16px">
+      <div style="padding:14px 20px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:8px">
+        <svg width="15" height="15" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        <span style="font-size:13px;font-weight:700;color:#212529">Office Details</span>
+        <span style="background:#FBF5E6;color:#C8A951;font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px;margin-left:auto">Manual Record</span>
+      </div>
+      <div class="card-body">
+
+        <div class="form-group">
+          <label class="form-label">Name (English) <span style="color:#EF4444">*</span></label>
+          <input type="text" name="name_en" class="form-input"
+            {% if errors.name_en %}style="border-color:#EF4444"{% endif %}
+            value="{% if form_data %}{{ form_data.name_en }}{% elif holder %}{{ holder.name_en }}{% endif %}"
+            placeholder="e.g. Software Development Branch" autofocus>
+          {% if errors.name_en %}<div style="color:#EF4444;font-size:12px;margin-top:4px">{{ errors.name_en }}</div>{% endif %}
+        </div>
+
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Name (Bengali) <span class="text-muted" style="font-weight:400">(optional)</span></label>
+          <input type="text" name="name_bn" class="form-input"
+            value="{% if form_data %}{{ form_data.name_bn }}{% elif holder %}{{ holder.name_bn }}{% endif %}"
+            placeholder="বাংলায় নাম">
+        </div>
+
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <button type="submit" class="btn btn-primary">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        {% if holder %}Save Changes{% else %}Create Office{% endif %}
+      </button>
+      {% if holder %}
+      <a href="{% url 'assignees:office_detail' holder.pk %}" class="btn btn-outline">Cancel</a>
+      {% else %}
+      <a href="{% url 'assignees:offices' %}" class="btn btn-outline">Cancel</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+{% endblock %}

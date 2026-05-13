@@ -1,0 +1,33 @@
+{% if level_type == 'BUILDING' %}
+<div style="color:#6C757D;font-size:12.5px;padding:6px 0 12px;display:flex;align-items:center;gap:6px">
+  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  Buildings have no parent — they are top-level locations.
+</div>
+
+{% elif level_type == 'FLOOR' or level_type == 'ROOM' %}
+<div class="form-group">
+  <label class="form-label">
+    Parent {% if level_type == 'FLOOR' %}Building{% else %}Floor{% endif %}
+    <span style="color:#EF4444">*</span>
+  </label>
+  {% if parents %}
+  <select name="parent" class="form-input">
+    <option value="">— Select parent —</option>
+    {% for p in parents %}
+    <option value="{{ p.pk }}" {% if selected_pk == p.pk|stringformat:"s" %}selected{% endif %}>
+      {{ p.name }}
+    </option>
+    {% endfor %}
+  </select>
+  {% else %}
+  <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:4px;padding:9px 12px;font-size:12.5px;color:#92400E;display:flex;align-items:center;gap:8px">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    No active {% if level_type == 'FLOOR' %}buildings{% else %}floors{% endif %} found.
+    Please create one first.
+  </div>
+  {% endif %}
+</div>
+
+{% else %}
+{# No level type selected yet — show nothing #}
+{% endif %}
