@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}{{ holder.name_en }}{% endblock %}
+{% block title %}{{ holder.name_en|title }}{% endblock %}
 
 {% block breadcrumb %}
   <a href="{% url list_url %}">{{ list_label }}</a> ›
-  <strong>{{ holder.name_en }}</strong>
+  <strong>{{ holder.name_en|title }}</strong>
 {% endblock %}
 
 {% block topbar_actions %}
@@ -28,81 +28,322 @@
 {% endblock %}
 
 {% block content %}
+<style>
+  .profile-card{background:#fff;border:1px solid #E5E7EB;border-radius:10px;overflow:hidden;margin-bottom:20px}
+  .profile-header{display:flex;align-items:flex-start;gap:20px;padding:24px 28px;border-bottom:1px solid #F3F4F6}
+  .profile-photo{width:96px;height:96px;border-radius:50%;object-fit:cover;border:3px solid #E5E7EB;flex-shrink:0}
+  .profile-avatar{width:96px;height:96px;border-radius:50%;background:linear-gradient(135deg,#0076A7,#00A8E8);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700;color:#fff;flex-shrink:0;letter-spacing:-1px}
+  .profile-avatar-office{width:96px;height:96px;border-radius:50%;background:linear-gradient(135deg,#F97316,#FBBF24);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .detail-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0}
+  .detail-section{padding:20px 28px;border-right:1px solid #F3F4F6;border-bottom:1px solid #F3F4F6}
+  .detail-section:last-child{border-right:none}
+  .detail-section-title{font-size:10.5px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px}
+  .detail-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:11px}
+  .detail-row:last-child{margin-bottom:0}
+  .detail-label{font-size:11.5px;color:#9CA3AF;width:90px;flex-shrink:0;padding-top:1px}
+  .detail-value{font-size:13px;color:#212529;font-weight:500;flex:1;min-width:0}
+  .detail-value-muted{font-size:12px;color:#6C757D;margin-top:2px}
+  .badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;white-space:nowrap}
+  .badge-active{background:#ECFDF5;color:#059669}
+  .badge-inactive{background:#F3F4F6;color:#9CA3AF}
+  .badge-api{background:#EFF6FF;color:#3B82F6}
+  .badge-manual{background:#FBF5E6;color:#B45309}
+  .badge-c1{background:#EFF6FF;color:#2563EB}
+  .badge-c2{background:#F0FDF4;color:#16A34A}
+  .badge-c3{background:#FFF7ED;color:#EA580C}
+  .badge-c4{background:#FDF4FF;color:#A21CAF}
+  .badge-mp{background:#F5F3FF;color:#7C3AED}
+  .hier-path{display:flex;flex-direction:column;gap:3px}
+  .hier-row{display:flex;align-items:center;gap:6px;font-size:12px}
+  .hier-label{font-size:10px;font-weight:700;color:#9CA3AF;width:52px;flex-shrink:0;text-transform:uppercase;letter-spacing:.04em}
+  .hier-val{color:#374151;font-weight:500}
+  .hier-val-bn{color:#9CA3AF;font-size:11px;margin-left:4px}
+  .section-heading{font-size:15px;font-weight:700;color:#212529;margin:24px 0 12px}
+  .history-empty{background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:40px 24px;text-align:center}
+</style>
 
-{# ── Holder info card ── #}
-<div class="card" style="margin-bottom:20px">
-  <div style="padding:20px 24px;display:flex;align-items:flex-start;gap:16px">
+{# ════════════════════════════════════════════════════════════ #}
+{# Profile card                                                 #}
+{# ════════════════════════════════════════════════════════════ #}
+<div class="profile-card">
 
-    <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#0076A7,#00A8E8);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;flex-shrink:0">
-      {{ holder.name_en|slice:":1"|upper }}
-    </div>
+  {# ── Header: photo + name + badges ── #}
+  <div class="profile-header">
 
+    {# Photo / avatar #}
+    {% if holder_type == 'office' %}
+      <div class="profile-avatar-office">
+        <svg width="40" height="40" fill="none" stroke="#fff" stroke-width="1.6" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+      </div>
+    {% elif holder.photo_url %}
+      <img src="{{ holder.photo_url }}" alt="{{ holder.name_en|title }}" class="profile-photo"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <div class="profile-avatar" style="display:none">
+        {{ holder.name_en|slice:":1"|upper }}
+      </div>
+    {% else %}
+      <div class="profile-avatar">{{ holder.name_en|slice:":1"|upper }}</div>
+    {% endif %}
+
+    {# Name block #}
     <div style="flex:1;min-width:0">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <h1 style="font-size:18px;font-weight:700;color:#212529">{{ holder.name_en }}</h1>
-        {% if holder.name_bn %}<span class="text-muted" style="font-size:14px">{{ holder.name_bn }}</span>{% endif %}
-        {% if holder.source == 'MANUAL' %}
-        <span style="background:#FBF5E6;color:#C8A951;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px">Manual</span>
-        {% else %}
-        <span style="background:#EFF6FF;color:#3B82F6;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px">API Synced</span>
-        {% endif %}
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+        <h1 style="font-size:20px;font-weight:700;color:#111827;line-height:1.2">{{ holder.name_en|title }}</h1>
+        {# Status badge #}
         {% if holder.is_active %}
-        <span style="background:#ECFDF5;color:#10B981;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px">Active</span>
+          <span class="badge badge-active">● Active</span>
         {% else %}
-        <span style="background:#F3F4F6;color:#9CA3AF;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px">Inactive</span>
+          <span class="badge badge-inactive">● Inactive</span>
+        {% endif %}
+        {# Source badge #}
+        {% if holder.source == 'MANUAL' %}
+          <span class="badge badge-manual">Manual</span>
+        {% else %}
+          <span class="badge badge-api">API Synced</span>
+        {% endif %}
+        {# Employee class badge #}
+        {% if holder_type == 'employee' %}
+          {% if holder.employee_class == 1 %}<span class="badge badge-c1">Class 1</span>
+          {% elif holder.employee_class == 2 %}<span class="badge badge-c2">Class 2</span>
+          {% elif holder.employee_class == 3 %}<span class="badge badge-c3">Class 3</span>
+          {% elif holder.employee_class == 4 %}<span class="badge badge-c4">Class 4</span>
+          {% endif %}
+        {% elif holder_type == 'mp' %}
+          <span class="badge badge-mp">Member of Parliament</span>
         {% endif %}
       </div>
 
-      {# Type-specific details #}
+      {# Bengali name #}
+      {% if holder.name_bn %}
+        <div style="font-size:15px;color:#6C757D;margin-bottom:8px">{{ holder.name_bn }}</div>
+      {% endif %}
+
+      {# Designation / role line #}
       {% if holder_type == 'employee' %}
-        {% if holder.designation %}
-        <div style="font-size:13px;color:#495057;margin-top:6px">{{ holder.designation }}</div>
+        {% if holder.designation_en %}
+          <div style="font-size:13.5px;font-weight:600;color:#374151;margin-bottom:2px">{{ holder.designation_en|title }}</div>
+        {% endif %}
+        {% if holder.designation_bn %}
+          <div style="font-size:12.5px;color:#9CA3AF;margin-bottom:6px">{{ holder.designation_bn }}</div>
         {% endif %}
         {% if holder.office_name_en %}
-        <div class="text-muted text-small" style="margin-top:2px">{{ holder.office_name_en }}</div>
+          <div style="font-size:13px;color:#0076A7;font-weight:500">{{ holder.office_name_en|title }}</div>
+          {% if holder.office_name_bn %}<div style="font-size:11.5px;color:#9CA3AF">{{ holder.office_name_bn }}</div>{% endif %}
         {% endif %}
       {% elif holder_type == 'mp' %}
         {% if holder.constituency %}
-        <div style="font-size:13px;color:#495057;margin-top:6px">{{ holder.constituency }}</div>
+          <div style="font-size:13.5px;font-weight:600;color:#374151;margin-bottom:2px">{{ holder.constituency|title }}</div>
         {% endif %}
         {% if holder.parliament_no %}
-        <div class="text-muted text-small" style="margin-top:2px">{{ holder.parliament_no }}th Parliament</div>
+          <div style="font-size:13px;color:#7C3AED;font-weight:500">{{ holder.parliament_no }}th Parliament</div>
         {% endif %}
       {% elif holder_type == 'office' %}
         {% if holder.is_abstract %}
-        <div class="text-muted text-small" style="margin-top:6px">Abstract / grouping office</div>
+          <div style="font-size:13px;color:#C2410C;font-weight:600">Group / Abstract Office</div>
         {% endif %}
       {% endif %}
 
-      {# Contact info #}
+      {# Contact row #}
       {% if holder.mobile or holder.telephone %}
-      <div style="display:flex;gap:16px;margin-top:8px">
-        {% if holder.mobile %}
-        <span class="text-muted text-small" style="display:flex;align-items:center;gap:4px">
-          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-          {{ holder.mobile }}
-        </span>
-        {% endif %}
-        {% if holder.telephone %}
-        <span class="text-muted text-small" style="display:flex;align-items:center;gap:4px">
-          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.78a16 16 0 0 0 6.29 6.29l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7a2 2 0 0 1 1.72 2.03z"/></svg>
-          {{ holder.telephone }}
-        </span>
-        {% endif %}
-      </div>
+        <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap">
+          {% if holder.mobile %}
+          <span style="display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:#374151;background:#F9FAFB;border:1px solid #E5E7EB;padding:4px 10px;border-radius:6px">
+            <svg width="13" height="13" fill="none" stroke="#6C757D" stroke-width="2" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+            {{ holder.mobile }}
+          </span>
+          {% endif %}
+          {% if holder.telephone %}
+          <span style="display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:#374151;background:#F9FAFB;border:1px solid #E5E7EB;padding:4px 10px;border-radius:6px">
+            <svg width="13" height="13" fill="none" stroke="#6C757D" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.78a16 16 0 0 0 6.29 6.29l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7a2 2 0 0 1 1.72 2.03z"/></svg>
+            {{ holder.telephone }}
+          </span>
+          {% endif %}
+        </div>
       {% endif %}
 
       {% if not holder.is_active and holder.inactive_since %}
-      <div class="text-muted text-small" style="margin-top:8px">Inactive since {{ holder.inactive_since|date:"N j, Y" }}</div>
+        <div style="margin-top:10px;font-size:12px;color:#EF4444;display:inline-flex;align-items:center;gap:5px">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Inactive since {{ holder.inactive_since|date:"N j, Y" }}
+        </div>
       {% endif %}
     </div>
-  </div>
-</div>
 
-{# ── Assignment history ── #}
-<div style="font-size:15px;font-weight:700;color:#212529;margin-bottom:12px">
-  Assignment History
-  <span style="font-size:12px;font-weight:400;color:#6C757D;margin-left:6px">(last 50 records)</span>
+  </div>{# /profile-header #}
+
+  {# ── Info grid ── #}
+  <div class="detail-grid">
+
+    {# ─ Identity section ─ #}
+    <div class="detail-section">
+      <div class="detail-section-title">Identity</div>
+
+      {% if holder.prp_id %}
+      <div class="detail-row">
+        <span class="detail-label">PRP ID</span>
+        <span class="detail-value" style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#0076A7">{{ holder.prp_id }}</span>
+      </div>
+      {% endif %}
+
+      {% if holder.gender %}
+      <div class="detail-row">
+        <span class="detail-label">Gender</span>
+        <span class="detail-value">{{ holder.gender|title }}</span>
+      </div>
+      {% endif %}
+
+      {% if holder_type == 'employee' and holder.employee_class %}
+      <div class="detail-row">
+        <span class="detail-label">Class</span>
+        <span class="detail-value">
+          {% if holder.employee_class == 1 %}<span class="badge badge-c1">Class 1 — Gazetted</span>
+          {% elif holder.employee_class == 2 %}<span class="badge badge-c2">Class 2 — Gazetted</span>
+          {% elif holder.employee_class == 3 %}<span class="badge badge-c3">Class 3</span>
+          {% elif holder.employee_class == 4 %}<span class="badge badge-c4">Class 4</span>
+          {% else %}<span style="color:#9CA3AF;font-size:12px">—</span>{% endif %}
+        </span>
+      </div>
+      {% endif %}
+
+      {% if holder_type == 'mp' and holder.parliament_no %}
+      <div class="detail-row">
+        <span class="detail-label">Parliament</span>
+        <span class="detail-value">{{ holder.parliament_no }}th Parliament</span>
+      </div>
+      {% endif %}
+
+      {% if holder.api_status %}
+      <div class="detail-row">
+        <span class="detail-label">API Status</span>
+        <span class="detail-value" style="font-size:12.5px;color:#6C757D">{{ holder.api_status|title }}</span>
+      </div>
+      {% endif %}
+
+      <div class="detail-row">
+        <span class="detail-label">Source</span>
+        <span class="detail-value">
+          {% if holder.source == 'MANUAL' %}
+            <span class="badge badge-manual">Manual Entry</span>
+          {% else %}
+            <span class="badge badge-api">PRP API</span>
+          {% endif %}
+        </span>
+      </div>
+
+      {% if holder.last_seen_active %}
+      <div class="detail-row">
+        <span class="detail-label">Last Seen</span>
+        <span class="detail-value" style="font-size:12px;color:#6C757D">{{ holder.last_seen_active|date:"N j, Y" }}</span>
+      </div>
+      {% endif %}
+    </div>
+
+    {# ─ Employee office placement ─ #}
+    {% if holder_type == 'employee' and holder.office_name_en %}
+    <div class="detail-section">
+      <div class="detail-section-title">Office Placement</div>
+      <div class="hier-path">
+        {% if holder.office_name_en %}
+        <div class="hier-row">
+          <span class="hier-label">Office</span>
+          <span>
+            <span class="hier-val">{{ holder.office_name_en|title }}</span>
+            {% if holder.office_name_bn %}<span class="hier-val-bn">· {{ holder.office_name_bn }}</span>{% endif %}
+          </span>
+        </div>
+        {% endif %}
+        {% if holder.wing_name_en %}
+        <div class="hier-row" style="padding-left:12px">
+          <span class="hier-label">Wing</span>
+          <span>
+            <span class="hier-val">{{ holder.wing_name_en|title }}</span>
+            {% if holder.wing_name_bn %}<span class="hier-val-bn">· {{ holder.wing_name_bn }}</span>{% endif %}
+          </span>
+        </div>
+        {% endif %}
+        {% if holder.branch_name_en %}
+        <div class="hier-row" style="padding-left:24px">
+          <span class="hier-label">Branch</span>
+          <span>
+            <span class="hier-val">{{ holder.branch_name_en|title }}</span>
+            {% if holder.branch_name_bn %}<span class="hier-val-bn">· {{ holder.branch_name_bn }}</span>{% endif %}
+          </span>
+        </div>
+        {% endif %}
+        {% if holder.section_name_en %}
+        <div class="hier-row" style="padding-left:36px">
+          <span class="hier-label">Section</span>
+          <span>
+            <span class="hier-val">{{ holder.section_name_en|title }}</span>
+            {% if holder.section_name_bn %}<span class="hier-val-bn">· {{ holder.section_name_bn }}</span>{% endif %}
+          </span>
+        </div>
+        {% endif %}
+        {% if holder.unit_name_en %}
+        <div class="hier-row" style="padding-left:48px">
+          <span class="hier-label">Unit</span>
+          <span>
+            <span class="hier-val">{{ holder.unit_name_en|title }}</span>
+            {% if holder.unit_name_bn %}<span class="hier-val-bn">· {{ holder.unit_name_bn }}</span>{% endif %}
+          </span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {# ─ MP constituency / parliament section ─ #}
+    {% if holder_type == 'mp' and holder.constituency %}
+    <div class="detail-section">
+      <div class="detail-section-title">Constituency</div>
+      <div class="detail-row">
+        <span class="detail-label">Seat</span>
+        <span class="detail-value">{{ holder.constituency|title }}</span>
+      </div>
+      {% if holder.office_details_raw %}
+      <div class="detail-row">
+        <span class="detail-label">Office</span>
+        <span class="detail-value" style="font-size:12.5px">{{ holder.office_details_raw|title }}</span>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {# ─ Office meta section ─ #}
+    {% if holder_type == 'office' %}
+    <div class="detail-section">
+      <div class="detail-section-title">Details</div>
+      {% if holder.prp_id %}
+      <div class="detail-row">
+        <span class="detail-label">PRP ID</span>
+        <span class="detail-value" style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#0076A7">{{ holder.prp_id }}</span>
+      </div>
+      {% endif %}
+      {% if holder.parent_prp_id %}
+      <div class="detail-row">
+        <span class="detail-label">Parent ID</span>
+        <span class="detail-value" style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#6C757D">{{ holder.parent_prp_id }}</span>
+      </div>
+      {% endif %}
+      <div class="detail-row">
+        <span class="detail-label">Type</span>
+        <span class="detail-value">{% if holder.is_abstract %}Group / Abstract{% else %}Standard Office{% endif %}</span>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>{# /detail-grid #}
+</div>{# /profile-card #}
+
+
+{# ════════════════════════════════════════════════════════════ #}
+{# Assignment history                                           #}
+{# ════════════════════════════════════════════════════════════ #}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+  <div class="section-heading" style="margin:0">Assignment History</div>
+  {% if assignments %}
+  <span style="font-size:12px;color:#9CA3AF">Last 50 records</span>
+  {% endif %}
 </div>
 
 {% if assignments %}
@@ -110,10 +351,11 @@
   <table>
     <thead>
       <tr>
-        <th>Asset</th>
+        <th style="width:130px">Asset Tag</th>
         <th>Type / Model</th>
         <th style="width:120px">Assigned</th>
         <th style="width:120px">Returned</th>
+        <th style="width:100px">Duration</th>
         <th style="width:90px">By</th>
       </tr>
     </thead>
@@ -123,31 +365,45 @@
         <td>
           <a href="{% url 'assets:detail' asgn.asset.pk %}" class="asset-tag">{{ asgn.asset.asset_tag }}</a>
           {% if asgn.returned_at is None %}
-          <span style="background:#EFF6FF;color:#3B82F6;font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px;margin-left:6px">Active</span>
+          <div style="margin-top:3px">
+            <span style="background:#DCFCE7;color:#16A34A;font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px">Current</span>
+          </div>
           {% endif %}
         </td>
-        <td style="font-size:12.5px;color:#495057">
-          {{ asgn.asset.asset_type.name }}
+        <td>
+          <div style="font-size:13px;color:#374151;font-weight:500">{{ asgn.asset.asset_type.name|title }}</div>
           {% if asgn.asset.brand or asgn.asset.model %}
-          <div class="text-muted text-small">{{ asgn.asset.brand }} {{ asgn.asset.model }}</div>
+          <div class="text-muted text-small">{{ asgn.asset.brand|title }} {{ asgn.asset.model }}</div>
           {% endif %}
         </td>
-        <td style="font-size:12.5px">{{ asgn.assigned_at|date:"N j, Y" }}</td>
-        <td style="font-size:12.5px">
+        <td style="font-size:12.5px;color:#374151">{{ asgn.assigned_at|date:"N j, Y" }}</td>
+        <td style="font-size:12.5px;color:#374151">
           {% if asgn.returned_at %}
-          {{ asgn.returned_at|date:"N j, Y" }}
+            {{ asgn.returned_at|date:"N j, Y" }}
           {% else %}
-          <span class="text-muted">—</span>
+            <span style="color:#9CA3AF">—</span>
           {% endif %}
         </td>
-        <td style="font-size:12px;color:#6C757D">{{ asgn.performed_by.get_full_name|default:asgn.performed_by.username|default:"—" }}</td>
+        <td style="font-size:12px;color:#6C757D">
+          {% if asgn.returned_at %}
+            {% with days=asgn.assigned_at|timesince:asgn.returned_at %}
+              {{ days }}
+            {% endwith %}
+          {% elif asgn.returned_at is None %}
+            <span style="color:#16A34A;font-weight:600">Ongoing</span>
+          {% endif %}
+        </td>
+        <td style="font-size:12px;color:#6C757D">
+          {{ asgn.performed_by.get_full_name|default:asgn.performed_by.username|default:"—" }}
+        </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
 {% else %}
-<div style="background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:40px 24px;text-align:center">
+<div class="history-empty">
+  <svg width="36" height="36" fill="none" stroke="#D1D5DB" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 10px;display:block"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
   <div style="font-size:13px;font-weight:600;color:#9CA3AF">No assets have been assigned to this {{ holder_type_display|lower }}.</div>
 </div>
 {% endif %}

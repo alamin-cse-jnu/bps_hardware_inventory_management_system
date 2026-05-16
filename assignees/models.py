@@ -41,6 +41,13 @@ class CachedEmployee(models.Model):
     photo_url = models.TextField(blank=True)
     api_status = models.CharField(max_length=50, blank=True)
 
+    # Employee class (from API 'class' field; 5 = no class, 1–4 = gazetted class)
+    employee_class = models.IntegerField(null=True, blank=True)
+
+    # Designation title (from API 'designationEn' / 'designationBn'; added 2026-05)
+    designation_en = models.CharField(max_length=255, blank=True, default="")
+    designation_bn = models.CharField(max_length=255, blank=True, default="")
+
     # Office placement (from officeDetails in API response)
     wing_id = models.CharField(max_length=50, blank=True)
     wing_name_en = models.CharField(max_length=200, blank=True)
@@ -85,12 +92,16 @@ class CachedEmployee(models.Model):
 
     @property
     def designation(self) -> str:
-        """Build 'Section, Branch, Wing' designation string for snapshots."""
-        parts = [
+        """Build designation string for snapshots.
+        Format: 'DesignationTitle — Section, Branch, Wing' when both parts exist.
+        """
+        office_path = ", ".join(
             p for p in [self.section_name_en, self.branch_name_en, self.wing_name_en]
             if p
-        ]
-        return ", ".join(parts)
+        )
+        if self.designation_en and office_path:
+            return f"{self.designation_en} — {office_path}"
+        return self.designation_en or office_path
 
     def mark_inactive(self) -> None:
         self.is_active = False

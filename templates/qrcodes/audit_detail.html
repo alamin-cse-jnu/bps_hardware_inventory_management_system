@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}{{ session.reference }}{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:dashboard' %}">IT Inventory</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <a href="{% url 'qrcodes:audit_list' %}">Audit Sessions</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong style="font-family:'JetBrains Mono',monospace">{{ session.reference }}</strong>
+{% endblock %}
+
+{% block topbar_actions %}
+{% if not session.is_complete %}
+<form method="post" action="{% url 'qrcodes:audit_detail' session.pk %}">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="complete">
+  <button type="submit" class="btn btn-primary btn-sm"
+          onclick="return confirm('Mark this audit session as complete? No more scans can be added.')">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+    Complete Session
+  </button>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  .scan-row td { vertical-align:middle }
+  .scan-row:hover td { background:#EBF4FA }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title" style="font-family:'JetBrains Mono',monospace">{{ session.reference }}</div>
+    <div class="text-muted text-small" style="margin-top:2px">
+      {{ session.created_at|date:"d M Y H:i" }} &nbsp;·&nbsp;
+      {{ session.performed_by.get_full_name|default:session.performed_by.username }}
+      {% if session.location %}&nbsp;·&nbsp; {{ session.location.full_path }}{% else %}&nbsp;·&nbsp; Full Inventory{% endif %}
+      {% if session.note %}&nbsp;·&nbsp; {{ session.note }}{% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Status banner -->
+{% if session.is_complete %}
+<div class="callout callout-green" style="margin-bottom:20px">
+  <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+  <div>Audit completed on {{ session.completed_at|date:"d M Y H:i" }} · {{ session.scans.count }} asset{{ session.scans.count|pluralize }} scanned</div>
+</div>
+{% else %}
+<div class="callout callout-gold" style="margin-bottom:20px">
+  <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  <div>Session in progress — {{ session.scans.count }} asset{{ session.scans.count|pluralize }} scanned so far. Use the form below or scan a QR code with a mobile device to add scans.</div>
+</div>
+{% endif %}
+
+<div style="display:grid;grid-template-columns:{% if not session.is_complete %}340px {% endif %}1fr;gap:20px;align-items:start">
+
+  <!-- Add scan form (in-progress only) -->
+  {% if not session.is_complete %}
+  <div class="card" style="position:sticky;top:20px">
+    <div class="card-body">
+      <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:14px">Add Scan</div>
+
+      {% if error %}
+      <div class="callout callout-red" style="margin-bottom:12px">
+        <svg width="13" height="13" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div style="font-size:12.5px;color:#991B1B">{{ error }}</div>
+      </div>
+      {% endif %}
+
+      <form method="post" action="{% url 'qrcodes:audit_detail' session.pk %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add_scan">
+
+        <div class="form-group">
+          <label class="form-label">Asset Tag</label>
+          <input type="text" name="asset_tag" class="form-input" placeholder="e.g. PC-2024-0001"
+                 autofocus autocomplete="off" autocapitalize="characters"
+                 style="font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.05em" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">
+            Found Location
+            <span style="font-weight:400;color:#9CA3AF">(optional)</span>
+          </label>
+          <select name="found_location_id" class="form-input">
+            <option value="">— not specified —</option>
+            {% for loc in locations %}
+            <option value="{{ loc.pk }}">{{ loc.full_path }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">
+            Note
+            <span style="font-weight:400;color:#9CA3AF">(optional)</span>
+          </label>
+          <input type="text" name="note" class="form-input" placeholder="e.g. Found in storage, not in use">
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width:100%">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Scan
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Scans table -->
+  <div>
+    <div style="font-size:14px;font-weight:700;color:#374151;margin-bottom:12px">
+      Scanned Assets
+      <span style="font-size:12px;font-weight:400;color:#9CA3AF;margin-left:6px">{{ session.scans.count }} total</span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Asset Tag</th>
+            <th>Type</th>
+            <th>Found Location</th>
+            <th>Note</th>
+            <th>Scanned At</th>
+            {% if not session.is_complete %}<th style="width:1px"></th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for scan in session.scans.all %}
+          <tr class="scan-row">
+            <td class="text-muted text-small">{{ forloop.counter }}</td>
+            <td>
+              <a href="{% url 'assets:detail' scan.asset.pk %}">
+                <span class="asset-tag">{{ scan.asset.asset_tag }}</span>
+              </a>
+              <div class="text-muted text-small">{{ scan.asset.brand }} {{ scan.asset.model_name }}</div>
+            </td>
+            <td style="font-size:13px">{{ scan.asset.asset_type.name }}</td>
+            <td style="font-size:12.5px;color:#6C757D">
+              {% if scan.found_location %}{{ scan.found_location.full_path }}{% else %}—{% endif %}
+            </td>
+            <td style="font-size:12.5px;color:#6C757D">{{ scan.note|default:"—" }}</td>
+            <td style="font-size:12px;color:#9CA3AF;white-space:nowrap">{{ scan.scanned_at|date:"H:i" }}</td>
+            {% if not session.is_complete %}
+            <td>
+              <form method="post" action="{% url 'qrcodes:audit_scan_delete' session.pk scan.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger-soft btn-sm" title="Remove scan"
+                        onclick="return confirm('Remove this scan?')">
+                  <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                </button>
+              </form>
+            </td>
+            {% endif %}
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" style="text-align:center;padding:40px;color:#9CA3AF">
+              No scans yet — use the form to add assets.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

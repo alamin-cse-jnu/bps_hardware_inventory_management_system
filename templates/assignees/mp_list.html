@@ -13,13 +13,19 @@
 {% endblock %}
 
 {% block content %}
+<style>
+  .mp-photo{width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid #E5E7EB;flex-shrink:0}
+  .mp-avatar{width:36px;height:36px;border-radius:50%;background:#E8F3F8;border:1px solid #E5E7EB;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+</style>
+
 <div class="page-header">
   <div>
     <div class="page-title">Members of Parliament</div>
-    <div class="text-muted text-small" style="margin-top:2px">API-synced and manually-added MP records</div>
+    <div class="text-muted text-small" style="margin-top:2px">API-synced and manually-added MP records · sorted by PRP ID</div>
   </div>
 </div>
 
+<!-- Search / filter bar -->
 <form method="get">
   <div class="filter-bar">
     <div class="filter-group" style="flex:1;min-width:160px">
@@ -29,7 +35,7 @@
     {% if parliament_nos %}
     <div class="filter-group">
       <div class="filter-label">Parliament</div>
-      <select name="parliament_no" class="filter-input" style="width:130px">
+      <select name="parliament_no" class="filter-input" style="width:140px">
         <option value="">All Parliaments</option>
         {% for pno in parliament_nos %}
         <option value="{{ pno }}" {% if parl_filter == pno|stringformat:"s" %}selected{% endif %}>{{ pno }}th Parliament</option>
@@ -53,6 +59,14 @@
         <option value="0" {% if active_filter == '0' %}selected{% endif %}>Inactive</option>
       </select>
     </div>
+    <div class="filter-group">
+      <div class="filter-label">Per page</div>
+      <select name="per_page" class="filter-input" style="width:90px">
+        {% for opt in per_page_options %}
+        <option value="{{ opt }}" {% if per_page == opt %}selected{% endif %}>{{ opt }}</option>
+        {% endfor %}
+      </select>
+    </div>
     <button type="submit" class="btn btn-outline btn-sm" style="align-self:flex-end">Filter</button>
     {% if q or source_filter or active_filter or parl_filter %}
     <a href="{% url 'assignees:mps' %}" class="btn btn-outline btn-sm" style="align-self:flex-end">Clear</a>
@@ -61,13 +75,16 @@
 </form>
 
 {% if page_obj.object_list %}
-<div class="table-wrap">
+<div class="table-wrap" style="margin-top:16px">
   <table>
     <thead>
       <tr>
+        <th style="width:48px">SL</th>
+        <th style="width:48px">Photo</th>
+        <th style="width:110px">PRP ID</th>
         <th>Name</th>
         <th>Constituency</th>
-        <th style="width:110px">Parliament</th>
+        <th style="width:130px">Parliament</th>
         <th style="width:90px">Source</th>
         <th style="width:80px">Status</th>
         <th style="width:90px">Actions</th>
@@ -76,14 +93,52 @@
     <tbody>
       {% for mp in page_obj %}
       <tr>
+        <!-- SL -->
+        <td style="color:#9CA3AF;font-size:12px;text-align:center">
+          {{ page_obj.start_index|add:forloop.counter0 }}
+        </td>
+
+        <!-- Photo -->
+        <td style="text-align:center;padding:8px 6px">
+          {% if mp.photo_url %}
+          <img src="{{ mp.photo_url }}" alt="" class="mp-photo"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+          <span class="mp-avatar" style="display:none">
+            <svg width="18" height="18" fill="none" stroke="#0076A7" stroke-width="1.5" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </span>
+          {% else %}
+          <span class="mp-avatar">
+            <svg width="18" height="18" fill="none" stroke="#0076A7" stroke-width="1.5" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </span>
+          {% endif %}
+        </td>
+
+        <!-- PRP ID -->
+        <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#0076A7">
+          {{ mp.prp_id|default:"—" }}
+        </td>
+
+        <!-- Name -->
         <td>
           <a href="{% url 'assignees:mp_detail' mp.pk %}" style="font-weight:600;color:#0076A7">{{ mp.name_en }}</a>
           {% if mp.name_bn %}<div class="text-muted text-small" style="margin-top:1px">{{ mp.name_bn }}</div>{% endif %}
         </td>
-        <td style="font-size:13px">{{ mp.constituency|default:"—" }}</td>
-        <td style="font-size:12.5px;color:#495057">
-          {% if mp.parliament_no %}{{ mp.parliament_no }}th{% else %}—{% endif %}
+
+        <!-- Constituency -->
+        <td style="font-size:13px;color:#374151">
+          {{ mp.constituency|default:"—" }}
         </td>
+
+        <!-- Parliament -->
+        <td style="font-size:12.5px;color:#495057">
+          {% if mp.parliament_no %}
+          <span style="background:#EFF6FF;color:#3B82F6;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px">
+            {{ mp.parliament_no }}th Parl.
+          </span>
+          {% else %}—{% endif %}
+        </td>
+
+        <!-- Source -->
         <td>
           {% if mp.source == 'PRP_API' %}
           <span style="background:#EFF6FF;color:#3B82F6;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px">API</span>
@@ -91,6 +146,8 @@
           <span style="background:#FBF5E6;color:#C8A951;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px">Manual</span>
           {% endif %}
         </td>
+
+        <!-- Status -->
         <td>
           {% if mp.is_active %}
           <span style="background:#ECFDF5;color:#10B981;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px">Active</span>
@@ -98,6 +155,8 @@
           <span style="background:#F3F4F6;color:#9CA3AF;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px">Inactive</span>
           {% endif %}
         </td>
+
+        <!-- Actions -->
         <td>
           {% if user_is_it_officer %}
           <div style="display:flex;gap:4px">
@@ -124,27 +183,29 @@
   </table>
 </div>
 
-{% if page_obj.has_other_pages %}
+<!-- Pagination footer -->
 <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;font-size:13px;color:#6C757D">
-  <div>Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} MPs</div>
-  <div style="display:flex;gap:6px">
+  <div>
+    Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} MPs
+  </div>
+  <div style="display:flex;gap:6px;align-items:center">
     {% if page_obj.has_previous %}
-    <a href="?{% if q %}q={{ q }}&{% endif %}{% if source_filter %}source={{ source_filter }}&{% endif %}{% if active_filter %}active={{ active_filter }}&{% endif %}{% if parl_filter %}parliament_no={{ parl_filter }}&{% endif %}page={{ page_obj.previous_page_number }}" class="btn btn-outline btn-sm">‹ Prev</a>
+    <a href="?{{ filter_qs }}&page={{ page_obj.previous_page_number }}" class="btn btn-outline btn-sm">‹ Prev</a>
     {% endif %}
+    <span style="font-size:12px;color:#9CA3AF">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
     {% if page_obj.has_next %}
-    <a href="?{% if q %}q={{ q }}&{% endif %}{% if source_filter %}source={{ source_filter }}&{% endif %}{% if active_filter %}active={{ active_filter }}&{% endif %}{% if parl_filter %}parliament_no={{ parl_filter }}&{% endif %}page={{ page_obj.next_page_number }}" class="btn btn-outline btn-sm">Next ›</a>
+    <a href="?{{ filter_qs }}&page={{ page_obj.next_page_number }}" class="btn btn-outline btn-sm">Next ›</a>
     {% endif %}
   </div>
 </div>
-{% endif %}
 
 {% else %}
-<div style="background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:56px 24px;text-align:center">
+<div style="background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:56px 24px;text-align:center;margin-top:16px">
   <svg width="40" height="40" fill="none" stroke="#D1D5DB" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:12px"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
   <div style="font-size:14px;font-weight:600;color:#6C757D;margin-bottom:4px">
     {% if q or source_filter or active_filter or parl_filter %}No MPs match your filters{% else %}No MPs yet{% endif %}
   </div>
-  {% if user_is_it_officer and not q and not source_filter and not active_filter %}
+  {% if user_is_it_officer and not q and not source_filter and not active_filter and not parl_filter %}
   <div class="text-muted text-small" style="margin-bottom:16px">Run a sync to pull MP records from the PRP API.</div>
   {% endif %}
 </div>

@@ -124,10 +124,14 @@
                     hx-target="#panel-container"
                     hx-swap="innerHTML">Assign</button>
           {% elif asset.status == 'ASSIGNED' %}
-            <button class="btn btn-blue btn-sm"
+            <button class="btn btn-blue btn-sm" style="margin-right:4px"
                     hx-get="{% url 'assignments:assign_panel' asset.pk %}"
                     hx-target="#panel-container"
                     hx-swap="innerHTML">Transfer</button>
+            <button class="btn btn-outline btn-sm"
+                    hx-get="{% url 'assignments:return_panel' asset.pk %}"
+                    hx-target="#panel-container"
+                    hx-swap="innerHTML">Return</button>
           {% endif %}
         </td>
       </tr>

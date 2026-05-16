@@ -31,7 +31,26 @@
       "Bash(dir \"E:\\\\projects\\\\bps_hardware_inventory_management_system\\\\.venv\\\\Scripts\\\\python.exe\")",
       "Bash(py manage.py test --verbosity=1)",
       "Bash(dir \"E:\\\\projects\\\\bps_hardware_inventory_management_system\" /b)",
-      "Bash(py *)"
+      "Bash(py *)",
+      "Bash(Get-ChildItem -Path \"D:\\\\Development\\\\projects\\\\it-inventory-final\" -Recurse -Filter \"sync_prp*\" -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(xargs cat)",
+      "Bash(python manage.py test sync_prp --verbosity=2)",
+      "Bash(python -m pytest sync_prp/tests.py -v)",
+      "Bash(DJANGO_SETTINGS_MODULE=config.settings python -m pytest sync_prp/tests.py -v)",
+      "Bash(ls -la venv/)",
+      "Bash(ls -la .venv/)",
+      "Bash(ls -la env/)",
+      "Bash(docker exec it-inventory-final-web-1 *)",
+      "Bash(docker exec *)",
+      "Bash(Get-ChildItem -Path \"D:\\\\Development\\\\projects\\\\it-inventory-final\" -Directory)",
+      "Bash(awk '{print $NF}')",
+      "Bash(python *)",
+      "PowerShell(python -c \"import environ\" 2>&1; python -c \"import django; print\\(django.__version__\\)\")",
+      "PowerShell(pip install *)",
+      "Read(//mnt/d/Development/projects/**)",
+      "Bash(docker-compose exec web python manage.py shell -c ' *)",
+      "Bash(docker-compose exec *)"
     ]
   }
 }

@@ -1,29 +1,62 @@
 <div id="assignee-field">
   <input type="hidden" name="assignee_id" value="{{ assignee.pk }}">
-  <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #006633;border-radius:6px;background:#ECFDF5">
-    <div class="assignee-initials" style="background:#006633;color:#fff">
-      {{ assignee.display_name|slice:":1"|upper }}{{ assignee.display_name|slice:"1:2"|upper }}
-    </div>
-    <div style="flex:1">
-      <div style="font-size:13.5px;font-weight:700;color:#212529">{{ assignee.display_name }}</div>
+  <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid #006633;border-radius:6px;background:#ECFDF5">
+
+    {# Photo / avatar #}
+    {% if assignee.assignee_type == 'EMPLOYEE' and assignee.employee.photo_url %}
+      <img src="{{ assignee.employee.photo_url }}" alt=""
+           style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1.5px solid #6EE7B7;flex-shrink:0"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <div class="assignee-initials" style="background:#006633;color:#fff;flex-shrink:0;display:none">
+        {{ assignee.display_name|slice:":1"|upper }}{{ assignee.display_name|slice:"1:2"|upper }}
+      </div>
+    {% elif assignee.assignee_type == 'MP' and assignee.mp.photo_url %}
+      <img src="{{ assignee.mp.photo_url }}" alt=""
+           style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1.5px solid #6EE7B7;flex-shrink:0"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <div class="assignee-initials" style="background:#006633;color:#fff;flex-shrink:0;display:none">
+        {{ assignee.display_name|slice:":1"|upper }}{{ assignee.display_name|slice:"1:2"|upper }}
+      </div>
+    {% else %}
+      <div class="assignee-initials" style="background:#006633;color:#fff;flex-shrink:0">
+        {{ assignee.display_name|slice:":1"|upper }}{{ assignee.display_name|slice:"1:2"|upper }}
+      </div>
+    {% endif %}
+
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:13.5px;font-weight:700;color:#212529">{{ assignee.display_name }}</span>
+        {# PRP ID confirmation badge #}
+        {% if assignee.assignee_type == 'EMPLOYEE' and assignee.employee.prp_id %}
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;background:#D1FAE5;color:#065F46">{{ assignee.employee.prp_id }}</span>
+        {% elif assignee.assignee_type == 'MP' and assignee.mp.prp_id %}
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;background:#D1FAE5;color:#065F46">{{ assignee.mp.prp_id }}</span>
+        {% endif %}
+      </div>
       <div style="font-size:11.5px;color:#6C757D;margin-top:1px">
         {{ assignee.get_assignee_type_display }}
-        {% if assignee.assignee_type == 'EMPLOYEE' and assignee.employee.designation %}
-          · {{ assignee.employee.designation }}
+        {% if assignee.assignee_type == 'EMPLOYEE' %}
+          {% if assignee.employee.designation_en %}
+            · {{ assignee.employee.designation_en }}
+            {% if assignee.employee.office_name_en %} · {{ assignee.employee.office_name_en }}{% endif %}
+          {% elif assignee.employee.designation %}
+            · {{ assignee.employee.designation }}
+          {% endif %}
         {% elif assignee.assignee_type == 'MP' and assignee.mp.constituency %}
           · {{ assignee.mp.constituency }}
-        {% elif assignee.assignee_type == 'OFFICE' %}
-          {# no extra designation #}
+          {% if assignee.mp.parliament_no %} · {{ assignee.mp.parliament_no }}th Parliament{% endif %}
         {% elif assignee.assignee_type == 'LOCATION' %}
           · {{ assignee.location.full_path }}
         {% endif %}
       </div>
     </div>
+
     <button type="button"
             hx-get="{% url 'assignments:clear_assignee' asset_pk %}"
             hx-target="#assignee-field"
             hx-swap="outerHTML"
-            style="background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;color:#6C757D">
+            style="background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;color:#6C757D"
+            title="Change holder">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
   </div>

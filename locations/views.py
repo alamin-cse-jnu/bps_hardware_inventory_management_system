@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
 
+from assignees.models import Assignee, AssigneeType
 from config.permissions import it_officer_required, viewer_required
 
 from .models import Location
@@ -125,6 +126,11 @@ def _save_location(request, instance):
         try:
             loc.full_clean()
             loc.save()
+            if not instance:
+                Assignee.objects.get_or_create(
+                    assignee_type=AssigneeType.LOCATION, location=loc,
+                    defaults={"is_active": True},
+                )
             verb = "updated" if instance else "created"
             messages.success(request, f'Location "{loc.name}" {verb}.')
             return redirect("locations:list")

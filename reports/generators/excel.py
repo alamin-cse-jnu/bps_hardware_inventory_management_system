@@ -331,6 +331,64 @@ def warranty_expiry_excel(days: int = 90) -> bytes:
     return _wb_bytes(wb)
 
 
+def holder_assignments_excel(holder_type: str | None = None) -> bytes:
+    """Current active assignments grouped by holder, optionally filtered by type."""
+    from assignments.models import Assignment
+    from assignees.models import AssigneeType
+
+    qs = (
+        Assignment.objects.filter(returned_at__isnull=True)
+        .select_related(
+            "asset__asset_type__category",
+            "assignee__employee", "assignee__mp", "assignee__office",
+        )
+        .order_by(
+            "assignee__assignee_type",
+            "assignee__employee__name_en",
+            "assignee__mp__name_en",
+            "assignee__office__name_en",
+            "asset__asset_tag",
+        )
+    )
+
+    if holder_type in (t.value for t in AssigneeType):
+        qs = qs.filter(assignee__assignee_type=holder_type)
+
+    subtitle = f"Holder type: {holder_type}" if holder_type else "All holder types"
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Holder Assignments"
+    hrow = _title_block(
+        ws, "Current Holder Assignments",
+        f"{subtitle}  ·  Generated: {_date_s(date.today())}",
+    )
+
+    cols = [
+        "Holder", "Holder Type", "Designation", "Department",
+        "Asset Tag", "Category", "Asset Type", "Brand", "Model", "Status", "Assigned Since",
+    ]
+    _header_row(ws, hrow, cols)
+    _col_widths(ws, [28, 10, 34, 28, 14, 14, 16, 14, 22, 12, 16])
+
+    for i, asgn in enumerate(qs):
+        snap = asgn.holder_snapshot or {}
+        _data_row(ws, hrow + 1 + i, [
+            asgn.assignee.display_name,
+            asgn.assignee.get_assignee_type_display(),
+            snap.get("designation", ""),
+            snap.get("department", ""),
+            asgn.asset.asset_tag,
+            asgn.asset.asset_type.category.name,
+            asgn.asset.asset_type.name,
+            asgn.asset.brand,
+            asgn.asset.model_name,
+            asgn.asset.get_status_display(),
+            _date_s(asgn.assigned_at.date()),
+        ], alt=(i % 2 == 1))
+
+    return _wb_bytes(wb)
+
+
 def asset_history_excel(asset_pk: int) -> bytes:
     """Full assignment history for one asset."""
     from assets.models import AssetItem

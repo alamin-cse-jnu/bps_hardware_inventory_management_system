@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+{% block title %}PRP Sync{% endblock %}
+
+{% block extra_head %}
+<style>
+  .sync-badge { display:inline-flex;align-items:center;padding:3px 10px;border-radius:99px;font-size:11.5px;font-weight:700;white-space:nowrap }
+  .sync-badge-SUCCESS { background:#ECFDF5;color:#059669 }
+  .sync-badge-PARTIAL { background:#FFFBEB;color:#D97706 }
+  .sync-badge-FAILED  { background:#FEF2F2;color:#EF4444 }
+  .sync-badge-RUNNING { background:#EFF6FF;color:#3B82F6 }
+
+  .entity-card { background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:20px;display:flex;flex-direction:column;gap:12px }
+  .entity-card-header { display:flex;align-items:center;justify-content:space-between }
+  .entity-card-title { font-size:13px;font-weight:700;color:#374151;display:flex;align-items:center;gap:8px }
+  .entity-card-count { font-size:32px;font-weight:800;color:#212529;line-height:1 }
+  .entity-card-sub { font-size:12px;color:#9CA3AF }
+  .entity-card-stats { display:flex;gap:8px;font-size:11.5px }
+  .stat-added   { color:#059669;font-weight:600 }
+  .stat-updated { color:#3B82F6;font-weight:600 }
+  .stat-flagged { color:#EF4444;font-weight:600 }
+
+  .history-row td { vertical-align:middle }
+  .history-row:hover td { background:#EBF4FA }
+  .counts-cell { font-size:11.5px;color:#6C757D;line-height:1.8 }
+  .counts-cell .lbl { display:inline-block;width:16px;font-weight:700 }
+
+  .section-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:12px }
+  .section-title { font-size:14px;font-weight:700;color:#374151 }
+</style>
+{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:dashboard' %}">IT Inventory</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>PRP Sync</strong>
+{% endblock %}
+
+{% block topbar_actions %}
+{% if user_is_it_officer or user_is_admin %}
+<form method="post" action="{% url 'sync_prp:trigger' %}">
+  {% csrf_token %}
+  <input type="hidden" name="entity" value="all">
+  <button type="submit" class="btn btn-primary btn-sm">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+    Full Sync
+  </button>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">PRP Sync Control</div>
+    <div class="text-muted text-small" style="margin-top:2px">Synchronise holder data with Parliament Resource Portal</div>
+  </div>
+</div>
+
+<!-- Last sync status banner -->
+{% if latest %}
+<div class="callout {% if latest.status == 'SUCCESS' %}callout-green{% elif latest.status == 'FAILED' %}callout-red{% else %}callout-gold{% endif %}" style="margin-bottom:24px">
+  <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+    {% if latest.status == 'SUCCESS' %}<polyline points="20 6 9 17 4 12"/>
+    {% elif latest.status == 'FAILED' %}<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+    {% else %}<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>{% endif %}
+  </svg>
+  <div>
+    <strong>Last sync:</strong> {{ latest.started_at|date:"Y-m-d H:i" }}
+    &nbsp;·&nbsp; <span class="sync-badge sync-badge-{{ latest.status }}">{{ latest.get_status_display }}</span>
+    {% if latest.duration_seconds %}&nbsp;·&nbsp; {{ latest.duration_seconds|floatformat:1 }}s{% endif %}
+    {% if latest.triggered_by %}&nbsp;·&nbsp; by {{ latest.triggered_by.get_full_name|default:latest.triggered_by.username }}{% else %}&nbsp;·&nbsp; scheduled{% endif %}
+    {% if latest.error_message %}&nbsp;·&nbsp; <a href="{% url 'sync_prp:log_detail' latest.pk %}" style="text-decoration:underline;font-size:12px">View error</a>{% endif %}
+  </div>
+</div>
+{% else %}
+<div class="callout callout-gold" style="margin-bottom:24px">
+  <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  <div>No sync has been run yet. Use the <strong>Full Sync</strong> button to pull data from PRP.</div>
+</div>
+{% endif %}
+
+<!-- Entity cards -->
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:28px">
+
+  <!-- Employees -->
+  <div class="entity-card">
+    <div class="entity-card-header">
+      <div class="entity-card-title">
+        <svg width="15" height="15" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Employees
+      </div>
+      <span class="badge" style="background:#EFF6FF;color:#3B82F6">{{ emp_active }} active</span>
+    </div>
+    <div>
+      <div class="entity-card-count">{{ emp_total }}</div>
+      <div class="entity-card-sub">Total records (PRP + Manual)</div>
+    </div>
+    {% if latest %}
+    <div class="entity-card-stats">
+      <span class="stat-added">+{{ latest.employees_added }} added</span>
+      <span class="stat-updated">~{{ latest.employees_updated }} updated</span>
+      {% if latest.employees_flagged %}<span class="stat-flagged">!{{ latest.employees_flagged }} flagged</span>{% endif %}
+    </div>
+    {% endif %}
+    {% if user_is_it_officer or user_is_admin %}
+    <form method="post" action="{% url 'sync_prp:trigger' %}">
+      {% csrf_token %}
+      <input type="hidden" name="entity" value="employees">
+      <button type="submit" class="btn btn-outline btn-sm" style="width:100%">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Sync Employees
+      </button>
+    </form>
+    {% endif %}
+  </div>
+
+  <!-- MPs -->
+  <div class="entity-card">
+    <div class="entity-card-header">
+      <div class="entity-card-title">
+        <svg width="15" height="15" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        MPs
+      </div>
+      <span class="badge" style="background:#EFF6FF;color:#3B82F6">{{ mp_active }} active</span>
+    </div>
+    <div>
+      <div class="entity-card-count">{{ mp_total }}</div>
+      <div class="entity-card-sub">Total records (PRP + Manual)</div>
+    </div>
+    {% if latest %}
+    <div class="entity-card-stats">
+      <span class="stat-added">+{{ latest.mps_added }} added</span>
+      <span class="stat-updated">~{{ latest.mps_updated }} updated</span>
+      {% if latest.mps_flagged %}<span class="stat-flagged">!{{ latest.mps_flagged }} flagged</span>{% endif %}
+    </div>
+    {% endif %}
+    {% if user_is_it_officer or user_is_admin %}
+    <form method="post" action="{% url 'sync_prp:trigger' %}">
+      {% csrf_token %}
+      <input type="hidden" name="entity" value="mps">
+      <button type="submit" class="btn btn-outline btn-sm" style="width:100%">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Sync MPs
+      </button>
+    </form>
+    {% endif %}
+  </div>
+
+  <!-- Offices -->
+  <div class="entity-card">
+    <div class="entity-card-header">
+      <div class="entity-card-title">
+        <svg width="15" height="15" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        Offices
+      </div>
+      <span class="badge" style="background:#EFF6FF;color:#3B82F6">{{ office_active }} active</span>
+    </div>
+    <div>
+      <div class="entity-card-count">{{ office_total }}</div>
+      <div class="entity-card-sub">Total records (PRP + Manual)</div>
+    </div>
+    {% if latest %}
+    <div class="entity-card-stats">
+      <span class="stat-added">+{{ latest.offices_added }} added</span>
+      <span class="stat-updated">~{{ latest.offices_updated }} updated</span>
+      {% if latest.offices_flagged %}<span class="stat-flagged">!{{ latest.offices_flagged }} flagged</span>{% endif %}
+    </div>
+    {% endif %}
+    {% if user_is_it_officer or user_is_admin %}
+    <form method="post" action="{% url 'sync_prp:trigger' %}">
+      {% csrf_token %}
+      <input type="hidden" name="entity" value="offices">
+      <button type="submit" class="btn btn-outline btn-sm" style="width:100%">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Sync Offices
+      </button>
+    </form>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Sync history -->
+<div class="section-header">
+  <div class="section-title">Sync History</div>
+  <span class="text-muted text-small">Last 50 runs</span>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Started</th>
+        <th>Status</th>
+        <th>Triggered By</th>
+        <th style="text-align:center">Employees</th>
+        <th style="text-align:center">MPs</th>
+        <th style="text-align:center">Offices</th>
+        <th style="text-align:right">Duration</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr class="history-row">
+        <td style="font-size:13px;color:#374151;white-space:nowrap">{{ log.started_at|date:"Y-m-d H:i" }}</td>
+        <td><span class="sync-badge sync-badge-{{ log.status }}">{{ log.get_status_display }}</span></td>
+        <td style="font-size:12.5px;color:#6C757D">
+          {% if log.triggered_by %}{{ log.triggered_by.get_full_name|default:log.triggered_by.username }}{% else %}<span style="color:#9CA3AF">Scheduled</span>{% endif %}
+        </td>
+        <td class="counts-cell" style="text-align:center">
+          <span class="stat-added">+{{ log.employees_added }}</span>
+          &nbsp;<span class="stat-updated">~{{ log.employees_updated }}</span>
+          {% if log.employees_flagged %}&nbsp;<span class="stat-flagged">!{{ log.employees_flagged }}</span>{% endif %}
+        </td>
+        <td class="counts-cell" style="text-align:center">
+          <span class="stat-added">+{{ log.mps_added }}</span>
+          &nbsp;<span class="stat-updated">~{{ log.mps_updated }}</span>
+          {% if log.mps_flagged %}&nbsp;<span class="stat-flagged">!{{ log.mps_flagged }}</span>{% endif %}
+        </td>
+        <td class="counts-cell" style="text-align:center">
+          <span class="stat-added">+{{ log.offices_added }}</span>
+          &nbsp;<span class="stat-updated">~{{ log.offices_updated }}</span>
+          {% if log.offices_flagged %}&nbsp;<span class="stat-flagged">!{{ log.offices_flagged }}</span>{% endif %}
+        </td>
+        <td style="text-align:right;font-size:12.5px;color:#6C757D;white-space:nowrap">
+          {% if log.duration_seconds %}{{ log.duration_seconds|floatformat:1 }}s{% else %}—{% endif %}
+        </td>
+        <td style="text-align:right">
+          {% if log.error_message or log.status != 'SUCCESS' %}
+          <a href="{% url 'sync_prp:log_detail' log.pk %}" class="btn btn-outline btn-sm" style="font-size:11px">Detail</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="8" style="text-align:center;padding:48px 20px;color:#9CA3AF">
+          <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="display:block;margin:0 auto 10px;opacity:.3"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          No sync runs recorded yet
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

@@ -1,6 +1,9 @@
+import json
+
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Case, Count, F, IntegerField, Q, Value, When
+from django.db.models.functions import Cast
 from django.shortcuts import get_object_or_404, redirect, render
 
 from config.permissions import it_officer_required, viewer_required
@@ -15,8 +18,18 @@ from .models import Assignee, AssigneeType, CachedEmployee, CachedMP, CachedOffi
 @it_officer_required
 def search(request):
     q = request.GET.get("q", "").strip()
+    holder_type = request.GET.get("holder_type", "").strip().upper()
+    asset_pk = request.GET.get("asset_pk", "")
     results = []
-    if len(q) >= 2:
+
+    valid_types = {"EMPLOYEE", "MP", "OFFICE", "LOCATION"}
+    if holder_type not in valid_types:
+        holder_type = ""
+
+    # Show results when: type selected (browse/search), or cross-type search with >=2 chars
+    should_search = (holder_type and len(q) >= 0) or (not holder_type and len(q) >= 2)
+
+    if should_search:
         qs = (
             Assignee.objects.filter(is_active=True)
             .exclude(
@@ -24,23 +37,54 @@ def search(request):
                 | Q(assignee_type="MP", mp__is_active=False)
                 | Q(assignee_type="OFFICE", office__is_active=False)
             )
-            .filter(
+        )
+
+        if holder_type:
+            qs = qs.filter(assignee_type=holder_type)
+
+        if q:
+            qs = qs.filter(
                 Q(employee__name_en__icontains=q)
+                | Q(employee__name_bn__icontains=q)
+                | Q(employee__prp_id__icontains=q)
+                | Q(employee__designation_en__icontains=q)
                 | Q(employee__section_name_en__icontains=q)
                 | Q(employee__office_name_en__icontains=q)
                 | Q(mp__name_en__icontains=q)
+                | Q(mp__name_bn__icontains=q)
+                | Q(mp__prp_id__icontains=q)
                 | Q(mp__constituency__icontains=q)
                 | Q(office__name_en__icontains=q)
                 | Q(location__name__icontains=q)
+                | Q(location__parent__name__icontains=q)
             )
-            .select_related("employee", "mp", "office", "location__parent__parent")[:12]
-        )
+            # Exact / prefix PRP-ID matches bubble to the top
+            rank = Case(
+                When(Q(employee__prp_id=q) | Q(mp__prp_id=q), then=Value(0)),
+                When(
+                    Q(employee__prp_id__startswith=q) | Q(mp__prp_id__startswith=q),
+                    then=Value(1),
+                ),
+                default=Value(2),
+                output_field=IntegerField(),
+            )
+            qs = qs.annotate(_rank=rank).order_by(
+                "_rank", "employee__name_en", "mp__name_en", "office__name_en", "location__name"
+            )
+        else:
+            qs = qs.order_by(
+                "employee__name_en", "mp__name_en", "office__name_en", "location__name"
+            )
+
+        qs = qs.select_related(
+            "employee", "mp", "office", "location__parent__parent"
+        )[:25]
         results = list(qs)
 
-    asset_pk = request.GET.get("asset_pk", "")
     return render(request, "assignees/search_results.html", {
         "results": results,
         "q": q,
+        "holder_type": holder_type,
         "asset_pk": asset_pk,
     })
 
@@ -59,13 +103,19 @@ def select_card(request, pk):
 # Employee list / detail / create / edit / deactivate
 # ─────────────────────────────────────────────────────────────────────────────
 
+_PER_PAGE_OPTIONS = (25, 50, 100, 350)
+
+
 @viewer_required
 def employee_list(request):
     qs = CachedEmployee.objects.all()
+
+    # ── Filters ───────────────────────────────────────────────────────────────
     q = request.GET.get("q", "").strip()
     if q:
         qs = qs.filter(
             Q(name_en__icontains=q) | Q(name_bn__icontains=q)
+            | Q(designation_en__icontains=q)
             | Q(section_name_en__icontains=q) | Q(branch_name_en__icontains=q)
             | Q(office_name_en__icontains=q)
         )
@@ -77,13 +127,67 @@ def employee_list(request):
         qs = qs.filter(is_active=True)
     elif active_filter == "0":
         qs = qs.filter(is_active=False)
-    paginator = Paginator(qs.order_by("name_en"), 25)
+
+    # ── Class-tab counts (computed before class filter so all tabs always show real numbers)
+    # API sends class=5 for employees with no gazetted class; MANUAL records may have null.
+    class_counts = qs.aggregate(
+        c1=Count(Case(When(employee_class=1, then=1), output_field=IntegerField())),
+        c2=Count(Case(When(employee_class=2, then=1), output_field=IntegerField())),
+        c3=Count(Case(When(employee_class=3, then=1), output_field=IntegerField())),
+        c4=Count(Case(When(employee_class=4, then=1), output_field=IntegerField())),
+        c5=Count(Case(
+            When(Q(employee_class=5) | Q(employee_class__isnull=True), then=1),
+            output_field=IntegerField(),
+        )),
+    )
+
+    # ── Class tab filter ──────────────────────────────────────────────────────
+    class_filter = request.GET.get("class", "").strip()
+    if class_filter == "5":
+        qs = qs.filter(Q(employee_class=5) | Q(employee_class__isnull=True))
+    elif class_filter in ("1", "2", "3", "4"):
+        qs = qs.filter(employee_class=int(class_filter))
+
+    # ── Per-page ──────────────────────────────────────────────────────────────
+    try:
+        per_page = int(request.GET.get("per_page", 25))
+        if per_page not in _PER_PAGE_OPTIONS:
+            per_page = 25
+    except (ValueError, TypeError):
+        per_page = 25
+
+    # ── Ordering: numeric PRP ID asc (MANUAL nulls last), then name ──────────
+    qs = (
+        qs.annotate(prp_id_num=Cast("prp_id", output_field=IntegerField()))
+        .order_by(F("prp_id_num").asc(nulls_last=True), "name_en")
+    )
+
+    paginator = Paginator(qs, per_page)
     page_obj = paginator.get_page(request.GET.get("page", 1))
+
+    # Build base query string for pagination links (all active filters except page)
+    filter_parts = []
+    if q:
+        filter_parts.append(f"q={q}")
+    if source_filter:
+        filter_parts.append(f"source={source_filter}")
+    if active_filter:
+        filter_parts.append(f"active={active_filter}")
+    if class_filter:
+        filter_parts.append(f"class={class_filter}")
+    filter_parts.append(f"per_page={per_page}")
+    filter_qs = "&".join(filter_parts)
+
     return render(request, "assignees/employee_list.html", {
         "page_obj": page_obj,
         "q": q,
         "source_filter": source_filter,
         "active_filter": active_filter,
+        "class_filter": class_filter,
+        "class_counts": class_counts,
+        "per_page": per_page,
+        "per_page_options": _PER_PAGE_OPTIONS,
+        "filter_qs": filter_qs,
     })
 
 
@@ -218,6 +322,8 @@ def employee_deactivate(request, pk):
 @viewer_required
 def mp_list(request):
     qs = CachedMP.objects.all()
+
+    # ── Filters ───────────────────────────────────────────────────────────────
     q = request.GET.get("q", "").strip()
     if q:
         qs = qs.filter(
@@ -235,13 +341,41 @@ def mp_list(request):
     parl_filter = request.GET.get("parliament_no", "").strip()
     if parl_filter.isdigit():
         qs = qs.filter(parliament_no=int(parl_filter))
-    paginator = Paginator(qs.order_by("name_en"), 25)
+
+    # ── Per-page ──────────────────────────────────────────────────────────────
+    try:
+        per_page = int(request.GET.get("per_page", 25))
+        if per_page not in _PER_PAGE_OPTIONS:
+            per_page = 25
+    except (ValueError, TypeError):
+        per_page = 25
+
+    paginator = Paginator(
+        qs.annotate(prp_id_num=Cast("prp_id", output_field=IntegerField()))
+        .order_by(F("prp_id_num").asc(nulls_last=True), "name_en"),
+        per_page,
+    )
     page_obj = paginator.get_page(request.GET.get("page", 1))
+
     parliament_nos = list(
         CachedMP.objects.values_list("parliament_no", flat=True)
         .distinct().order_by("-parliament_no")
         .exclude(parliament_no__isnull=True)
     )
+
+    # Build base query string for pagination links
+    filter_parts = []
+    if q:
+        filter_parts.append(f"q={q}")
+    if source_filter:
+        filter_parts.append(f"source={source_filter}")
+    if active_filter:
+        filter_parts.append(f"active={active_filter}")
+    if parl_filter:
+        filter_parts.append(f"parliament_no={parl_filter}")
+    filter_parts.append(f"per_page={per_page}")
+    filter_qs = "&".join(filter_parts)
+
     return render(request, "assignees/mp_list.html", {
         "page_obj": page_obj,
         "q": q,
@@ -249,6 +383,9 @@ def mp_list(request):
         "active_filter": active_filter,
         "parl_filter": parl_filter,
         "parliament_nos": parliament_nos,
+        "per_page": per_page,
+        "per_page_options": _PER_PAGE_OPTIONS,
+        "filter_qs": filter_qs,
     })
 
 
@@ -378,6 +515,33 @@ def mp_deactivate(request, pk):
 
 @viewer_required
 def office_list(request):
+    tab = request.GET.get("tab", "list")
+    if tab not in ("list", "tree"):
+        tab = "list"
+
+    # ── Hierarchy (tree) tab — pass all offices as JSON ───────────────────
+    offices_json = "[]"
+    if tab == "tree":
+        offices_data = []
+        for office in CachedOffice.objects.all():
+            try:
+                oid = int(office.prp_id) if office.prp_id else office.pk
+            except (ValueError, TypeError):
+                oid = office.pk
+            try:
+                parent_id = int(office.parent_prp_id) if office.parent_prp_id else 0
+            except (ValueError, TypeError):
+                parent_id = 0
+            offices_data.append({
+                "id": oid,
+                "parentId": parent_id,
+                "nameEn": office.name_en,
+                "nameBn": office.name_bn,
+                "isAbstractOffice": office.is_abstract,
+            })
+        offices_json = json.dumps(offices_data)
+
+    # ── Flat list tab ─────────────────────────────────────────────────────
     qs = CachedOffice.objects.all()
     q = request.GET.get("q", "").strip()
     if q:
@@ -390,13 +554,37 @@ def office_list(request):
         qs = qs.filter(is_active=True)
     elif active_filter == "0":
         qs = qs.filter(is_active=False)
-    paginator = Paginator(qs.order_by("name_en"), 25)
+
+    try:
+        per_page = int(request.GET.get("per_page", 25))
+        if per_page not in _PER_PAGE_OPTIONS:
+            per_page = 25
+    except (ValueError, TypeError):
+        per_page = 25
+
+    paginator = Paginator(qs.order_by("name_en"), per_page)
     page_obj = paginator.get_page(request.GET.get("page", 1))
+
+    filter_parts = []
+    if q:
+        filter_parts.append(f"q={q}")
+    if source_filter:
+        filter_parts.append(f"source={source_filter}")
+    if active_filter:
+        filter_parts.append(f"active={active_filter}")
+    filter_parts.append(f"per_page={per_page}")
+    filter_qs = "&".join(filter_parts)
+
     return render(request, "assignees/office_list.html", {
+        "tab": tab,
         "page_obj": page_obj,
         "q": q,
         "source_filter": source_filter,
         "active_filter": active_filter,
+        "per_page": per_page,
+        "per_page_options": _PER_PAGE_OPTIONS,
+        "filter_qs": filter_qs,
+        "offices_json": offices_json,
     })
 
 

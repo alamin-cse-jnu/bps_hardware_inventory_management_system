@@ -5,12 +5,20 @@ from django.urls import path, include
 from django.views.generic import RedirectView
 
 from django.views.defaults import permission_denied
+from config import views as config_views
 
 handler403 = "django.views.defaults.permission_denied"
 
 admin.site.site_header = "IT Inventory Admin"
 admin.site.site_title = "Parliament IT Inventory"
 admin.site.index_title = "IT Assets Management"
+
+_user_patterns = ([
+    path("", config_views.user_list, name="user_list"),
+    path("new/", config_views.user_create, name="user_create"),
+    path("<int:pk>/edit/", config_views.user_edit, name="user_edit"),
+    path("<int:pk>/toggle/", config_views.user_toggle_active, name="user_toggle_active"),
+], "config")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -24,6 +32,7 @@ urlpatterns = [
     path("lifecycle/", include("lifecycle.urls", namespace="lifecycle")),
     path("qr/", include("qrcodes.urls", namespace="qrcodes")),
     path("reports/", include("reports.urls", namespace="reports")),
+    path("users/", include(_user_patterns)),
 ]
 
 if settings.DEBUG:

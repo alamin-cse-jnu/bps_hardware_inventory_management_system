@@ -1,0 +1,106 @@
+<div class="panel-overlay">
+  <div class="panel-backdrop" onclick="document.getElementById('panel-container').innerHTML=''"></div>
+  <div class="panel-drawer">
+
+    <!-- Header -->
+    <div class="panel-header">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:#212529">Review Alert</div>
+        <div style="font-size:11.5px;color:#EF4444;font-weight:600;margin-top:1px">{{ alert.assignee.display_name }}</div>
+      </div>
+      <button type="button"
+              onclick="document.getElementById('panel-container').innerHTML=''"
+              style="width:30px;height:30px;border:1px solid #E5E7EB;border-radius:4px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center">
+        <svg width="14" height="14" fill="none" stroke="#495057" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="panel-body">
+
+      {% if error %}
+      <div class="callout callout-red" style="margin-bottom:16px">
+        <svg width="15" height="15" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div style="color:#991B1B;font-size:13px">{{ error }}</div>
+      </div>
+      {% endif %}
+
+      <!-- Alert info -->
+      <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:14px;margin-bottom:20px">
+        <div style="font-size:12px;font-weight:700;color:#EF4444;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Inactive Holder</div>
+        <div style="font-weight:700;font-size:14px;color:#1F2937;margin-bottom:2px">{{ alert.assignee.display_name }}</div>
+        <div style="font-size:12.5px;color:#6C757D">{{ alert.assignee.get_assignee_type_display }}
+          {% with src=alert.assignee.holder_source %}
+          {% if src %} · {{ src }}{% endif %}
+          {% endwith %}
+        </div>
+        <div style="font-size:12px;color:#9CA3AF;margin-top:6px">Raised {{ alert.raised_at|date:"d M Y" }}</div>
+      </div>
+
+      <!-- Active assets -->
+      <div style="margin-bottom:20px">
+        <div style="font-size:12px;font-weight:700;color:#6C757D;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">
+          Active Assignments ({{ active_assignments|length }})
+        </div>
+        {% if active_assignments %}
+        <div style="border:1px solid #E5E7EB;border-radius:6px;overflow:hidden">
+          {% for a in active_assignments %}
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;{% if not forloop.last %}border-bottom:1px solid #F3F4F6;{% endif %}background:#fff">
+            <div>
+              <span class="asset-tag" style="font-size:12px">{{ a.asset.asset_tag }}</span>
+              <div class="text-muted text-small">{{ a.asset.asset_type.name }} · {{ a.asset.brand }} {{ a.asset.model_name }}</div>
+            </div>
+            <a href="{% url 'assets:detail' a.asset.pk %}" target="_blank"
+               style="font-size:11px;color:#3B82F6;font-weight:600;white-space:nowrap">View →</a>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted text-small" style="padding:10px 0">No active assignments found. The alert may be stale.</p>
+        {% endif %}
+      </div>
+
+      <div class="callout callout-gold" style="margin-bottom:20px">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div style="font-size:12.5px;color:#78350F;line-height:1.5">
+          Resolving marks the alert as handled. Dismissing indicates no action is needed.
+          <strong>Neither action automatically returns assets.</strong>
+          Transfer or return each asset separately if needed.
+        </div>
+      </div>
+
+      <form id="alert-form"
+            hx-post="{% url 'assignments:alert_panel' alert.pk %}"
+            hx-target="#panel-container"
+            hx-swap="innerHTML">
+        {% csrf_token %}
+        <div class="form-group">
+          <label class="form-label">
+            Note
+            <span style="font-weight:400;color:#9CA3AF">(optional)</span>
+          </label>
+          <textarea name="note" rows="3" class="form-input"
+                    placeholder="e.g. Holder retired — assets transferred to IT store"></textarea>
+        </div>
+      </form>
+    </div>
+
+    <!-- Footer: two action buttons -->
+    <div class="panel-footer">
+      <button type="button"
+              onclick="document.getElementById('panel-container').innerHTML=''"
+              class="btn btn-outline" style="flex:1">Cancel</button>
+      <button type="submit" form="alert-form" name="action" value="dismiss"
+              class="btn btn-outline" style="flex:1;color:#6C757D">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+        Dismiss
+      </button>
+      <button type="submit" form="alert-form" name="action" value="resolve"
+              class="btn btn-primary" style="flex:1">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        Resolve
+      </button>
+    </div>
+
+  </div>
+</div>

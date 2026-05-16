@@ -180,9 +180,20 @@
 
     <div class="nav-label">Monitoring</div>
 
-    <a class="nav-item disabled" title="Coming in Session 6.5">
+    <a href="{% url 'assignments:alerts_list' %}" class="nav-item {% if request.resolver_match.namespace == 'assignments' and 'alert' in request.resolver_match.url_name %}active{% endif %}">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       Alerts
+      {% if open_alerts_count > 0 %}<span class="nav-badge">{{ open_alerts_count }}</span>{% endif %}
+    </a>
+
+    <a href="{% url 'qrcodes:audit_list' %}" class="nav-item {% if request.resolver_match.namespace == 'qrcodes' and 'audit' in request.resolver_match.url_name %}active{% endif %}">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Audits
+    </a>
+
+    <a href="{% url 'sync_prp:dashboard' %}" class="nav-item {% if request.resolver_match.namespace == 'sync_prp' %}active{% endif %}">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      PRP Sync
     </a>
 
     <a href="{% url 'reports:index' %}" class="nav-item {% if request.resolver_match.namespace == 'reports' %}active{% endif %}">
@@ -191,6 +202,13 @@
     </a>
 
     <div class="nav-label">Admin</div>
+
+    {% if user_is_admin %}
+    <a href="{% url 'config:user_list' %}" class="nav-item {% if request.resolver_match.namespace == 'config' and 'user' in request.resolver_match.url_name %}active{% endif %}">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Users
+    </a>
+    {% endif %}
 
     <a href="/admin/" class="nav-item">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>

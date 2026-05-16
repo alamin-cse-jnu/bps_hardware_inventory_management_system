@@ -20,8 +20,11 @@
 | `telephone` | `telephone` | Nullable |
 | `status` | `api_status` | Raw value from API |
 | `gender` | `gender` | Nullable |
-| `photo` | `photo_url` | URL or base64, store as-is |
-| `officeDetails` (Object) | flattened — see below | |
+| `photo` | `photo_url` | Full URL (e.g. `https://prp.parliament.gov.bd/api/files?_=…`), store as-is |
+| `class` (int) | `employee_class` | 1–4 = gazetted classes; 5 = no class. **Added 2026-05.** |
+| `designationEn` | `designation_en` | English designation text. **Added 2026-05.** |
+| `designationBn` | `designation_bn` | Bengali designation text. **Added 2026-05.** |
+| `officeDetails` (Object) | flattened — see below | Null/absent → employee has no office assigned; skip on first sync |
 
 ### MPInformation → CachedMP
 
@@ -59,7 +62,23 @@
 | `unitId` / `unitNameEn` / `unitNameBn` | `unit_id` / `unit_name_en` / `unit_name_bn` |
 | `officeId` / `officeNameEn` / `officeNameBn` | `office_id` / `office_name_en` / `office_name_bn` |
 
-Snapshot designation string: `"{sectionNameEn}, {branchNameEn}, {wingNameEn}"`
+Snapshot designation string: `"{designationEn} — {sectionNameEn}, {branchNameEn}, {wingNameEn}"`  
+If `designationEn` is absent, fall back to the old pattern `"{sectionNameEn}, {branchNameEn}, {wingNameEn}"`.
+
+---
+
+## Employee Sync — Office-Filter Rules
+
+Employees without an assigned office are not useful for asset tracking. Apply these rules in `_sync_employees()`:
+
+| Situation | Action |
+|---|---|
+| API record has `officeDetails` (not null/absent) | Sync normally — `update_or_create` as before |
+| API record has **no** `officeDetails` — employee **does not exist** in DB yet | Skip entirely — do not create |
+| API record has **no** `officeDetails` — employee **exists** in DB — **has asset history** | Flag `is_active=False`; keep record; raise `InactiveHolderAlert` if active assignment |
+| API record has **no** `officeDetails` — employee **exists** in DB — **no asset history** | Hard-delete from DB (`CachedEmployee.objects.filter(...).delete()` + delete matching `Assignee` row) |
+
+> **Exception to soft-delete rule:** This hard-delete only applies to `CachedEmployee` records with `source="PRP_API"` that have never held an asset. Manual records are never deleted by sync.
 
 ---
 

@@ -12,6 +12,7 @@ from django.shortcuts import get_object_or_404, render
 from config.permissions import viewer_required
 from reports.generators.excel import (
     asset_history_excel,
+    holder_assignments_excel,
     inventory_excel,
     lifecycle_events_excel,
     transfer_log_excel,
@@ -93,6 +94,13 @@ def download_warranty(request):
         days = 90
     filename = f"warranty_expiry_{date.today():%Y%m%d}.xlsx"
     return _excel_response(warranty_expiry_excel(days), filename)
+
+
+@viewer_required
+def download_holder_assignments(request):
+    holder_type = request.GET.get("holder_type") or None
+    filename = f"holder_assignments_{date.today():%Y%m%d}.xlsx"
+    return _excel_response(holder_assignments_excel(holder_type), filename)
 
 
 @viewer_required

@@ -1,10 +1,38 @@
 from django.utils import timezone
 
-from assignees.models import CachedEmployee, CachedMP, CachedOffice, Source
+from assignees.models import Assignee, AssigneeType, CachedEmployee, CachedMP, CachedOffice, Source
 from assignments.models import Assignment, InactiveHolderAlert
 
 from .client import PRPApiClient
 from .models import SyncLog
+
+
+def run_entity_sync(entity: str, triggered_by=None) -> SyncLog:
+    """
+    Sync a single entity type: 'employees', 'mps', or 'offices'.
+    Creates its own SyncLog; only the relevant counters are populated.
+    """
+    log = SyncLog.objects.create(triggered_by=triggered_by)
+    client = PRPApiClient()
+
+    entity_map = {
+        "employees": (client.get_employees, _sync_employees),
+        "mps": (client.get_mps, _sync_mps),
+        "offices": (client.get_offices, _sync_offices),
+    }
+
+    fetch_fn, sync_fn = entity_map[entity]
+    try:
+        records = fetch_fn()
+        sync_fn(records, log)
+        log.status = SyncLog.Status.SUCCESS
+    except Exception as exc:
+        log.status = SyncLog.Status.FAILED
+        log.error_message = str(exc)
+
+    log.completed_at = timezone.now()
+    log.save(update_fields=["status", "completed_at", "error_message"])
+    return log
 
 
 def run_full_sync(triggered_by=None) -> SyncLog:
@@ -50,15 +78,23 @@ def run_full_sync(triggered_by=None) -> SyncLog:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _sync_employees(api_records: list, log: SyncLog) -> None:
-    prp_ids_seen: set[str] = set()
+    # prp_ids_with_office: present in API AND have officeDetails — upsert these
+    # prp_ids_no_office: present in API but officeDetails missing/null — handle separately
+    prp_ids_with_office: set[str] = set()
+    prp_ids_no_office: set[str] = set()
 
     for rec in api_records:
         prp_id = str(rec.get("prpId") or "").strip()
         if not prp_id:
             continue
-        prp_ids_seen.add(prp_id)
 
-        od = rec.get("officeDetails") or {}
+        od = rec.get("officeDetails")
+        if not od:
+            # No office assigned — do not create; handle existing DB records below
+            prp_ids_no_office.add(prp_id)
+            continue
+
+        prp_ids_with_office.add(prp_id)
 
         defaults = {
             "name_en": rec.get("nameEn") or "",
@@ -68,6 +104,9 @@ def _sync_employees(api_records: list, log: SyncLog) -> None:
             "gender": rec.get("gender") or "",
             "photo_url": rec.get("photo") or "",
             "api_status": rec.get("status") or "",
+            "employee_class": rec.get("class"),
+            "designation_en": rec.get("designationEn") or "",
+            "designation_bn": rec.get("designationBn") or "",
             "is_active": True,
             "last_seen_active": timezone.now(),
             "wing_id": str(od.get("wingId") or ""),
@@ -87,22 +126,52 @@ def _sync_employees(api_records: list, log: SyncLog) -> None:
             "office_name_bn": od.get("officeNameBn") or "",
         }
 
-        _, created = CachedEmployee.objects.update_or_create(
+        emp, created = CachedEmployee.objects.update_or_create(
             prp_id=prp_id, source=Source.PRP_API, defaults=defaults,
         )
         if created:
             log.employees_added += 1
         else:
             log.employees_updated += 1
+        Assignee.objects.get_or_create(
+            assignee_type=AssigneeType.EMPLOYEE, employee=emp,
+            defaults={"is_active": True},
+        )
 
+    # Employees that exist in API but now have no office —
+    # keep if they have asset history, hard-delete if they do not.
+    prp_all_seen = prp_ids_with_office | prp_ids_no_office
+    for emp in CachedEmployee.objects.filter(
+        source=Source.PRP_API, prp_id__in=prp_ids_no_office,
+    ):
+        has_history = Assignment.objects.filter(assignee__employee=emp).exists()
+        if has_history:
+            if emp.is_active:
+                emp.mark_inactive()
+                log.employees_flagged += 1
+                _maybe_raise_alert(employee=emp)
+        else:
+            # Safe hard-delete: no assignments ever referenced this employee
+            Assignee.objects.filter(
+                assignee_type=AssigneeType.EMPLOYEE, employee=emp,
+            ).delete()
+            emp.delete()
+            log.employees_deleted += 1
+
+    # Employees completely absent from the API response — flag inactive as before
     for emp in CachedEmployee.objects.filter(
         source=Source.PRP_API, is_active=True,
-    ).exclude(prp_id__in=prp_ids_seen):
+    ).exclude(prp_id__in=prp_all_seen):
         emp.mark_inactive()
         log.employees_flagged += 1
+        Assignee.objects.filter(
+            assignee_type=AssigneeType.EMPLOYEE, employee=emp,
+        ).update(is_active=False)
         _maybe_raise_alert(employee=emp)
 
-    log.save(update_fields=["employees_added", "employees_updated", "employees_flagged"])
+    log.save(update_fields=[
+        "employees_added", "employees_updated", "employees_flagged", "employees_deleted",
+    ])
 
 
 def _sync_mps(api_records: list, log: SyncLog) -> None:
@@ -129,19 +198,26 @@ def _sync_mps(api_records: list, log: SyncLog) -> None:
             "last_seen_active": timezone.now(),
         }
 
-        _, created = CachedMP.objects.update_or_create(
+        mp, created = CachedMP.objects.update_or_create(
             prp_id=prp_id, source=Source.PRP_API, defaults=defaults,
         )
         if created:
             log.mps_added += 1
         else:
             log.mps_updated += 1
+        Assignee.objects.get_or_create(
+            assignee_type=AssigneeType.MP, mp=mp,
+            defaults={"is_active": True},
+        )
 
     for mp in CachedMP.objects.filter(
         source=Source.PRP_API, is_active=True,
     ).exclude(prp_id__in=prp_ids_seen):
         mp.mark_inactive()
         log.mps_flagged += 1
+        Assignee.objects.filter(
+            assignee_type=AssigneeType.MP, mp=mp,
+        ).update(is_active=False)
         _maybe_raise_alert(mp=mp)
 
     log.save(update_fields=["mps_added", "mps_updated", "mps_flagged"])
@@ -165,19 +241,26 @@ def _sync_offices(api_records: list, log: SyncLog) -> None:
             "last_seen_active": timezone.now(),
         }
 
-        _, created = CachedOffice.objects.update_or_create(
+        office, created = CachedOffice.objects.update_or_create(
             prp_id=prp_id, source=Source.PRP_API, defaults=defaults,
         )
         if created:
             log.offices_added += 1
         else:
             log.offices_updated += 1
+        Assignee.objects.get_or_create(
+            assignee_type=AssigneeType.OFFICE, office=office,
+            defaults={"is_active": True},
+        )
 
     for office in CachedOffice.objects.filter(
         source=Source.PRP_API, is_active=True,
     ).exclude(prp_id__in=prp_ids_seen):
         office.mark_inactive()
         log.offices_flagged += 1
+        Assignee.objects.filter(
+            assignee_type=AssigneeType.OFFICE, office=office,
+        ).update(is_active=False)
         _maybe_raise_alert(office=office)
 
     log.save(update_fields=["offices_added", "offices_updated", "offices_flagged"])

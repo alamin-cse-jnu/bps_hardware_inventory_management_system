@@ -12,6 +12,7 @@ urlpatterns = [
     path("excel/transfer-log/", views.download_transfer_log, name="transfer_log_excel"),
     path("excel/lifecycle/", views.download_lifecycle, name="lifecycle_excel"),
     path("excel/warranty/", views.download_warranty, name="warranty_excel"),
+    path("excel/holder-assignments/", views.download_holder_assignments, name="holder_assignments_excel"),
     path("excel/asset-history/<int:pk>/", views.download_asset_history, name="asset_history_excel"),
 
     # PDF

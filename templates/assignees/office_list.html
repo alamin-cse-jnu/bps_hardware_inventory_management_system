@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Offices{% endblock %}
 
 {% block breadcrumb %}Holders › <strong>Offices</strong>{% endblock %}
@@ -12,7 +13,19 @@
 {% endif %}
 {% endblock %}
 
+{% block extra_head %}
+{% if tab == 'tree' %}
+<script>var OFFICE_DATA = {{ offices_json|safe }};</script>
+{% endif %}
+{% endblock %}
+
 {% block content %}
+<style>
+  .filter-tab{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;font-size:13px;font-weight:600;color:#6C757D;text-decoration:none;border:1px solid transparent;transition:background 150ms,color 150ms}
+  .filter-tab:hover{background:#F3F4F6;color:#374151}
+  .filter-tab.active{background:#0076A7;color:#fff;border-color:#0076A7}
+</style>
+
 <div class="page-header">
   <div>
     <div class="page-title">Offices / Departments</div>
@@ -20,7 +33,24 @@
   </div>
 </div>
 
+<!-- Tab switcher -->
+<div style="display:flex;gap:6px;margin-bottom:16px">
+  <a href="?tab=list{% if q %}&q={{ q }}{% endif %}{% if source_filter %}&source={{ source_filter }}{% endif %}{% if active_filter %}&active={{ active_filter }}{% endif %}&per_page={{ per_page }}"
+     class="filter-tab {% if tab == 'list' %}active{% endif %}">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    All Offices
+  </a>
+  <a href="?tab=tree"
+     class="filter-tab {% if tab == 'tree' %}active{% endif %}">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h4v4H3z"/><path d="M17 3h4v4h-4z"/><path d="M17 17h4v4h-4z"/><path d="M7 5h10"/><path d="M19 7v10"/><path d="M3 17h6v4H3z"/><path d="M9 19h8"/></svg>
+    Office Hierarchy
+  </a>
+</div>
+
+{% if tab == 'list' %}
+<!-- ── Flat list tab ────────────────────────────────────────────────────── -->
 <form method="get">
+  <input type="hidden" name="tab" value="list">
   <div class="filter-bar">
     <div class="filter-group" style="flex:1;min-width:180px">
       <div class="filter-label">Search</div>
@@ -42,18 +72,27 @@
         <option value="0" {% if active_filter == '0' %}selected{% endif %}>Inactive</option>
       </select>
     </div>
+    <div class="filter-group">
+      <div class="filter-label">Per page</div>
+      <select name="per_page" class="filter-input" style="width:90px">
+        {% for opt in per_page_options %}
+        <option value="{{ opt }}" {% if per_page == opt %}selected{% endif %}>{{ opt }}</option>
+        {% endfor %}
+      </select>
+    </div>
     <button type="submit" class="btn btn-outline btn-sm" style="align-self:flex-end">Filter</button>
     {% if q or source_filter or active_filter %}
-    <a href="{% url 'assignees:offices' %}" class="btn btn-outline btn-sm" style="align-self:flex-end">Clear</a>
+    <a href="{% url 'assignees:offices' %}?tab=list" class="btn btn-outline btn-sm" style="align-self:flex-end">Clear</a>
     {% endif %}
   </div>
 </form>
 
 {% if page_obj.object_list %}
-<div class="table-wrap">
+<div class="table-wrap" style="margin-top:16px">
   <table>
     <thead>
       <tr>
+        <th style="width:48px">SL</th>
         <th>Office Name</th>
         <th style="width:90px">Source</th>
         <th style="width:80px">Status</th>
@@ -63,6 +102,9 @@
     <tbody>
       {% for office in page_obj %}
       <tr>
+        <td style="color:#9CA3AF;font-size:12px;text-align:center">
+          {{ page_obj.start_index|add:forloop.counter0 }}
+        </td>
         <td>
           <a href="{% url 'assignees:office_detail' office.pk %}" style="font-weight:600;color:#0076A7">{{ office.name_en }}</a>
           {% if office.name_bn %}<div class="text-muted text-small" style="margin-top:1px">{{ office.name_bn }}</div>{% endif %}
@@ -110,22 +152,22 @@
   </table>
 </div>
 
-{% if page_obj.has_other_pages %}
+<!-- Pagination footer -->
 <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;font-size:13px;color:#6C757D">
   <div>Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} offices</div>
-  <div style="display:flex;gap:6px">
+  <div style="display:flex;gap:6px;align-items:center">
     {% if page_obj.has_previous %}
-    <a href="?{% if q %}q={{ q }}&{% endif %}{% if source_filter %}source={{ source_filter }}&{% endif %}{% if active_filter %}active={{ active_filter }}&{% endif %}page={{ page_obj.previous_page_number }}" class="btn btn-outline btn-sm">‹ Prev</a>
+    <a href="?tab=list&{{ filter_qs }}&page={{ page_obj.previous_page_number }}" class="btn btn-outline btn-sm">‹ Prev</a>
     {% endif %}
+    <span style="font-size:12px;color:#9CA3AF">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
     {% if page_obj.has_next %}
-    <a href="?{% if q %}q={{ q }}&{% endif %}{% if source_filter %}source={{ source_filter }}&{% endif %}{% if active_filter %}active={{ active_filter }}&{% endif %}page={{ page_obj.next_page_number }}" class="btn btn-outline btn-sm">Next ›</a>
+    <a href="?tab=list&{{ filter_qs }}&page={{ page_obj.next_page_number }}" class="btn btn-outline btn-sm">Next ›</a>
     {% endif %}
   </div>
 </div>
-{% endif %}
 
 {% else %}
-<div style="background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:56px 24px;text-align:center">
+<div style="background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:56px 24px;text-align:center;margin-top:16px">
   <svg width="40" height="40" fill="none" stroke="#D1D5DB" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:12px"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
   <div style="font-size:14px;font-weight:600;color:#6C757D;margin-bottom:4px">
     {% if q or source_filter or active_filter %}No offices match your filters{% else %}No offices yet{% endif %}
@@ -134,5 +176,39 @@
   <div class="text-muted text-small" style="margin-bottom:16px">Run a sync to pull office records from the PRP API.</div>
   {% endif %}
 </div>
+{% endif %}
+
+{% else %}
+<!-- ── Hierarchy (tree) tab ──────────────────────────────────────────────── -->
+<div style="margin-bottom:12px">
+  <p class="text-muted text-small">
+    Browse the full office hierarchy. Click any node to select it; nodes with <strong>›</strong> have sub-offices.
+    Abstract group nodes are marked <span style="background:#FFF7ED;border:1px solid #FED7AA;color:#C2410C;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px">Group</span>.
+  </p>
+</div>
+
+{% if offices_json == '[]' %}
+<div style="background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:56px 24px;text-align:center">
+  <svg width="40" height="40" fill="none" stroke="#D1D5DB" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:12px"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+  <div style="font-size:14px;font-weight:600;color:#6C757D;margin-bottom:4px">No office data yet</div>
+  <div class="text-muted text-small">Run a PRP sync to populate the office hierarchy.</div>
+</div>
+{% else %}
+<div id="office-browser"></div>
+
+<script src="{% static 'js/office_browser.js' %}"></script>
+<script>
+  (function () {
+    var data = typeof OFFICE_DATA !== 'undefined' ? OFFICE_DATA : [];
+    OfficeBrowser.init('office-browser', data, {
+      onSelect: function (office) {
+        // Future integration point: populate a hidden field or trigger HTMX
+        console.log('Office selected:', office);
+      }
+    });
+  })();
+</script>
+{% endif %}
+
 {% endif %}
 {% endblock %}

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Audit Sessions{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:dashboard' %}">IT Inventory</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>Audit Sessions</strong>
+{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'qrcodes:audit_create' %}" class="btn btn-primary btn-sm">
+  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  New Audit
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Audit Sessions</div>
+    <div class="text-muted text-small" style="margin-top:2px">Physical inventory audits — scan QR codes to verify asset locations</div>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Reference</th>
+        <th>Scope</th>
+        <th>Performed By</th>
+        <th style="text-align:center">Scans</th>
+        <th>Started</th>
+        <th>Status</th>
+        <th style="width:1px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in sessions %}
+      <tr>
+        <td>
+          <a href="{% url 'qrcodes:audit_detail' s.pk %}">
+            <span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:#0076A7;font-size:13px">{{ s.reference }}</span>
+          </a>
+        </td>
+        <td style="font-size:13px">
+          {% if s.location %}{{ s.location.full_path }}{% else %}<span class="text-muted">Full Inventory</span>{% endif %}
+        </td>
+        <td style="font-size:13px">{{ s.performed_by.get_full_name|default:s.performed_by.username }}</td>
+        <td style="text-align:center">
+          <span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:50%;background:#EFF6FF;color:#3B82F6;font-size:12px;font-weight:700;padding:0 4px">{{ s.scans.count }}</span>
+        </td>
+        <td style="font-size:12.5px;color:#6C757D;white-space:nowrap">{{ s.created_at|date:"d M Y H:i" }}</td>
+        <td>
+          {% if s.is_complete %}
+            <span class="badge" style="background:#ECFDF5;color:#059669">Complete</span>
+          {% else %}
+            <span class="badge" style="background:#FFFBEB;color:#D97706">In Progress</span>
+          {% endif %}
+        </td>
+        <td>
+          <a href="{% url 'qrcodes:audit_detail' s.pk %}" class="btn btn-outline btn-sm">Open</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="7" style="text-align:center;padding:60px 20px">
+          <svg width="36" height="36" fill="none" stroke="#D1D5DB" stroke-width="1.5" viewBox="0 0 24 24" style="display:block;margin:0 auto 12px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <p style="font-size:15px;font-weight:600;color:#9CA3AF;margin-bottom:6px">No audit sessions yet</p>
+          <p class="text-muted text-small" style="margin-bottom:16px">Create your first session to start a physical inventory audit.</p>
+          <a href="{% url 'qrcodes:audit_create' %}" class="btn btn-primary btn-sm">New Audit Session</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

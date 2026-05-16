@@ -13,20 +13,59 @@
 {% endblock %}
 
 {% block content %}
+<style>
+  .filter-tab{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;font-size:13px;font-weight:600;color:#6C757D;text-decoration:none;border:1px solid transparent;transition:background 150ms,color 150ms}
+  .filter-tab:hover{background:#F3F4F6;color:#374151}
+  .filter-tab.active{background:#0076A7;color:#fff;border-color:#0076A7}
+  .filter-tab .tab-count{font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:99px;background:rgba(0,0,0,.1)}
+  .filter-tab.active .tab-count{background:rgba(255,255,255,.25)}
+  .emp-photo{width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid #E5E7EB;flex-shrink:0}
+  .emp-avatar{width:36px;height:36px;border-radius:50%;background:#E8F3F8;border:1px solid #E5E7EB;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .class-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;white-space:nowrap}
+</style>
+
 <div class="page-header">
   <div>
     <div class="page-title">Employees</div>
-    <div class="text-muted text-small" style="margin-top:2px">
-      API-synced and manually-added employee records
-    </div>
+    <div class="text-muted text-small" style="margin-top:2px">API-synced and manually-added employee records</div>
   </div>
 </div>
 
+<!-- Class tabs -->
+<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+  <a href="?{% if q %}q={{ q }}&{% endif %}{% if source_filter %}source={{ source_filter }}&{% endif %}{% if active_filter %}active={{ active_filter }}&{% endif %}per_page={{ per_page }}"
+     class="filter-tab {% if not class_filter %}active{% endif %}">
+    All <span class="tab-count">{{ page_obj.paginator.count }}</span>
+  </a>
+  <a href="?{% if q %}q={{ q }}&{% endif %}{% if source_filter %}source={{ source_filter }}&{% endif %}{% if active_filter %}active={{ active_filter }}&{% endif %}per_page={{ per_page }}&class=1"
+     class="filter-tab {% if class_filter == '1' %}active{% endif %}">
+    Class 1 <span class="tab-count">{{ class_counts.c1 }}</span>
+  </a>
+  <a href="?{% if q %}q={{ q }}&{% endif %}{% if source_filter %}source={{ source_filter }}&{% endif %}{% if active_filter %}active={{ active_filter }}&{% endif %}per_page={{ per_page }}&class=2"
+     class="filter-tab {% if class_filter == '2' %}active{% endif %}">
+    Class 2 <span class="tab-count">{{ class_counts.c2 }}</span>
+  </a>
+  <a href="?{% if q %}q={{ q }}&{% endif %}{% if source_filter %}source={{ source_filter }}&{% endif %}{% if active_filter %}active={{ active_filter }}&{% endif %}per_page={{ per_page }}&class=3"
+     class="filter-tab {% if class_filter == '3' %}active{% endif %}">
+    Class 3 <span class="tab-count">{{ class_counts.c3 }}</span>
+  </a>
+  <a href="?{% if q %}q={{ q }}&{% endif %}{% if source_filter %}source={{ source_filter }}&{% endif %}{% if active_filter %}active={{ active_filter }}&{% endif %}per_page={{ per_page }}&class=4"
+     class="filter-tab {% if class_filter == '4' %}active{% endif %}">
+    Class 4 <span class="tab-count">{{ class_counts.c4 }}</span>
+  </a>
+  <a href="?{% if q %}q={{ q }}&{% endif %}{% if source_filter %}source={{ source_filter }}&{% endif %}{% if active_filter %}active={{ active_filter }}&{% endif %}per_page={{ per_page }}&class=5"
+     class="filter-tab {% if class_filter == '5' %}active{% endif %}">
+    No Class <span class="tab-count">{{ class_counts.c5 }}</span>
+  </a>
+</div>
+
+<!-- Search / filter bar -->
 <form method="get">
+  {% if class_filter %}<input type="hidden" name="class" value="{{ class_filter }}">{% endif %}
   <div class="filter-bar">
     <div class="filter-group" style="flex:1;min-width:180px">
       <div class="filter-label">Search</div>
-      <input type="text" name="q" value="{{ q }}" class="filter-input" placeholder="Name, section, office…" style="width:100%">
+      <input type="text" name="q" value="{{ q }}" class="filter-input" placeholder="Name, designation, section…" style="width:100%">
     </div>
     <div class="filter-group">
       <div class="filter-label">Source</div>
@@ -44,20 +83,33 @@
         <option value="0" {% if active_filter == '0' %}selected{% endif %}>Inactive</option>
       </select>
     </div>
+    <div class="filter-group">
+      <div class="filter-label">Per page</div>
+      <select name="per_page" class="filter-input" style="width:90px">
+        {% for opt in per_page_options %}
+        <option value="{{ opt }}" {% if per_page == opt %}selected{% endif %}>{{ opt }}</option>
+        {% endfor %}
+      </select>
+    </div>
     <button type="submit" class="btn btn-outline btn-sm" style="align-self:flex-end">Filter</button>
     {% if q or source_filter or active_filter %}
-    <a href="{% url 'assignees:employees' %}" class="btn btn-outline btn-sm" style="align-self:flex-end">Clear</a>
+    <a href="{% url 'assignees:employees' %}{% if class_filter %}?class={{ class_filter }}{% endif %}" class="btn btn-outline btn-sm" style="align-self:flex-end">Clear</a>
     {% endif %}
   </div>
 </form>
 
 {% if page_obj.object_list %}
-<div class="table-wrap">
+<div class="table-wrap" style="margin-top:16px">
   <table>
     <thead>
       <tr>
+        <th style="width:48px">SL</th>
+        <th style="width:48px">Photo</th>
+        <th style="width:110px">PRP ID</th>
         <th>Name</th>
         <th>Designation</th>
+        <th>Office</th>
+        <th style="width:80px">Class</th>
         <th style="width:90px">Source</th>
         <th style="width:80px">Status</th>
         <th style="width:90px">Actions</th>
@@ -66,14 +118,69 @@
     <tbody>
       {% for emp in page_obj %}
       <tr>
+        <!-- SL -->
+        <td style="color:#9CA3AF;font-size:12px;text-align:center">
+          {{ page_obj.start_index|add:forloop.counter0 }}
+        </td>
+
+        <!-- Photo -->
+        <td style="text-align:center;padding:8px 6px">
+          {% if emp.photo_url %}
+          <img src="{{ emp.photo_url }}" alt="" class="emp-photo"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+          <span class="emp-avatar" style="display:none">
+            <svg width="18" height="18" fill="none" stroke="#0076A7" stroke-width="1.5" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </span>
+          {% else %}
+          <span class="emp-avatar">
+            <svg width="18" height="18" fill="none" stroke="#0076A7" stroke-width="1.5" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </span>
+          {% endif %}
+        </td>
+
+        <!-- PRP ID -->
+        <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#0076A7">
+          {{ emp.prp_id|default:"—" }}
+        </td>
+
+        <!-- Name -->
         <td>
           <a href="{% url 'assignees:employee_detail' emp.pk %}" style="font-weight:600;color:#0076A7">{{ emp.name_en }}</a>
           {% if emp.name_bn %}<div class="text-muted text-small" style="margin-top:1px">{{ emp.name_bn }}</div>{% endif %}
         </td>
-        <td style="font-size:12.5px;color:#495057">
-          {{ emp.designation|default:"—" }}
-          {% if emp.office_name_en %}<div class="text-muted text-small">{{ emp.office_name_en }}</div>{% endif %}
+
+        <!-- Designation -->
+        <td style="font-size:12.5px;color:#374151">
+          {% if emp.designation_en %}
+          {{ emp.designation_en }}
+          {% if emp.designation_bn %}<div class="text-muted text-small" style="margin-top:1px">{{ emp.designation_bn }}</div>{% endif %}
+          {% else %}—{% endif %}
         </td>
+
+        <!-- Office -->
+        <td style="font-size:12.5px;color:#495057">
+          {% if emp.office_name_en %}
+          {{ emp.office_name_en }}
+          {% if emp.office_name_bn %}<div class="text-muted text-small" style="margin-top:1px">{{ emp.office_name_bn }}</div>{% endif %}
+          {% else %}—{% endif %}
+        </td>
+
+        <!-- Class -->
+        <td style="text-align:center">
+          {% if emp.employee_class == 1 %}
+          <span class="class-badge" style="background:#EFF6FF;color:#3B82F6">Class 1</span>
+          {% elif emp.employee_class == 2 %}
+          <span class="class-badge" style="background:#F0FDF4;color:#16A34A">Class 2</span>
+          {% elif emp.employee_class == 3 %}
+          <span class="class-badge" style="background:#FFF7ED;color:#EA580C">Class 3</span>
+          {% elif emp.employee_class == 4 %}
+          <span class="class-badge" style="background:#FDF4FF;color:#A21CAF">Class 4</span>
+          {% else %}
+          <span style="color:#9CA3AF;font-size:12px">—</span>
+          {% endif %}
+        </td>
+
+        <!-- Source -->
         <td>
           {% if emp.source == 'PRP_API' %}
           <span style="background:#EFF6FF;color:#3B82F6;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px">API</span>
@@ -81,6 +188,8 @@
           <span style="background:#FBF5E6;color:#C8A951;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px">Manual</span>
           {% endif %}
         </td>
+
+        <!-- Status -->
         <td>
           {% if emp.is_active %}
           <span style="background:#ECFDF5;color:#10B981;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px">Active</span>
@@ -88,6 +197,8 @@
           <span style="background:#F3F4F6;color:#9CA3AF;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px">Inactive</span>
           {% endif %}
         </td>
+
+        <!-- Actions -->
         <td>
           {% if user_is_it_officer %}
           <div style="display:flex;gap:4px">
@@ -114,29 +225,29 @@
   </table>
 </div>
 
-{% if page_obj.has_other_pages %}
+<!-- Pagination footer -->
 <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;font-size:13px;color:#6C757D">
   <div>
     Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} employees
   </div>
-  <div style="display:flex;gap:6px">
+  <div style="display:flex;gap:6px;align-items:center">
     {% if page_obj.has_previous %}
-    <a href="?{% if q %}q={{ q }}&{% endif %}{% if source_filter %}source={{ source_filter }}&{% endif %}{% if active_filter %}active={{ active_filter }}&{% endif %}page={{ page_obj.previous_page_number }}" class="btn btn-outline btn-sm">‹ Prev</a>
+    <a href="?{{ filter_qs }}&page={{ page_obj.previous_page_number }}" class="btn btn-outline btn-sm">‹ Prev</a>
     {% endif %}
+    <span style="font-size:12px;color:#9CA3AF">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
     {% if page_obj.has_next %}
-    <a href="?{% if q %}q={{ q }}&{% endif %}{% if source_filter %}source={{ source_filter }}&{% endif %}{% if active_filter %}active={{ active_filter }}&{% endif %}page={{ page_obj.next_page_number }}" class="btn btn-outline btn-sm">Next ›</a>
+    <a href="?{{ filter_qs }}&page={{ page_obj.next_page_number }}" class="btn btn-outline btn-sm">Next ›</a>
     {% endif %}
   </div>
 </div>
-{% endif %}
 
 {% else %}
-<div style="background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:56px 24px;text-align:center">
+<div style="background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:56px 24px;text-align:center;margin-top:16px">
   <svg width="40" height="40" fill="none" stroke="#D1D5DB" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:12px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
   <div style="font-size:14px;font-weight:600;color:#6C757D;margin-bottom:4px">
-    {% if q or source_filter or active_filter %}No employees match your filters{% else %}No employees yet{% endif %}
+    {% if q or source_filter or active_filter or class_filter %}No employees match your filters{% else %}No employees yet{% endif %}
   </div>
-  {% if user_is_it_officer and not q and not source_filter and not active_filter %}
+  {% if user_is_it_officer and not q and not source_filter and not active_filter and not class_filter %}
   <div class="text-muted text-small" style="margin-bottom:16px">Run a sync to pull from the PRP API, or add a manual record.</div>
   <a href="{% url 'assignees:employee_create' %}" class="btn btn-primary btn-sm">Add Manual Employee</a>
   {% endif %}

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == 'edit' %}Edit {{ edit_user.username }}{% else %}Add User{% endif %}{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:dashboard' %}">IT Inventory</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <a href="{% url 'config:user_list' %}">Users</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>{% if mode == 'edit' %}Edit {{ edit_user.username }}{% else %}Add User{% endif %}</strong>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">{% if mode == 'edit' %}Edit User{% else %}Add User{% endif %}</div>
+</div>
+
+<div style="max-width:520px">
+  <div class="card">
+    <div class="card-body">
+
+      {% if form_error %}
+      <div class="callout callout-red" style="margin-bottom:16px">
+        <svg width="15" height="15" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div style="color:#991B1B;font-size:13px">{{ form_error }}</div>
+      </div>
+      {% endif %}
+
+      <form method="post" action="{% if mode == 'edit' %}{% url 'config:user_edit' edit_user.pk %}{% else %}{% url 'config:user_create' %}{% endif %}">
+        {% csrf_token %}
+
+        {% if mode == 'create' %}
+        <div class="form-group">
+          <label class="form-label">Username <span style="color:#EF4444">*</span></label>
+          <input type="text" name="username" value="{{ post.username|default:'' }}" class="form-input"
+                 autocomplete="off" required>
+        </div>
+        {% else %}
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input type="text" value="{{ edit_user.username }}" class="form-input" disabled
+                 style="background:#F9FAFB;color:#9CA3AF">
+        </div>
+        {% endif %}
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-group">
+            <label class="form-label">First Name</label>
+            <input type="text" name="first_name"
+                   value="{{ post.first_name|default:edit_user.first_name|default:'' }}"
+                   class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name</label>
+            <input type="text" name="last_name"
+                   value="{{ post.last_name|default:edit_user.last_name|default:'' }}"
+                   class="form-input">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" name="email"
+                 value="{{ post.email|default:edit_user.email|default:'' }}"
+                 class="form-input">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Role</label>
+          <select name="role" class="form-input">
+            <option value="">— No role (cannot log in to app) —</option>
+            {% for g in groups %}
+            <option value="{{ g }}"
+              {% if post.role == g or current_role == g %}selected{% endif %}>
+              {{ g }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="divider"></div>
+
+        <div style="font-size:12px;font-weight:600;color:#6C757D;margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">
+          {% if mode == 'edit' %}Change Password <span style="font-weight:400">(leave blank to keep current)</span>{% else %}Password <span style="color:#EF4444">*</span>{% endif %}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">{% if mode == 'edit' %}New Password{% else %}Password{% endif %}</label>
+          <input type="password" name="password" class="form-input"
+                 {% if mode == 'create' %}required{% endif %}
+                 autocomplete="new-password" minlength="8">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Confirm Password</label>
+          <input type="password" name="confirm_password" class="form-input"
+                 autocomplete="new-password">
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:8px">
+          <a href="{% url 'config:user_list' %}" class="btn btn-outline" style="flex:1">Cancel</a>
+          <button type="submit" class="btn btn-primary" style="flex:2">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            {% if mode == 'edit' %}Save Changes{% else %}Create User{% endif %}
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

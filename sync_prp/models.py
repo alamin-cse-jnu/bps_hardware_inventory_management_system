@@ -20,6 +20,7 @@ class SyncLog(models.Model):
     employees_added = models.IntegerField(default=0)
     employees_updated = models.IntegerField(default=0)
     employees_flagged = models.IntegerField(default=0)
+    employees_deleted = models.IntegerField(default=0)
     mps_added = models.IntegerField(default=0)
     mps_updated = models.IntegerField(default=0)
     mps_flagged = models.IntegerField(default=0)
@@ -53,6 +54,10 @@ class SyncLog(models.Model):
     @property
     def total_flagged(self) -> int:
         return self.employees_flagged + self.mps_flagged + self.offices_flagged
+
+    @property
+    def total_deleted(self) -> int:
+        return self.employees_deleted
 
     @property
     def duration_seconds(self) -> float | None:
