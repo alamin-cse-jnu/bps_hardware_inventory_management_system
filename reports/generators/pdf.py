@@ -65,6 +65,23 @@ def handover_pdf(assignment_pk: int) -> bytes:
     return _render_pdf("reports/pdf/handover.html", context)
 
 
+def tabular_pdf(
+    title: str,
+    subtitle: str,
+    column_labels: list[str],
+    rows: list[list],
+    generated_at,
+) -> bytes:
+    """Generic tabular report PDF — A4 landscape, Parliament letterhead."""
+    return _render_pdf("reports/pdf/tabular.html", {
+        "title": title,
+        "subtitle": subtitle,
+        "column_labels": column_labels,
+        "rows": rows,
+        "generated_at": generated_at,
+    })
+
+
 def disposal_pdf(asset_pk: int) -> bytes:
     """
     Disposal certificate for a disposed asset.

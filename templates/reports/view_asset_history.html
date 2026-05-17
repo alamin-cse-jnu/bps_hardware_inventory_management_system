@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% load report_tags %}
+
+{% block title %}Asset History — {{ asset.asset_tag }}{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:dashboard' %}">IT Inventory</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <a href="{% url 'assets:detail' asset.pk %}">{{ asset.asset_tag }}</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>History</strong>
+{% endblock %}
+
+{% block content %}
+
+<!-- Page header -->
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="page-title">Asset History</div>
+    <span style="background:#E8F3F8;color:#0076A7;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700">
+      {{ total_count }} record{{ total_count|pluralize }}
+    </span>
+  </div>
+  <div style="display:flex;gap:8px">
+    <a href="{% url 'reports:asset_history_excel' asset.pk %}?{{ request.GET.urlencode }}"
+       class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:6px">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Excel
+    </a>
+    <a href="{% url 'reports:asset_history_pdf' asset.pk %}?{{ request.GET.urlencode }}"
+       class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:6px">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      PDF
+    </a>
+  </div>
+</div>
+
+<!-- Asset header card -->
+<div class="card" style="margin-bottom:16px">
+  <div class="card-body" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:44px;height:44px;border-radius:8px;background:linear-gradient(135deg,#0076A7,#005d85);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg width="20" height="20" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+      </div>
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:#0076A7">{{ asset.asset_tag }}</div>
+        <div style="font-size:12px;color:#6C757D;margin-top:2px">{{ asset.asset_type.category.name }} · {{ asset.asset_type.name }}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:20px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:10px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em;font-weight:600">Brand / Model</div>
+        <div style="font-size:13px;color:#212529;margin-top:2px">{{ asset.brand|default:"—" }}{% if asset.model_name %} / {{ asset.model_name }}{% endif %}</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em;font-weight:600">Status</div>
+        <div style="margin-top:2px"><span class="badge badge-{{ asset.status }}">{{ asset.get_status_display }}</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Column picker -->
+<div class="card" style="margin-bottom:16px">
+  <div class="card-body">
+    <div style="font-size:11px;font-weight:700;color:#495057;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Columns</div>
+    <form id="col-form" method="get" action="">
+      <input type="hidden" name="cols" id="cols-hidden">
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+        {% for key, label in all_cols %}
+        <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:4px 10px;border:1px solid {% if key in selected_col_keys %}#0076A7{% else %}#E5E7EB{% endif %};border-radius:4px;background:{% if key in selected_col_keys %}#E8F3F8{% else %}#fff{% endif %};user-select:none">
+          <input type="checkbox" class="col-cb" value="{{ key }}"
+                 {% if key in selected_col_keys %}checked{% endif %}
+                 style="accent-color:#0076A7">
+          {{ label }}
+        </label>
+        {% endfor %}
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <a href="#" onclick="colSelectAll(true);return false;" style="font-size:12px;color:#0076A7;text-decoration:none;font-weight:500">Select All</a>
+        <span style="color:#E5E7EB">|</span>
+        <a href="#" onclick="colSelectAll(false);return false;" style="font-size:12px;color:#6C757D;text-decoration:none">Clear All</a>
+        <button type="button" onclick="applyColumns()" class="btn btn-primary btn-sm" style="margin-left:4px">Apply Columns</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Data table -->
+<div class="card" style="margin-bottom:16px">
+  <div class="table-wrap">
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr>
+          <th style="width:44px">#</th>
+          {% for key, label in selected_cols %}<th>{{ label }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td style="color:#9CA3AF;font-size:12px">{{ forloop.counter }}</td>
+          {% for key, label in selected_cols %}
+          {% with val=row|get_item:key %}
+          {% if key == "to_date" and val == "Current" %}
+          <td><span class="badge badge-ASSIGNED">Current</span></td>
+          {% else %}
+          <td>{{ val|default:"—" }}</td>
+          {% endif %}
+          {% endwith %}
+          {% endfor %}
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="{{ selected_cols|length|add:1 }}" style="text-align:center;padding:40px;color:#9CA3AF;font-size:13px">
+            No assignment history found for this asset.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function colSelectAll(checked) {
+    document.querySelectorAll('.col-cb').forEach(cb => {
+        cb.checked = checked;
+        const label = cb.closest('label');
+        label.style.borderColor = checked ? '#0076A7' : '#E5E7EB';
+        label.style.background  = checked ? '#E8F3F8' : '#fff';
+    });
+}
+function applyColumns() {
+    const keys = [...document.querySelectorAll('.col-cb:checked')].map(cb => cb.value);
+    document.getElementById('cols-hidden').value = keys.join(',');
+    document.getElementById('col-form').submit();
+}
+document.querySelectorAll('.col-cb').forEach(cb => {
+    cb.addEventListener('change', function() {
+        const label = this.closest('label');
+        label.style.borderColor = this.checked ? '#0076A7' : '#E5E7EB';
+        label.style.background  = this.checked ? '#E8F3F8' : '#fff';
+    });
+});
+</script>
+
+{% endblock %}

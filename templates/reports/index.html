@@ -11,18 +11,19 @@
 <div class="page-header">
   <div>
     <div class="page-title">Report Catalog</div>
-    <div class="text-muted text-small" style="margin-top:2px">Download Excel and PDF reports for Parliament IT assets</div>
+    <div class="text-muted text-small" style="margin-top:2px">View and download reports for Parliament IT assets</div>
   </div>
 </div>
 
-<!-- Excel Reports -->
+<!-- Excel / View Reports -->
 <div style="margin-bottom:28px">
   <div style="font-size:11px;font-weight:700;color:#0076A7;text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px;padding-bottom:6px;border-bottom:2px solid #0076A7">
-    Excel Reports
+    Reports
   </div>
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px">
 
     <!-- Current Inventory -->
+    {% url 'reports:inventory_view' as inventory_view_url %}
     <div class="card">
       <div class="card-body">
         <div style="display:flex;align-items:flex-start;gap:14px">
@@ -32,6 +33,12 @@
           <div style="flex:1">
             <div style="font-size:14px;font-weight:600;color:#212529;margin-bottom:4px">Current Inventory</div>
             <div style="font-size:12px;color:#6C757D;margin-bottom:12px">All assets with current status and holder</div>
+            {% if inventory_view_url %}
+            <a href="{{ inventory_view_url }}" class="btn btn-primary btn-sm" style="margin-bottom:10px;display:inline-flex;align-items:center;gap:6px">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              View Report
+            </a>
+            {% endif %}
             <form method="get" action="{% url 'reports:inventory_excel' %}" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
               <div>
                 <label style="display:block;font-size:11px;color:#6C757D;margin-bottom:3px">Status</label>
@@ -45,9 +52,9 @@
                   <option value="DISPOSED">Disposed</option>
                 </select>
               </div>
-              <button type="submit" class="btn btn-primary btn-sm">
+              <button type="submit" class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:6px">
                 <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Download
+                Download Excel
               </button>
             </form>
           </div>
@@ -56,6 +63,7 @@
     </div>
 
     <!-- Holder Assignments -->
+    {% url 'reports:holder_assignments_view' as holder_assignments_view_url %}
     <div class="card">
       <div class="card-body">
         <div style="display:flex;align-items:flex-start;gap:14px">
@@ -65,6 +73,12 @@
           <div style="flex:1">
             <div style="font-size:14px;font-weight:600;color:#212529;margin-bottom:4px">Holder Assignments</div>
             <div style="font-size:12px;color:#6C757D;margin-bottom:12px">All current assignments grouped by holder type</div>
+            {% if holder_assignments_view_url %}
+            <a href="{{ holder_assignments_view_url }}" class="btn btn-primary btn-sm" style="margin-bottom:10px;display:inline-flex;align-items:center;gap:6px">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              View Report
+            </a>
+            {% endif %}
             <form method="get" action="{% url 'reports:holder_assignments_excel' %}" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
               <div>
                 <label style="display:block;font-size:11px;color:#6C757D;margin-bottom:3px">Holder type</label>
@@ -75,9 +89,9 @@
                   <option value="OFFICE">Offices</option>
                 </select>
               </div>
-              <button type="submit" class="btn btn-primary btn-sm">
+              <button type="submit" class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:6px">
                 <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Download
+                Download Excel
               </button>
             </form>
           </div>
@@ -86,6 +100,7 @@
     </div>
 
     <!-- Transfer Log -->
+    {% url 'reports:transfer_log_view' as transfer_log_view_url %}
     <div class="card">
       <div class="card-body">
         <div style="display:flex;align-items:flex-start;gap:14px">
@@ -95,6 +110,12 @@
           <div style="flex:1">
             <div style="font-size:14px;font-weight:600;color:#212529;margin-bottom:4px">Transfer Log</div>
             <div style="font-size:12px;color:#6C757D;margin-bottom:12px">All assignment records — who had what and when</div>
+            {% if transfer_log_view_url %}
+            <a href="{{ transfer_log_view_url }}" class="btn btn-primary btn-sm" style="margin-bottom:10px;display:inline-flex;align-items:center;gap:6px">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              View Report
+            </a>
+            {% endif %}
             <form method="get" action="{% url 'reports:transfer_log_excel' %}" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
               <div>
                 <label style="display:block;font-size:11px;color:#6C757D;margin-bottom:3px">From</label>
@@ -104,9 +125,9 @@
                 <label style="display:block;font-size:11px;color:#6C757D;margin-bottom:3px">To</label>
                 <input type="date" name="date_to" style="height:30px;border:1px solid #E5E7EB;border-radius:4px;font-size:12px;padding:0 8px">
               </div>
-              <button type="submit" class="btn btn-primary btn-sm">
+              <button type="submit" class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:6px">
                 <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Download
+                Download Excel
               </button>
             </form>
           </div>
@@ -115,6 +136,7 @@
     </div>
 
     <!-- Lifecycle Events -->
+    {% url 'reports:lifecycle_view' as lifecycle_view_url %}
     <div class="card">
       <div class="card-body">
         <div style="display:flex;align-items:flex-start;gap:14px">
@@ -124,6 +146,12 @@
           <div style="flex:1">
             <div style="font-size:14px;font-weight:600;color:#212529;margin-bottom:4px">Lifecycle Events</div>
             <div style="font-size:12px;color:#6C757D;margin-bottom:12px">Maintenance, damage, loss, and disposal events</div>
+            {% if lifecycle_view_url %}
+            <a href="{{ lifecycle_view_url }}" class="btn btn-primary btn-sm" style="margin-bottom:10px;display:inline-flex;align-items:center;gap:6px">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              View Report
+            </a>
+            {% endif %}
             <form method="get" action="{% url 'reports:lifecycle_excel' %}" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
               <div>
                 <label style="display:block;font-size:11px;color:#6C757D;margin-bottom:3px">From</label>
@@ -143,9 +171,9 @@
                   <option value="COMPONENT_SWAP">Component Swap</option>
                 </select>
               </div>
-              <button type="submit" class="btn btn-primary btn-sm">
+              <button type="submit" class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:6px">
                 <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Download
+                Download Excel
               </button>
             </form>
           </div>
@@ -154,6 +182,7 @@
     </div>
 
     <!-- Warranty / AMC Expiry -->
+    {% url 'reports:warranty_view' as warranty_view_url %}
     <div class="card">
       <div class="card-body">
         <div style="display:flex;align-items:flex-start;gap:14px">
@@ -163,15 +192,21 @@
           <div style="flex:1">
             <div style="font-size:14px;font-weight:600;color:#212529;margin-bottom:4px">Warranty / AMC Expiry</div>
             <div style="font-size:12px;color:#6C757D;margin-bottom:12px">Assets with warranty or AMC expiring within a window</div>
+            {% if warranty_view_url %}
+            <a href="{{ warranty_view_url }}" class="btn btn-primary btn-sm" style="margin-bottom:10px;display:inline-flex;align-items:center;gap:6px">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              View Report
+            </a>
+            {% endif %}
             <form method="get" action="{% url 'reports:warranty_excel' %}" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
               <div>
                 <label style="display:block;font-size:11px;color:#6C757D;margin-bottom:3px">Within (days)</label>
                 <input type="number" name="days" value="90" min="1" max="3650"
                        style="height:30px;border:1px solid #E5E7EB;border-radius:4px;font-size:12px;padding:0 8px;width:80px">
               </div>
-              <button type="submit" class="btn btn-primary btn-sm">
+              <button type="submit" class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:6px">
                 <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Download
+                Download Excel
               </button>
             </form>
           </div>

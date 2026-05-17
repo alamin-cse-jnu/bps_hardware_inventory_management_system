@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Calibri, Arial, sans-serif;
+    font-size: 8pt;
+    color: #1a1a1a;
+    background: #fff;
+  }
+
+  @page {
+    size: A4 landscape;
+    margin: 1cm;
+    @bottom-center {
+      content: "Generated on {{ generated_at|date:'d M Y H:i' }}  ·  Bangladesh Parliament Secretariat  |  Page " counter(page) " of " counter(pages);
+      font-size: 7pt;
+      color: #aaa;
+    }
+  }
+
+  /* Letterhead */
+  .letterhead {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 3px solid #0076A7;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+  }
+  .letterhead img {
+    width: 44px;
+    height: 44px;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+  .org-name {
+    font-size: 12pt;
+    font-weight: bold;
+    color: #0076A7;
+    line-height: 1.2;
+  }
+  .org-sub {
+    font-size: 8pt;
+    color: #555;
+    margin-top: 2px;
+  }
+
+  /* Report header */
+  .report-header {
+    margin-bottom: 10px;
+  }
+  .report-title {
+    font-size: 13pt;
+    font-weight: bold;
+    color: #0076A7;
+  }
+  .report-subtitle {
+    font-size: 8.5pt;
+    color: #777;
+    font-style: italic;
+    margin-top: 2px;
+  }
+
+  /* Data table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8pt;
+  }
+  thead tr {
+    background: #0076A7;
+  }
+  thead th {
+    color: #fff;
+    padding: 5px 6px;
+    text-align: left;
+    font-weight: bold;
+    white-space: nowrap;
+    border: 1px solid #005d85;
+  }
+  tbody tr:nth-child(even) {
+    background: #E8F3F8;
+  }
+  tbody td {
+    padding: 4px 6px;
+    border-bottom: 1px solid #dde8ed;
+    border-right: 1px solid #dde8ed;
+    vertical-align: top;
+  }
+  tbody td:last-child {
+    border-right: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- Letterhead -->
+<div class="letterhead">
+  {% if logo_data_url %}<img src="{{ logo_data_url }}" alt="Parliament">{% endif %}
+  <div>
+    <div class="org-name">Bangladesh Parliament Secretariat</div>
+    <div class="org-sub">Information Technology Division · IT Inventory Management</div>
+  </div>
+</div>
+
+<!-- Report header -->
+<div class="report-header">
+  <div class="report-title">{{ title }}</div>
+  {% if subtitle %}<div class="report-subtitle">{{ subtitle }}</div>{% endif %}
+</div>
+
+<!-- Data table -->
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      {% for label in column_labels %}<th>{{ label }}</th>{% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>{{ forloop.counter }}</td>
+      {% for cell in row %}<td>{{ cell }}</td>{% endfor %}
+    </tr>
+    {% empty %}
+    <tr>
+      <td colspan="{{ column_labels|length|add:1 }}" style="text-align:center;color:#888;padding:16px">
+        No records found.
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+</body>
+</html>

@@ -58,7 +58,11 @@
   </a>
   {% endif %}
 
-  <!-- Asset history Excel -->
+  <!-- Asset history -->
+  <a href="{% url 'reports:asset_history_view' asset.pk %}" class="btn btn-outline btn-sm" title="View Asset History">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    View History
+  </a>
   <a href="{% url 'reports:asset_history_excel' asset.pk %}" class="btn btn-outline btn-sm" title="Download Asset History (Excel)">
     <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     History XLS

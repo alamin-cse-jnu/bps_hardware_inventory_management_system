@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% load report_tags %}
+
+{% block title %}Holder Assignments — Reports{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:dashboard' %}">IT Inventory</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <a href="{% url 'reports:index' %}">Reports</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>Holder Assignments</strong>
+{% endblock %}
+
+{% block content %}
+
+<!-- Page header -->
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="page-title">Holder Assignments</div>
+    <span style="background:#E8F3F8;color:#0076A7;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700">
+      {{ total_count }} record{{ total_count|pluralize }}
+    </span>
+  </div>
+  <div style="display:flex;gap:8px">
+    <a href="{% url 'reports:holder_assignments_excel' %}?{{ request.GET.urlencode }}"
+       class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:6px">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Excel
+    </a>
+    <a href="{% url 'reports:holder_assignments_pdf' %}?{{ request.GET.urlencode }}"
+       class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:6px">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      PDF
+    </a>
+  </div>
+</div>
+
+<!-- Filter panel -->
+<details {% if holder_type %}open{% endif %} style="margin-bottom:16px">
+  <summary style="list-style:none;cursor:pointer">
+    <div class="card" style="padding:10px 16px;display:flex;align-items:center;gap:10px">
+      <svg width="14" height="14" fill="none" stroke="#6C757D" stroke-width="2" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      <span style="font-size:13px;font-weight:600;color:#495057">Filters</span>
+      {% if holder_type %}
+      <span style="background:#0076A7;color:#fff;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700">Active</span>
+      {% endif %}
+    </div>
+  </summary>
+  <div class="card" style="border-top:1px solid #E5E7EB">
+    <div class="card-body">
+      <form method="get" action="">
+        <input type="hidden" name="cols" value="{{ request.GET.cols }}">
+        <input type="hidden" name="per_page" value="{{ per_page }}">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+          <div>
+            <label style="display:block;font-size:11px;color:#6C757D;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Holder Type</label>
+            <select name="holder_type" class="filter-input" style="min-width:160px">
+              <option value="">All holder types</option>
+              {% for val, label in holder_type_choices %}
+              <option value="{{ val }}" {% if holder_type == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+            {% if holder_type %}
+            <a href="{% url 'reports:holder_assignments_view' %}{% if request.GET.cols %}?cols={{ request.GET.cols }}{% endif %}" class="btn btn-outline btn-sm">Clear</a>
+            {% endif %}
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</details>
+
+<!-- Column picker -->
+<div class="card" style="margin-bottom:16px">
+  <div class="card-body">
+    <div style="font-size:11px;font-weight:700;color:#495057;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Columns</div>
+    <form id="col-form" method="get" action="">
+      <input type="hidden" name="holder_type" value="{{ holder_type }}">
+      <input type="hidden" name="per_page" value="{{ per_page }}">
+      <input type="hidden" name="cols" id="cols-hidden">
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+        {% for key, label in all_cols %}
+        <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:4px 10px;border:1px solid {% if key in selected_col_keys %}#0076A7{% else %}#E5E7EB{% endif %};border-radius:4px;background:{% if key in selected_col_keys %}#E8F3F8{% else %}#fff{% endif %};user-select:none">
+          <input type="checkbox" class="col-cb" value="{{ key }}"
+                 {% if key in selected_col_keys %}checked{% endif %}
+                 style="accent-color:#0076A7">
+          {{ label }}
+        </label>
+        {% endfor %}
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <a href="#" onclick="colSelectAll(true);return false;" style="font-size:12px;color:#0076A7;text-decoration:none;font-weight:500">Select All</a>
+        <span style="color:#E5E7EB">|</span>
+        <a href="#" onclick="colSelectAll(false);return false;" style="font-size:12px;color:#6C757D;text-decoration:none">Clear All</a>
+        <button type="button" onclick="applyColumns()" class="btn btn-primary btn-sm" style="margin-left:4px">Apply Columns</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Data table -->
+<div class="card" style="margin-bottom:16px">
+  <div class="table-wrap">
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr>
+          <th style="width:44px">#</th>
+          {% for key, label in selected_cols %}<th>{{ label }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td style="color:#9CA3AF;font-size:12px">{{ forloop.counter0|add:start_index }}</td>
+          {% for key, label in selected_cols %}
+          {% with val=row|get_item:key %}
+          {% if key == "asset_tag" %}
+          <td><a href="{{ row|get_item:'_detail_url' }}" class="asset-tag" style="text-decoration:none">{{ val }}</a></td>
+          {% elif key == "status" %}
+          <td><span class="badge badge-{{ row|get_item:'_status_raw' }}">{{ val }}</span></td>
+          {% else %}
+          <td>{{ val|default:"—" }}</td>
+          {% endif %}
+          {% endwith %}
+          {% endfor %}
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="{{ selected_cols|length|add:1 }}" style="text-align:center;padding:40px;color:#9CA3AF;font-size:13px">
+            No active assignments found.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Pagination -->
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+
+  <!-- Page controls -->
+  <div style="display:flex;align-items:center;gap:6px">
+    {% if page_obj.has_previous %}
+    <a href="?{{ base_qs }}&page={{ page_obj.previous_page_number }}" class="btn btn-outline btn-sm">← Prev</a>
+    {% else %}
+    <span class="btn btn-outline btn-sm" style="opacity:.4;cursor:default">← Prev</span>
+    {% endif %}
+
+    <span style="font-size:13px;color:#495057;padding:0 8px">
+      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    </span>
+
+    {% if page_obj.has_next %}
+    <a href="?{{ base_qs }}&page={{ page_obj.next_page_number }}" class="btn btn-outline btn-sm">Next →</a>
+    {% else %}
+    <span class="btn btn-outline btn-sm" style="opacity:.4;cursor:default">Next →</span>
+    {% endif %}
+  </div>
+
+  <!-- Per-page switcher -->
+  <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#6C757D">
+    <span>Show:</span>
+    {% if per_page == 25 %}
+    <span style="background:#0076A7;color:#fff;padding:3px 10px;border-radius:4px;font-weight:600;font-size:12px">25</span>
+    {% else %}
+    <a href="?{{ base_qs_nopag }}&per_page=25" style="padding:3px 10px;border:1px solid #E5E7EB;border-radius:4px;color:#495057;text-decoration:none;font-size:12px">25</a>
+    {% endif %}
+    {% if per_page == 50 %}
+    <span style="background:#0076A7;color:#fff;padding:3px 10px;border-radius:4px;font-weight:600;font-size:12px">50</span>
+    {% else %}
+    <a href="?{{ base_qs_nopag }}&per_page=50" style="padding:3px 10px;border:1px solid #E5E7EB;border-radius:4px;color:#495057;text-decoration:none;font-size:12px">50</a>
+    {% endif %}
+    {% if per_page == 100 %}
+    <span style="background:#0076A7;color:#fff;padding:3px 10px;border-radius:4px;font-weight:600;font-size:12px">100</span>
+    {% else %}
+    <a href="?{{ base_qs_nopag }}&per_page=100" style="padding:3px 10px;border:1px solid #E5E7EB;border-radius:4px;color:#495057;text-decoration:none;font-size:12px">100</a>
+    {% endif %}
+    <span style="color:#9CA3AF">per page</span>
+  </div>
+
+</div>
+
+<script>
+function colSelectAll(checked) {
+    document.querySelectorAll('.col-cb').forEach(cb => {
+        cb.checked = checked;
+        const label = cb.closest('label');
+        label.style.borderColor = checked ? '#0076A7' : '#E5E7EB';
+        label.style.background  = checked ? '#E8F3F8' : '#fff';
+    });
+}
+function applyColumns() {
+    const keys = [...document.querySelectorAll('.col-cb:checked')].map(cb => cb.value);
+    document.getElementById('cols-hidden').value = keys.join(',');
+    document.getElementById('col-form').submit();
+}
+document.querySelectorAll('.col-cb').forEach(cb => {
+    cb.addEventListener('change', function() {
+        const label = this.closest('label');
+        label.style.borderColor = this.checked ? '#0076A7' : '#E5E7EB';
+        label.style.background  = this.checked ? '#E8F3F8' : '#fff';
+    });
+});
+</script>
+
+{% endblock %}
