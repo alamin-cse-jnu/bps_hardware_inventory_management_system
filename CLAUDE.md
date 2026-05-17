@@ -121,7 +121,7 @@ Template flags: `user_is_admin` / `user_is_it_officer` / `user_is_viewer` from `
 
 ## Current State
 
-**Phases 1–6: ✅ All complete · 247 tests passing | Phase 7: 🔄 In progress**
+**Phases 1–7: ✅ All complete · 247 tests passing | Phase 8: 🔜 Planned**
 
 | App / Module                       | Status                      |
 |------------------------------------|-----------------------------|
@@ -144,6 +144,10 @@ Template flags: `user_is_admin` / `user_is_it_officer` / `user_is_viewer` from `
 | Employee list UI (class tabs)      | ✅ Complete (Session 7.2)   |
 | MP list UI (photo + constituency)  | ✅ Complete (Session 7.3)   |
 | Office hierarchy browser           | ✅ Complete (Session 7.4)   |
+| Report infrastructure + index      | 🔜 Session 8.1              |
+| Inventory + Holder Assignments UI  | 🔜 Session 8.2              |
+| Transfer Log + Lifecycle Events UI | 🔜 Session 8.3              |
+| Warranty/AMC + Asset History UI    | 🔜 Session 8.4              |
 
 **Dev fixtures:** 5 categories · 12 asset types · 15 locations · RBAC groups
 
@@ -288,3 +292,214 @@ The assign-panel search (`assignees:search`) queries `Assignee`, not the cached 
      - Confirm/submit button (for future use as a picker component).
    - Styling: use existing CSS variables (`--parliament-blue`, etc.); both `nameEn` and `nameBn` visible in every row.
 4. The component accepts an optional `initialValue` (office id) — pre-selects and pre-expands the correct column trail on load.
+
+---
+
+## Phase 8 — Report Tabular Views (column-selectable in-browser + dual download)
+
+**Goal:** Every report type gets an in-system tabular view page. Users choose which columns to display, then download Excel or PDF containing only those columns.
+
+### Architecture decisions (apply to all Phase 8 sessions)
+
+- **Column state in URL** — `?cols=col1,col2,...` (comma-separated keys). Makes pages bookmarkable; download links inherit the selection automatically via `{{ request.GET.urlencode }}`.
+- **Central column registry** — `reports/columns.py` defines `(key, label)` pairs per report type in canonical display order.
+- **Excel generators** — each gets an optional `columns: list[str] | None = None` param. `None` = all columns (fully backward compatible with existing download links).
+- **Tabular PDF** — a new `tabular_pdf(title, subtitle, column_labels, rows, generated_at)` function in `pdf.py`, rendered via a shared `reports/pdf/tabular.html` WeasyPrint template. Separate from the existing per-record handover/disposal PDFs, which are unchanged.
+- **Download links on view pages** — "Download Excel" and "Download PDF" buttons are `<a>` tags pointing to their respective download URLs with `?{{ request.GET.urlencode }}` appended. No JS needed to wire them up.
+- **Pagination on view pages** — `?page=` (default 1) and `?per_page=` (25 / 50 / 100; default 50).
+- **SL column** — always rendered as the first column in the table regardless of `?cols=`; never in the column picker.
+
+---
+
+### Session 8.1 — Infrastructure
+
+**Goal:** Shared building blocks all view sessions depend on. No view pages yet — just foundation code and index redesign.
+
+**Steps:**
+
+1. Create `reports/columns.py` — define column lists as `list[tuple[str, str]]` (`key`, `label`):
+
+   ```python
+   INVENTORY_COLS = [
+       ("asset_tag", "Asset Tag"), ("category", "Category"), ("type", "Type"),
+       ("brand", "Brand"), ("model", "Model"), ("serial_no", "Serial No."),
+       ("status", "Status"), ("storage_location", "Storage Location"),
+       ("current_holder", "Current Holder"), ("holder_type", "Holder Type"),
+       ("assigned_since", "Assigned Since"), ("purchase_date", "Purchase Date"),
+       ("warranty_expiry", "Warranty Expiry"), ("amc_expiry", "AMC Expiry"),
+   ]
+   TRANSFER_LOG_COLS = [
+       ("transfer_date", "Transfer Date"), ("asset_tag", "Asset Tag"),
+       ("category", "Category"), ("type", "Type"), ("brand", "Brand"),
+       ("model", "Model"), ("assigned_to", "Assigned To"),
+       ("holder_type", "Holder Type"), ("designation", "Designation"),
+       ("status", "Status"), ("performed_by", "Performed By"),
+       ("batch_ref", "Batch Ref"), ("notes", "Notes"),
+   ]
+   LIFECYCLE_COLS = [
+       ("date", "Date"), ("asset_tag", "Asset Tag"), ("category", "Category"),
+       ("type", "Type"), ("brand", "Brand"), ("model", "Model"),
+       ("event", "Event"), ("old_status", "Old Status"), ("new_status", "New Status"),
+       ("notes", "Notes"), ("performed_by", "Performed By"),
+   ]
+   WARRANTY_COLS = [
+       ("asset_tag", "Asset Tag"), ("category", "Category"), ("type", "Type"),
+       ("brand", "Brand"), ("model", "Model"), ("status", "Status"),
+       ("current_holder", "Current Holder"), ("warranty_expiry", "Warranty Expiry"),
+       ("warranty_days", "Days (WTY)"), ("amc_expiry", "AMC Expiry"),
+       ("amc_days", "Days (AMC)"),
+   ]
+   HOLDER_ASSIGNMENTS_COLS = [
+       ("holder", "Holder"), ("holder_type", "Holder Type"),
+       ("designation", "Designation"), ("department", "Department"),
+       ("asset_tag", "Asset Tag"), ("category", "Category"),
+       ("asset_type", "Asset Type"), ("brand", "Brand"), ("model", "Model"),
+       ("status", "Status"), ("assigned_since", "Assigned Since"),
+   ]
+   ASSET_HISTORY_COLS = [
+       ("assigned_to", "Assigned To"), ("holder_type", "Holder Type"),
+       ("designation", "Designation"), ("department", "Department"),
+       ("from_date", "From Date"), ("to_date", "To Date"), ("days", "Days"),
+       ("performed_by", "Performed By"), ("batch_ref", "Batch Ref"), ("notes", "Notes"),
+   ]
+   ```
+
+   Also add `parse_cols(request, col_list) -> list[str]`: reads `?cols=`, validates each key against `col_list`, returns valid keys or all keys if none given / none valid.
+
+2. Refactor all 6 Excel generators in `generators/excel.py`:
+   - Add `columns: list[str] | None = None` param to each function signature.
+   - Compute effective column set: `cols = columns if columns else [k for k, _ in COL_LIST]`.
+   - Build header row and each data row using only those keys (in that order).
+   - Map each key to its value via a local `row_dict` (key → value) per data row.
+
+3. Add `tabular_pdf(title, subtitle, column_labels, rows, generated_at) -> bytes` to `generators/pdf.py`:
+   - `column_labels`: `list[str]` — already-filtered header strings.
+   - `rows`: `list[list]` — cell values (already computed by the view).
+   - Calls `_render_pdf("reports/pdf/tabular.html", {...})`.
+
+4. Create `templates/reports/pdf/tabular.html`:
+   - Parliament letterhead: logo data URL + "Bangladesh Parliament Secretariat · IT Inventory".
+   - Report title (large) + subtitle (small, italic) + generated date.
+   - `<table>` with Parliament Blue (`#0076A7`) header row, white header text, alternating row fill (`#E8F3F8`).
+   - Page layout: A4 landscape, 1cm margins, font-size 8pt (Calibri/Arial fallback).
+   - Footer: "Generated on {date} · Bangladesh Parliament Secretariat" + page numbers via CSS `@page` counter.
+
+5. Update `templates/reports/index.html`:
+   - Each report card gets a "View Report" button (`btn btn-primary`) that links to the new view URL, placed above the filter form.
+   - Existing filter forms + "Download Excel" buttons become secondary (outline style).
+   - Update heading copy: "Download Excel and PDF reports" → "View and download reports".
+
+---
+
+### Session 8.2 — Inventory + Holder Assignments Views
+
+**URLs:**
+- `reports/view/inventory/` → `view_inventory` (name: `reports:inventory_view`)
+- `reports/view/holder-assignments/` → `view_holder_assignments` (name: `reports:holder_assignments_view`)
+- `reports/pdf/inventory/` → `download_inventory_pdf` (name: `reports:inventory_pdf`)
+- `reports/pdf/holder-assignments/` → `download_holder_assignments_pdf` (name: `reports:holder_assignments_pdf`)
+
+**Steps:**
+
+1. Add view functions to `reports/views.py`:
+
+   `view_inventory(request)`:
+   - Parse filters: `status`, `category`, `type` (same as `download_inventory`).
+   - Parse cols via `parse_cols(request, INVENTORY_COLS)`.
+   - Parse `per_page` (25/50/100, default 50) and `page`.
+   - Build queryset: same as `inventory_excel` (non-deleted assets + active assignment join).
+   - Paginate with Django `Paginator`.
+   - Compute `rows` — list of dicts keyed by column key; template iterates `selected_cols` to render each cell.
+   - Context: `selected_cols`, `all_cols` (full `INVENTORY_COLS` list), `page_obj`, `per_page`, filter values.
+
+   `view_holder_assignments(request)`:
+   - Same pattern; parse `holder_type` filter.
+
+2. Add PDF download views:
+
+   `download_inventory_pdf(request)`:
+   - Parse same filters + `?cols=`.
+   - Build full queryset (no pagination, cap at 5000 rows).
+   - Compute `rows` as list of lists matching selected column order.
+   - Call `tabular_pdf(title, subtitle, labels, rows, generated_at)` → `_pdf_response(...)`.
+
+   `download_holder_assignments_pdf(request)`: same pattern.
+
+3. Update existing `download_inventory` and `download_holder_assignments` Excel views to read `?cols=` and pass to generator.
+
+4. Add 4 URL patterns to `reports/urls.py` (2 view + 2 PDF).
+
+5. Create `templates/reports/view_inventory.html` (extend `base.html`):
+
+   **Layout (top to bottom):**
+   - Breadcrumb: `Reports → Current Inventory`
+   - Page header: title + row count badge ("1,234 assets") + action bar (Download Excel, Download PDF — both `<a>` tags with `?{{ request.GET.urlencode }}`).
+   - **Filter panel** (card, collapsible via `<details>`): Status / Category / Type selects + Apply button (GET form, preserves `cols` in a hidden input).
+   - **Column picker panel** (card): checkbox grid (wrap layout, ~4 per row). "Select All" / "Clear All" are `<a>` JS helpers that check/uncheck all boxes. "Apply Columns" submits the form (GET, preserves current filters).
+   - **Data table**: `<table class="table">` — SL + selected columns only. Pagination footer below table.
+   - **Pagination**: prev/next links + page info + per_page switcher (25/50/100) that preserves all other params.
+
+   `templates/reports/view_holder_assignments.html`: identical layout; filter = holder_type only.
+
+---
+
+### Session 8.3 — Transfer Log + Lifecycle Events Views
+
+**URLs:**
+- `reports/view/transfer-log/` → `view_transfer_log` (name: `reports:transfer_log_view`)
+- `reports/view/lifecycle/` → `view_lifecycle` (name: `reports:lifecycle_view`)
+- `reports/pdf/transfer-log/` → `download_transfer_log_pdf` (name: `reports:transfer_log_pdf`)
+- `reports/pdf/lifecycle/` → `download_lifecycle_pdf` (name: `reports:lifecycle_pdf`)
+
+**Steps:** Same pattern as Session 8.2.
+
+**Filter specifics:**
+- Transfer Log: `date_from`, `date_to` date inputs.
+- Lifecycle Events: `date_from`, `date_to` date inputs + `event_type` select.
+
+**Cap warning:** If queryset row count reaches 5000 (the generator cap), show a yellow info banner above the table: "Results capped at 5,000 rows. Narrow the date range to see more."
+
+**Template column notes:**
+- Transfer Log `status` cell: render "Active" (green badge) or "Returned DD Mon YYYY" (grey badge).
+- Lifecycle Events `old_status` / `new_status`: use `AssetItem.Status(val).label` for human-readable display.
+
+---
+
+### Session 8.4 — Warranty/AMC + Asset History Views
+
+**URLs:**
+- `reports/view/warranty/` → `view_warranty` (name: `reports:warranty_view`)
+- `reports/view/asset-history/<int:pk>/` → `view_asset_history` (name: `reports:asset_history_view`)
+- `reports/pdf/warranty/` → `download_warranty_pdf` (name: `reports:warranty_pdf`)
+- `reports/pdf/asset-history/<int:pk>/` → `download_asset_history_pdf` (name: `reports:asset_history_pdf`)
+
+**Steps:**
+
+1. `view_warranty(request)`:
+   - Parse `days` (int, 1–3650, default 90).
+   - Parse `?cols=` via `parse_cols(request, WARRANTY_COLS)`.
+   - Build queryset: same as `warranty_expiry_excel`.
+   - Compute `warranty_days` / `amc_days` as integers (or `""` if no date).
+   - Paginate (50/page default).
+   - Colour-code `warranty_days` / `amc_days` cells in template: ≤ 0 → red; ≤ 30 → orange; else default.
+
+2. `view_asset_history(request, pk)`:
+   - `get_object_or_404(AssetItem, pk=pk, is_deleted=False)`.
+   - Parse `?cols=` via `parse_cols(request, ASSET_HISTORY_COLS)`.
+   - No pagination (single-asset history, rarely > 100 rows).
+   - Render asset header card (tag, type, brand/model, current status) above the table.
+   - Column picker + dual download still apply.
+
+3. PDF download views: `download_warranty_pdf`, `download_asset_history_pdf` — same pattern as 8.2.
+
+4. Update existing `download_asset_history` Excel view to accept `?cols=`.
+
+5. Add URL patterns.
+
+6. Create templates:
+   - `templates/reports/view_warranty.html` — filter: `days` input; no cap warning (warranty queries are naturally small).
+   - `templates/reports/view_asset_history.html` — asset header card above column picker; breadcrumb: `Assets → [Tag] → History`.
+
+7. **Link from asset detail page**: add "View History" button (alongside existing "Download Excel History") that links to `{% url 'reports:asset_history_view' asset.pk %}`.
+
+8. Update `templates/reports/index.html` to add "View Report" link for Warranty/AMC card pointing to `reports:warranty_view`.
