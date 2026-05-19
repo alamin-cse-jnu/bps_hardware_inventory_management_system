@@ -7,6 +7,22 @@
 {% endblock %}
 
 {% block topbar_actions %}
+  {% if holder_type == 'employee' %}
+    <a href="{% url 'assignees:employee_history_print' holder.pk %}" class="btn btn-outline btn-sm" target="_blank">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Print History
+    </a>
+  {% elif holder_type == 'mp' %}
+    <a href="{% url 'assignees:mp_history_print' holder.pk %}" class="btn btn-outline btn-sm" target="_blank">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Print History
+    </a>
+  {% elif holder_type == 'office' %}
+    <a href="{% url 'assignees:office_history_print' holder.pk %}" class="btn btn-outline btn-sm" target="_blank">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Print History
+    </a>
+  {% endif %}
 {% if user_is_it_officer %}
   {% if holder.source == 'MANUAL' %}
   <a href="{% url edit_url holder.pk %}" class="btn btn-outline btn-sm">
@@ -337,16 +353,131 @@
 
 
 {# ════════════════════════════════════════════════════════════ #}
+{# Currently held assets                                        #}
+{# ════════════════════════════════════════════════════════════ #}
+
+{% if user_is_it_officer and active_assignments %}
+{# Hidden form — checkboxes reference it via form="bulk-action-form" #}
+<form id="bulk-action-form" method="post">
+  {% csrf_token %}
+  <input type="hidden" name="from_url" value="{{ request.path }}">
+</form>
+{% endif %}
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+  <div style="display:flex;align-items:center;gap:8px">
+    <div class="section-heading" style="margin:0">Currently Held Assets</div>
+    {% if active_assignments %}
+    <span style="background:#E8F3F8;color:#0076A7;font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px">{{ active_assignments|length }}</span>
+    {% endif %}
+  </div>
+
+  {% if user_is_it_officer and active_assignments %}
+  <div id="bulk-action-bar"
+       style="display:none;align-items:center;gap:8px;padding:7px 12px;border:1.5px solid #BFDBFE;border-radius:8px;background:#EFF6FF">
+    <span id="bulk-count-text" style="font-size:12.5px;font-weight:600;color:#1D4ED8;white-space:nowrap"></span>
+    <button type="button" onclick="bulkSelectAll()" style="font-size:11.5px;color:#6C757D;background:none;border:none;cursor:pointer;padding:2px 6px;font-family:inherit">All</button>
+    <span style="color:#D1D5DB;font-size:13px">|</span>
+    <button type="button" onclick="bulkClearAll()" style="font-size:11.5px;color:#6C757D;background:none;border:none;cursor:pointer;padding:2px 6px;font-family:inherit">None</button>
+    <div style="width:1px;height:20px;background:#BFDBFE;margin:0 2px"></div>
+    <button type="submit" form="bulk-action-form" formaction="{% url 'assignments:bulk_return' %}"
+            style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border:1.5px solid #EF4444;border-radius:6px;background:#fff;color:#EF4444;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.26"/></svg>
+      Return to Stock
+    </button>
+    <button type="submit" form="bulk-action-form" formaction="{% url 'assignments:bulk_transfer' %}"
+            class="btn btn-primary btn-sm">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      Transfer
+    </button>
+  </div>
+  {% endif %}
+</div>
+
+{% if active_assignments %}
+<div class="table-wrap" style="margin-bottom:28px">
+  <table>
+    <thead>
+      <tr>
+        {% if user_is_it_officer %}
+        <th style="width:38px;text-align:center">
+          <input type="checkbox" id="select-all-cb"
+                 title="Select all"
+                 style="width:15px;height:15px;cursor:pointer;accent-color:#0076A7"
+                 onchange="bulkToggleAll(this.checked)">
+        </th>
+        {% endif %}
+        <th style="width:140px">Asset Tag</th>
+        <th>Type / Model</th>
+        <th style="width:120px">Assigned</th>
+        <th style="width:110px">Held For</th>
+        {% if user_is_it_officer %}<th style="width:100px"></th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for asgn in active_assignments %}
+      <tr>
+        {% if user_is_it_officer %}
+        <td style="text-align:center">
+          <input type="checkbox" name="asset_pks" value="{{ asgn.asset.pk }}"
+                 form="bulk-action-form" class="bulk-cb"
+                 style="width:15px;height:15px;cursor:pointer;accent-color:#0076A7"
+                 onchange="bulkUpdateBar()">
+        </td>
+        {% endif %}
+        <td>
+          <a href="{% url 'assets:detail' asgn.asset.pk %}" class="asset-tag">{{ asgn.asset.asset_tag }}</a>
+        </td>
+        <td>
+          <div style="font-size:13px;color:#374151;font-weight:500">{{ asgn.asset.asset_type.name|title }}</div>
+          {% if asgn.asset.brand or asgn.asset.model %}
+          <div class="text-muted text-small">{{ asgn.asset.brand|title }} {{ asgn.asset.model }}</div>
+          {% endif %}
+        </td>
+        <td style="font-size:12.5px;color:#374151">{{ asgn.assigned_at|date:"N j, Y" }}</td>
+        <td style="font-size:12px;color:#16A34A;font-weight:600">{{ asgn.assigned_at|timesince }}</td>
+        {% if user_is_it_officer %}
+        <td>
+          <div style="display:flex;gap:5px">
+            <button type="button"
+                    hx-get="{% url 'assignments:return_panel' asgn.asset.pk %}"
+                    hx-target="#panel-container" hx-swap="innerHTML"
+                    style="padding:3px 9px;border:1px solid #E5E7EB;border-radius:5px;background:#fff;font-size:11.5px;color:#6C757D;cursor:pointer;font-family:inherit">
+              Return
+            </button>
+            <button type="button"
+                    hx-get="{% url 'assignments:assign_panel' asgn.asset.pk %}"
+                    hx-target="#panel-container" hx-swap="innerHTML"
+                    style="padding:3px 9px;border:1px solid #E5E7EB;border-radius:5px;background:#fff;font-size:11.5px;color:#0076A7;cursor:pointer;font-family:inherit;font-weight:600">
+              Transfer
+            </button>
+          </div>
+        </td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="history-empty" style="margin-bottom:28px">
+  <svg width="32" height="32" fill="none" stroke="#D1D5DB" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 10px;display:block"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+  <div style="font-size:13px;font-weight:600;color:#9CA3AF">No assets currently held.</div>
+</div>
+{% endif %}
+
+
+{# ════════════════════════════════════════════════════════════ #}
 {# Assignment history                                           #}
 {# ════════════════════════════════════════════════════════════ #}
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
   <div class="section-heading" style="margin:0">Assignment History</div>
-  {% if assignments %}
+  {% if history %}
   <span style="font-size:12px;color:#9CA3AF">Last 50 records</span>
   {% endif %}
 </div>
 
-{% if assignments %}
+{% if history %}
 <div class="table-wrap">
   <table>
     <thead>
@@ -360,15 +491,10 @@
       </tr>
     </thead>
     <tbody>
-      {% for asgn in assignments %}
+      {% for asgn in history %}
       <tr>
         <td>
           <a href="{% url 'assets:detail' asgn.asset.pk %}" class="asset-tag">{{ asgn.asset.asset_tag }}</a>
-          {% if asgn.returned_at is None %}
-          <div style="margin-top:3px">
-            <span style="background:#DCFCE7;color:#16A34A;font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px">Current</span>
-          </div>
-          {% endif %}
         </td>
         <td>
           <div style="font-size:13px;color:#374151;font-weight:500">{{ asgn.asset.asset_type.name|title }}</div>
@@ -377,21 +503,9 @@
           {% endif %}
         </td>
         <td style="font-size:12.5px;color:#374151">{{ asgn.assigned_at|date:"N j, Y" }}</td>
-        <td style="font-size:12.5px;color:#374151">
-          {% if asgn.returned_at %}
-            {{ asgn.returned_at|date:"N j, Y" }}
-          {% else %}
-            <span style="color:#9CA3AF">—</span>
-          {% endif %}
-        </td>
+        <td style="font-size:12.5px;color:#374151">{{ asgn.returned_at|date:"N j, Y" }}</td>
         <td style="font-size:12px;color:#6C757D">
-          {% if asgn.returned_at %}
-            {% with days=asgn.assigned_at|timesince:asgn.returned_at %}
-              {{ days }}
-            {% endwith %}
-          {% elif asgn.returned_at is None %}
-            <span style="color:#16A34A;font-weight:600">Ongoing</span>
-          {% endif %}
+          {% with dur=asgn.assigned_at|timesince:asgn.returned_at %}{{ dur }}{% endwith %}
         </td>
         <td style="font-size:12px;color:#6C757D">
           {{ asgn.performed_by.get_full_name|default:asgn.performed_by.username|default:"—" }}
@@ -403,9 +517,39 @@
 </div>
 {% else %}
 <div class="history-empty">
-  <svg width="36" height="36" fill="none" stroke="#D1D5DB" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 10px;display:block"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-  <div style="font-size:13px;font-weight:600;color:#9CA3AF">No assets have been assigned to this {{ holder_type_display|lower }}.</div>
+  <svg width="32" height="32" fill="none" stroke="#D1D5DB" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 10px;display:block"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+  <div style="font-size:13px;font-weight:600;color:#9CA3AF">No past assignments recorded.</div>
 </div>
+{% endif %}
+
+{% if user_is_it_officer and active_assignments %}
+<script>
+function bulkUpdateBar() {
+  var checked = document.querySelectorAll('.bulk-cb:checked');
+  var bar = document.getElementById('bulk-action-bar');
+  if (!bar) return;
+  if (checked.length > 0) {
+    bar.style.display = 'flex';
+    var n = checked.length;
+    document.getElementById('bulk-count-text').textContent =
+      n + ' asset' + (n !== 1 ? 's' : '') + ' selected';
+  } else {
+    bar.style.display = 'none';
+  }
+  var all = document.querySelectorAll('.bulk-cb');
+  var sa = document.getElementById('select-all-cb');
+  if (sa) {
+    sa.checked = all.length > 0 && checked.length === all.length;
+    sa.indeterminate = checked.length > 0 && checked.length < all.length;
+  }
+}
+function bulkToggleAll(v) {
+  document.querySelectorAll('.bulk-cb').forEach(function(c) { c.checked = v; });
+  bulkUpdateBar();
+}
+function bulkSelectAll() { bulkToggleAll(true); }
+function bulkClearAll()  { bulkToggleAll(false); }
+</script>
 {% endif %}
 
 {% endblock %}

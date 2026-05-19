@@ -39,11 +39,13 @@ def user_create(request):
         return render(request, "users/user_form.html", {
             "form_error": error,
             "post": request.POST,
+            "edit_user": User(),
             "groups": _ALL_GROUPS,
             "mode": "create",
         })
 
     return render(request, "users/user_form.html", {
+        "edit_user": User(),
         "groups": _ALL_GROUPS,
         "mode": "create",
     })

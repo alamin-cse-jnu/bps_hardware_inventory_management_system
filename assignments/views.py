@@ -1,14 +1,22 @@
+from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
 
 from assets.models import AssetItem
 from assignees.models import Assignee
 from config.permissions import it_officer_required, viewer_required
 
-from .models import AlertStatus, Assignment, InactiveHolderAlert
+from .models import AlertStatus, Assignment, InactiveHolderAlert, TransferBatch
 from .services import perform_transfer, return_to_stock
+
+
+class _BulkAsset:
+    """Fake asset stub passed to assignee_field.html when no single asset exists."""
+    pk = "bulk"
+
+_BULK_ASSET = _BulkAsset()
 
 
 @it_officer_required
@@ -81,6 +89,126 @@ def return_panel(request, asset_pk):
             })
 
     return render(request, "assignments/return_confirm.html", {"asset": asset})
+
+
+# ── Bulk return / transfer ────────────────────────────────────────────────────
+
+@it_officer_required
+@require_http_methods(["POST"])
+def bulk_return(request):
+    from_url = request.POST.get("from_url", "/")
+    pks_raw = request.POST.getlist("asset_pks")
+
+    if not pks_raw:
+        messages.warning(request, "No assets selected.")
+        return redirect(from_url)
+
+    assets = list(
+        AssetItem.objects.filter(
+            pk__in=pks_raw,
+            is_deleted=False,
+            status=AssetItem.Status.ASSIGNED,
+        ).select_related("asset_type")
+    )
+
+    if not assets:
+        messages.warning(request, "None of the selected assets are currently assigned.")
+        return redirect(from_url)
+
+    if not request.POST.get("confirmed"):
+        return render(request, "assignments/bulk_return.html", {
+            "assets": assets,
+            "pks": [str(a.pk) for a in assets],
+            "from_url": from_url,
+        })
+
+    notes = request.POST.get("notes", "").strip()
+    errors, count = [], 0
+    for asset in assets:
+        try:
+            return_to_stock(asset, request.user, notes=notes)
+            count += 1
+        except ValidationError as exc:
+            errors.append(f"{asset.asset_tag}: {' '.join(exc.messages)}")
+
+    if errors:
+        messages.warning(request, f"Returned {count} asset(s). Skipped: {'; '.join(errors)}")
+    else:
+        messages.success(request, f"{count} asset(s) returned to stock.")
+    return redirect(from_url)
+
+
+@it_officer_required
+@require_http_methods(["POST"])
+def bulk_transfer(request):
+    from_url = request.POST.get("from_url", "/")
+    pks_raw = request.POST.getlist("asset_pks")
+
+    if not pks_raw:
+        messages.warning(request, "No assets selected.")
+        return redirect(from_url)
+
+    assets = list(
+        AssetItem.objects.filter(
+            pk__in=pks_raw,
+            is_deleted=False,
+            status=AssetItem.Status.ASSIGNED,
+        ).select_related("asset_type")
+    )
+
+    if not assets:
+        messages.warning(request, "None of the selected assets are available for transfer.")
+        return redirect(from_url)
+
+    assignee_id = request.POST.get("assignee_id", "").strip()
+
+    if not assignee_id:
+        return render(request, "assignments/bulk_transfer.html", {
+            "assets": assets,
+            "pks": [str(a.pk) for a in assets],
+            "from_url": from_url,
+            "asset": _BULK_ASSET,
+        })
+
+    notes = request.POST.get("notes", "").strip()
+    try:
+        assignee = Assignee.objects.get(pk=assignee_id, is_active=True)
+    except Assignee.DoesNotExist:
+        return render(request, "assignments/bulk_transfer.html", {
+            "assets": assets,
+            "pks": [str(a.pk) for a in assets],
+            "from_url": from_url,
+            "asset": _BULK_ASSET,
+            "error": "Selected assignee not found or is no longer active.",
+        })
+
+    batch = TransferBatch.objects.create(
+        reference=TransferBatch.generate_reference(),
+        performed_by=request.user,
+        note=notes,
+    )
+    errors, count = [], 0
+    for asset in assets:
+        try:
+            perform_transfer(asset, assignee, request.user, batch=batch, notes=notes)
+            count += 1
+        except ValidationError as exc:
+            errors.append(f"{asset.asset_tag}: {' '.join(exc.messages)}")
+
+    if errors:
+        messages.warning(
+            request,
+            f"Transferred {count} asset(s) to {assignee.display_name}. "
+            f"Skipped: {'; '.join(errors)}",
+        )
+    else:
+        messages.success(request, f"{count} asset(s) transferred to {assignee.display_name}.")
+    return redirect(from_url)
+
+
+@it_officer_required
+def bulk_clear_assignee(request):
+    return render(request, "assignments/assignee_field.html", {"asset": _BULK_ASSET})
 
 
 # ── Inactive holder alerts ────────────────────────────────────────────────────

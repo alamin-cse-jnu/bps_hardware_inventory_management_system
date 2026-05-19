@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Return Assets to Stock{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{{ from_url }}">Holder</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>Return to Stock</strong>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Return Assets to Stock</div>
+</div>
+
+<div style="max-width:640px">
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-body">
+      <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:14px">
+        {{ assets|length }} asset{{ assets|length|pluralize }} selected for return:
+      </div>
+      <div class="table-wrap" style="margin:0 -16px -16px">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:140px">Asset Tag</th>
+              <th>Type / Model</th>
+              <th style="width:90px">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for asset in assets %}
+            <tr>
+              <td><span class="asset-tag">{{ asset.asset_tag }}</span></td>
+              <td>
+                <div style="font-size:13px;color:#374151;font-weight:500">{{ asset.asset_type.name|title }}</div>
+                {% if asset.brand or asset.model %}
+                <div class="text-muted text-small">{{ asset.brand|title }} {{ asset.model }}</div>
+                {% endif %}
+              </td>
+              <td>
+                <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:#FEF3C7;color:#92400E">{{ asset.get_status_display }}</span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="callout callout-gold" style="margin-bottom:20px">
+        <svg width="15" height="15" fill="none" stroke="#C8A951" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div style="color:#78350F;font-size:13px;line-height:1.5">
+          This will close {{ assets|length }} active assignment{{ assets|length|pluralize }} and set all selected assets to <strong>In Stock</strong>.
+        </div>
+      </div>
+
+      <form method="post" action="{% url 'assignments:bulk_return' %}">
+        {% csrf_token %}
+        {% for pk in pks %}
+        <input type="hidden" name="asset_pks" value="{{ pk }}">
+        {% endfor %}
+        <input type="hidden" name="from_url" value="{{ from_url }}">
+        <input type="hidden" name="confirmed" value="1">
+
+        <div class="form-group">
+          <label class="form-label">
+            Notes
+            <span style="font-weight:400;color:#9CA3AF">(optional — applied to all)</span>
+          </label>
+          <textarea name="notes" rows="3" class="form-input"
+                    placeholder="e.g. End of assignment cycle"></textarea>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:8px">
+          <a href="{{ from_url }}" class="btn btn-outline" style="flex:1">Cancel</a>
+          <button type="submit"
+                  style="flex:2;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 16px;border:none;border-radius:6px;background:#EF4444;color:#fff;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            Confirm Return to Stock
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

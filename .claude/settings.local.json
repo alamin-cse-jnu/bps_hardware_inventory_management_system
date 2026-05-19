@@ -50,7 +50,8 @@
       "PowerShell(pip install *)",
       "Read(//mnt/d/Development/projects/**)",
       "Bash(docker-compose exec web python manage.py shell -c ' *)",
-      "Bash(docker-compose exec *)"
+      "Bash(docker-compose exec *)",
+      "Bash(xargs grep -l \"print\\\\|@media print\")"
     ]
   }
 }

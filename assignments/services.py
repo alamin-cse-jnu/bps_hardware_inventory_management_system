@@ -70,10 +70,18 @@ def perform_transfer(
         # the one legitimate path that sets returned_at for the first time.
         active_qs.update(returned_at=now, updated_at=now)
 
-        # Update asset status to ASSIGNED (idempotent if already ASSIGNED)
+        # Keep storage_location in sync with the logical location of the asset:
+        #   LOCATION assignee  → set to that physical location
+        #   EMPLOYEE/MP/OFFICE → clear (device is with a person, not in a room)
+        update_fields = ["storage_location", "updated_at"]
+        if new_assignee.assignee_type == "LOCATION":
+            asset.storage_location_id = new_assignee.location_id
+        else:
+            asset.storage_location_id = None
         if asset.status != AssetItem.Status.ASSIGNED:
             asset.status = AssetItem.Status.ASSIGNED
-            asset.save(update_fields=["status", "updated_at"])
+            update_fields.append("status")
+        asset.save(update_fields=update_fields)
 
         return Assignment.objects.create(
             asset=asset,

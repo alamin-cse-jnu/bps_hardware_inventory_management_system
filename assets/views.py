@@ -191,7 +191,7 @@ def asset_list(request):
         for a in Assignment.objects.filter(
             asset_id__in=asset_ids,
             returned_at__isnull=True,
-        ).select_related("assignee__employee", "assignee__mp", "assignee__office")
+        ).select_related("assignee__employee", "assignee__mp", "assignee__office", "assignee__location")
     }
 
     asset_rows = [(asset, active_map.get(asset.pk)) for asset in qs]
@@ -402,6 +402,28 @@ def asset_spec_fields(request):
             pass
     spec_fields = [(key, "") for key in spec_schema]
     return render(request, "assets/partials/spec_fields.html", {"spec_fields": spec_fields})
+
+
+@viewer_required
+def asset_history_print(request, pk):
+    asset = get_object_or_404(
+        AssetItem.objects.select_related("asset_type__category", "storage_location"),
+        pk=pk, is_deleted=False,
+    )
+    history = list(
+        Assignment.objects.filter(asset=asset)
+        .select_related("assignee", "assignee__employee", "assignee__mp",
+                        "assignee__office", "assignee__location", "performed_by")
+        .order_by("assigned_at")
+    )
+    active_assignment = next((a for a in history if a.returned_at is None), None)
+    return render(request, "print/history_print.html", {
+        "page_title": f"Assignment History — {asset.asset_tag}",
+        "asset": asset,
+        "active_assignment": active_assignment,
+        "history": history,
+        "generated_at": timezone.now(),
+    })
 
 
 @viewer_required

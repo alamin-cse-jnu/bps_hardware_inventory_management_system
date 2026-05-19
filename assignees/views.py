@@ -91,11 +91,19 @@ def search(request):
 
 @it_officer_required
 def select_card(request, pk):
+    from django.urls import reverse
     assignee = get_object_or_404(Assignee, pk=pk)
     asset_pk = request.GET.get("asset_pk", "")
+    if asset_pk == "bulk":
+        clear_url = reverse("assignments:bulk_clear_assignee")
+    elif asset_pk:
+        clear_url = reverse("assignments:clear_assignee", args=[asset_pk])
+    else:
+        clear_url = ""
     return render(request, "assignees/selected_card.html", {
         "assignee": assignee,
         "asset_pk": asset_pk,
+        "clear_url": clear_url,
     })
 
 
@@ -115,6 +123,7 @@ def employee_list(request):
     if q:
         qs = qs.filter(
             Q(name_en__icontains=q) | Q(name_bn__icontains=q)
+            | Q(prp_id__icontains=q)
             | Q(designation_en__icontains=q)
             | Q(section_name_en__icontains=q) | Q(branch_name_en__icontains=q)
             | Q(office_name_en__icontains=q)
@@ -195,16 +204,18 @@ def employee_list(request):
 def employee_detail(request, pk):
     emp = get_object_or_404(CachedEmployee, pk=pk)
     from assignments.models import Assignment
-    assignments = (
+    base_qs = (
         Assignment.objects.filter(assignee__employee=emp)
         .select_related("asset", "asset__asset_type", "performed_by")
-        .order_by("-assigned_at")[:50]
     )
+    active_assignments = list(base_qs.filter(returned_at__isnull=True).order_by("assigned_at"))
+    history = list(base_qs.filter(returned_at__isnull=False).order_by("-returned_at")[:50])
     return render(request, "assignees/holder_detail.html", {
         "holder": emp,
         "holder_type": "employee",
         "holder_type_display": "Employee",
-        "assignments": assignments,
+        "active_assignments": active_assignments,
+        "history": history,
         "list_url": "assignees:employees",
         "list_label": "Employees",
         "edit_url": "assignees:employee_edit",
@@ -328,6 +339,7 @@ def mp_list(request):
     if q:
         qs = qs.filter(
             Q(name_en__icontains=q) | Q(name_bn__icontains=q)
+            | Q(prp_id__icontains=q)
             | Q(constituency__icontains=q)
         )
     source_filter = request.GET.get("source", "")
@@ -393,16 +405,18 @@ def mp_list(request):
 def mp_detail(request, pk):
     mp = get_object_or_404(CachedMP, pk=pk)
     from assignments.models import Assignment
-    assignments = (
+    base_qs = (
         Assignment.objects.filter(assignee__mp=mp)
         .select_related("asset", "asset__asset_type", "performed_by")
-        .order_by("-assigned_at")[:50]
     )
+    active_assignments = list(base_qs.filter(returned_at__isnull=True).order_by("assigned_at"))
+    history = list(base_qs.filter(returned_at__isnull=False).order_by("-returned_at")[:50])
     return render(request, "assignees/holder_detail.html", {
         "holder": mp,
         "holder_type": "mp",
         "holder_type_display": "MP",
-        "assignments": assignments,
+        "active_assignments": active_assignments,
+        "history": history,
         "list_url": "assignees:mps",
         "list_label": "MPs",
         "edit_url": "assignees:mp_edit",
@@ -592,16 +606,18 @@ def office_list(request):
 def office_detail(request, pk):
     office = get_object_or_404(CachedOffice, pk=pk)
     from assignments.models import Assignment
-    assignments = (
+    base_qs = (
         Assignment.objects.filter(assignee__office=office)
         .select_related("asset", "asset__asset_type", "performed_by")
-        .order_by("-assigned_at")[:50]
     )
+    active_assignments = list(base_qs.filter(returned_at__isnull=True).order_by("assigned_at"))
+    history = list(base_qs.filter(returned_at__isnull=False).order_by("-returned_at")[:50])
     return render(request, "assignees/holder_detail.html", {
         "holder": office,
         "holder_type": "office",
         "holder_type_display": "Office",
-        "assignments": assignments,
+        "active_assignments": active_assignments,
+        "history": history,
         "list_url": "assignees:offices",
         "list_label": "Offices",
         "edit_url": "assignees:office_edit",
@@ -695,4 +711,77 @@ def office_deactivate(request, pk):
         "active_count": active_count,
         "deactivate_url_name": "assignees:office_deactivate",
         "list_url_name": "assignees:offices",
+    })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Print history views (standalone print-friendly pages)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@viewer_required
+def employee_history_print(request, pk):
+    from assignments.models import Assignment
+    from django.utils import timezone
+    emp = get_object_or_404(CachedEmployee, pk=pk)
+    base_qs = (
+        Assignment.objects.filter(assignee__employee=emp)
+        .select_related("asset", "asset__asset_type", "performed_by")
+        .order_by("assigned_at")
+    )
+    active_assignments = list(base_qs.filter(returned_at__isnull=True))
+    history = list(base_qs.filter(returned_at__isnull=False).order_by("-returned_at"))
+    return render(request, "print/history_print.html", {
+        "page_title": f"Assignment History — {emp.name_en}",
+        "holder": emp,
+        "holder_type": "employee",
+        "holder_type_display": "Employee",
+        "active_assignments": active_assignments,
+        "history": history,
+        "generated_at": timezone.now(),
+    })
+
+
+@viewer_required
+def mp_history_print(request, pk):
+    from assignments.models import Assignment
+    from django.utils import timezone
+    mp = get_object_or_404(CachedMP, pk=pk)
+    base_qs = (
+        Assignment.objects.filter(assignee__mp=mp)
+        .select_related("asset", "asset__asset_type", "performed_by")
+        .order_by("assigned_at")
+    )
+    active_assignments = list(base_qs.filter(returned_at__isnull=True))
+    history = list(base_qs.filter(returned_at__isnull=False).order_by("-returned_at"))
+    return render(request, "print/history_print.html", {
+        "page_title": f"Assignment History — {mp.name_en}",
+        "holder": mp,
+        "holder_type": "mp",
+        "holder_type_display": "MP",
+        "active_assignments": active_assignments,
+        "history": history,
+        "generated_at": timezone.now(),
+    })
+
+
+@viewer_required
+def office_history_print(request, pk):
+    from assignments.models import Assignment
+    from django.utils import timezone
+    office = get_object_or_404(CachedOffice, pk=pk)
+    base_qs = (
+        Assignment.objects.filter(assignee__office=office)
+        .select_related("asset", "asset__asset_type", "performed_by")
+        .order_by("assigned_at")
+    )
+    active_assignments = list(base_qs.filter(returned_at__isnull=True))
+    history = list(base_qs.filter(returned_at__isnull=False).order_by("-returned_at"))
+    return render(request, "print/history_print.html", {
+        "page_title": f"Assignment History — {office.name_en}",
+        "holder": office,
+        "holder_type": "office",
+        "holder_type_display": "Office",
+        "active_assignments": active_assignments,
+        "history": history,
+        "generated_at": timezone.now(),
     })

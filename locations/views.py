@@ -73,6 +73,31 @@ def location_delete(request, pk):
 
 
 @viewer_required
+def location_history_print(request, pk):
+    from assignments.models import Assignment
+    from assets.models import AssetItem
+    from django.utils import timezone
+    location = get_object_or_404(Location, pk=pk)
+    current_assets = list(
+        AssetItem.objects.filter(storage_location=location, is_deleted=False)
+        .select_related("asset_type")
+        .order_by("asset_tag")
+    )
+    history = list(
+        Assignment.objects.filter(assignee__location=location)
+        .select_related("asset", "asset__asset_type", "performed_by")
+        .order_by("-assigned_at")
+    )
+    return render(request, "print/history_print.html", {
+        "page_title": f"Location History — {location.name}",
+        "location": location,
+        "current_assets": current_assets,
+        "history": history,
+        "generated_at": timezone.now(),
+    })
+
+
+@viewer_required
 def location_parent_options(request):
     """HTMX endpoint — returns parent <option> elements for the chosen level_type."""
     level_type = request.GET.get("level_type", "")

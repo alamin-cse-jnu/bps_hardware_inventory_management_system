@@ -52,7 +52,7 @@
     </div>
 
     <button type="button"
-            hx-get="{% url 'assignments:clear_assignee' asset_pk %}"
+            hx-get="{{ clear_url }}"
             hx-target="#assignee-field"
             hx-swap="outerHTML"
             style="background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;color:#6C757D"

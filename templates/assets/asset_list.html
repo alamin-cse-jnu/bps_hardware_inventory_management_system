@@ -99,7 +99,11 @@
           {% endif %}
         </td>
         <td>
-          {% if asset.storage_location %}
+          {% if asgn and asgn.assignee.assignee_type != 'LOCATION' %}
+            <span class="text-small" style="color:#374151">
+              <span style="color:#9CA3AF;margin-right:2px">With</span>{{ asgn.assignee.display_name }}
+            </span>
+          {% elif asset.storage_location %}
             <span class="text-small">{{ asset.storage_location.full_path }}</span>
           {% else %}
             <span class="text-muted text-small">—</span>

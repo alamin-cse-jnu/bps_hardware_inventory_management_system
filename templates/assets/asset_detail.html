@@ -67,6 +67,10 @@
     <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     History XLS
   </a>
+  <a href="{% url 'assets:history_print' asset.pk %}" class="btn btn-outline btn-sm" target="_blank" title="Print Assignment History">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+    Print History
+  </a>
 {% endblock %}
 
 {% block content %}
@@ -136,6 +140,19 @@
       <div class="card-body">
         <h3 style="font-size:13px;font-weight:700;color:#495057;text-transform:uppercase;letter-spacing:.05em;margin-bottom:14px">Specifications</h3>
         <dl style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px">
+          <div style="grid-column:1/-1">
+            <dt class="text-muted text-small" style="font-weight:600">Location</dt>
+            <dd style="font-size:13px;font-weight:600;margin-top:2px">
+              {% if asset.storage_location %}
+                {{ asset.storage_location.full_path }}
+              {% elif active_assignment %}
+                <span style="color:#9CA3AF;font-weight:400">With</span>
+                {{ active_assignment.assignee.display_name }}
+              {% else %}
+                <span class="text-muted" style="font-weight:400">—</span>
+              {% endif %}
+            </dd>
+          </div>
           <div>
             <dt class="text-muted text-small" style="font-weight:600">Brand</dt>
             <dd style="font-size:13px;font-weight:600;margin-top:2px">{{ asset.brand }}</dd>

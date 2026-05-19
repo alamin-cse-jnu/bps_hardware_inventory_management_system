@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Transfer Assets{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{{ from_url }}">Holder</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>Bulk Transfer</strong>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Transfer {{ assets|length }} Asset{{ assets|length|pluralize }}</div>
+</div>
+
+<div style="max-width:660px">
+
+  {# ── Selected assets summary ── #}
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-body" style="padding-bottom:0">
+      <div style="font-size:12px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">
+        Assets Being Transferred
+      </div>
+      <div class="table-wrap" style="margin:0 -16px">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:140px">Asset Tag</th>
+              <th>Type / Model</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for asset in assets %}
+            <tr>
+              <td><span class="asset-tag">{{ asset.asset_tag }}</span></td>
+              <td>
+                <div style="font-size:13px;color:#374151;font-weight:500">{{ asset.asset_type.name|title }}</div>
+                {% if asset.brand or asset.model %}
+                <div class="text-muted text-small">{{ asset.brand|title }} {{ asset.model }}</div>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {# ── Transfer form ── #}
+  <div class="card">
+    <div class="card-body">
+
+      {% if error %}
+      <div class="callout callout-red" style="margin-bottom:16px">
+        <svg width="15" height="15" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div style="color:#991B1B;font-size:13px;line-height:1.5">{{ error }}</div>
+      </div>
+      {% endif %}
+
+      <div class="callout callout-gold" style="margin-bottom:20px">
+        <svg width="15" height="15" fill="none" stroke="#C8A951" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div style="color:#78350F;font-size:13px;line-height:1.5">
+          All {{ assets|length }} assets will be transferred to the same destination. A transfer batch will be created for tracking.
+        </div>
+      </div>
+
+      <form method="post" action="{% url 'assignments:bulk_transfer' %}" id="bulk-transfer-form">
+        {% csrf_token %}
+        {% for pk in pks %}
+        <input type="hidden" name="asset_pks" value="{{ pk }}">
+        {% endfor %}
+        <input type="hidden" name="from_url" value="{{ from_url }}">
+
+        <div class="form-group">
+          <label class="form-label">Transfer To <span style="color:#EF4444">*</span></label>
+          {% include "assignments/assignee_field.html" %}
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="form-group">
+          <label class="form-label">
+            Notes
+            <span style="font-weight:400;color:#9CA3AF">(optional — applied to all)</span>
+          </label>
+          <textarea name="notes" rows="3" class="form-input"
+                    placeholder="e.g. Department restructuring — moving workstations"></textarea>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:8px">
+          <a href="{{ from_url }}" class="btn btn-outline" style="flex:1">Cancel</a>
+          <button type="submit" class="btn btn-primary" style="flex:2">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            Confirm Transfer
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
