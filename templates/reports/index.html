@@ -217,6 +217,34 @@
   </div>
 </div>
 
+<!-- Asset Register -->
+<div style="margin-bottom:28px">
+  <div style="font-size:11px;font-weight:700;color:#10B981;text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px;padding-bottom:6px;border-bottom:2px solid #10B981">
+    Printable Register
+  </div>
+  <div class="card">
+    <div class="card-body">
+      <div style="display:flex;align-items:flex-start;gap:14px">
+        <div style="width:40px;height:40px;border-radius:8px;background:#ECFDF5;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="20" height="20" fill="none" stroke="#10B981" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:600;color:#212529;margin-bottom:4px">Asset Register</div>
+          <div style="font-size:12px;color:#6C757D;margin-bottom:14px">Complete printable A4 register of all assets — Tag, Type, Brand, Serial, Status, Holder, Warranty</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <a href="{% url 'assets:register_print' %}" target="_blank" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:6px">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              All Assets
+            </a>
+            <a href="{% url 'assets:register_print' %}?status=ASSIGNED" target="_blank" class="btn btn-outline btn-sm">Assigned Only</a>
+            <a href="{% url 'assets:register_print' %}?status=IN_STOCK" target="_blank" class="btn btn-outline btn-sm">In Stock Only</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- PDF Reports -->
 <div>
   <div style="font-size:11px;font-weight:700;color:#6D5AE6;text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px;padding-bottom:6px;border-bottom:2px solid #6D5AE6">

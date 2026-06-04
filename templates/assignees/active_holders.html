@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Active Holders{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:dashboard' %}">Dashboard</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>Active Holders</strong>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  .tab-nav{display:flex;gap:0;border-bottom:2px solid #E5E7EB;margin-bottom:20px}
+  .tab-nav a{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;font-size:13.5px;font-weight:600;color:#6C757D;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-2px;transition:color 150ms}
+  .tab-nav a:hover{color:#212529}
+  .tab-nav a.active{color:#0076A7;border-bottom-color:#0076A7}
+  .tab-badge{background:#EFF6FF;color:#0076A7;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:99px}
+  .tab-nav a.active .tab-badge{background:#0076A7;color:#fff}
+  .holder-row{display:grid;gap:12px 16px;padding:12px 16px;border-bottom:1px solid #F3F4F6;align-items:center}
+  .holder-row:last-child{border-bottom:none}
+  .holder-row:hover{background:#FAFAFA}
+  .holder-name{font-size:13.5px;font-weight:600;color:#212529;text-decoration:none}
+  .holder-name:hover{color:#0076A7}
+  .holder-sub{font-size:11.5px;color:#6C757D;margin-top:2px}
+  .asset-pill{display:inline-flex;align-items:center;gap:4px;background:#EFF6FF;color:#0076A7;font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:99px;white-space:nowrap}
+  .empty-state{padding:48px 20px;text-align:center;color:#9CA3AF;font-size:13px}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Active Holders</div>
+    <div class="text-muted text-small" style="margin-top:2px">All holders who currently have at least one asset assigned</div>
+  </div>
+</div>
+
+<!-- Tabs -->
+<nav class="tab-nav">
+  <a href="?tab=employees" class="{% if tab == 'employees' %}active{% endif %}">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    Employees
+    <span class="tab-badge">{{ counts.employees }}</span>
+  </a>
+  <a href="?tab=mps" class="{% if tab == 'mps' %}active{% endif %}">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    MPs
+    <span class="tab-badge">{{ counts.mps }}</span>
+  </a>
+  <a href="?tab=offices" class="{% if tab == 'offices' %}active{% endif %}">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+    Offices
+    <span class="tab-badge">{{ counts.offices }}</span>
+  </a>
+  <a href="?tab=locations" class="{% if tab == 'locations' %}active{% endif %}">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+    Locations
+    <span class="tab-badge">{{ counts.locations }}</span>
+  </a>
+</nav>
+
+<div class="card">
+  {% if holders %}
+
+    <!-- ── Employees ── -->
+    {% if tab == 'employees' %}
+    <div style="display:grid;grid-template-columns:1fr auto;padding:8px 16px;border-bottom:1px solid #E5E7EB;background:#FAFAFA">
+      <span style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em">Employee · Designation</span>
+      <span style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em">Assets</span>
+    </div>
+    {% for h in holders %}
+    <div class="holder-row" style="grid-template-columns:1fr auto">
+      <div>
+        <a href="{% url 'assignees:employee_detail' h.employee.pk %}" class="holder-name">{{ h.employee.name_en }}</a>
+        <div class="holder-sub">
+          {% if h.employee.designation_en %}{{ h.employee.designation_en }}{% endif %}
+          {% if h.employee.office_name_en %} &middot; {{ h.employee.office_name_en }}{% endif %}
+        </div>
+      </div>
+      <span class="asset-pill">
+        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        {{ h.asset_count }}
+      </span>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- ── MPs ── -->
+    {% if tab == 'mps' %}
+    <div style="display:grid;grid-template-columns:1fr auto;padding:8px 16px;border-bottom:1px solid #E5E7EB;background:#FAFAFA">
+      <span style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em">MP · Constituency</span>
+      <span style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em">Assets</span>
+    </div>
+    {% for h in holders %}
+    <div class="holder-row" style="grid-template-columns:1fr auto">
+      <div>
+        <a href="{% url 'assignees:mp_detail' h.mp.pk %}" class="holder-name">{{ h.mp.name_en }}</a>
+        <div class="holder-sub">
+          {% if h.mp.constituency %}{{ h.mp.constituency }}{% endif %}
+          {% if h.mp.parliament_no %} &middot; Parliament {{ h.mp.parliament_no }}{% endif %}
+        </div>
+      </div>
+      <span class="asset-pill">
+        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        {{ h.asset_count }}
+      </span>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- ── Offices ── -->
+    {% if tab == 'offices' %}
+    <div style="display:grid;grid-template-columns:1fr auto;padding:8px 16px;border-bottom:1px solid #E5E7EB;background:#FAFAFA">
+      <span style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em">Office / Department</span>
+      <span style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em">Assets</span>
+    </div>
+    {% for h in holders %}
+    <div class="holder-row" style="grid-template-columns:1fr auto">
+      <div>
+        <a href="{% url 'assignees:office_detail' h.office.pk %}" class="holder-name">{{ h.office.name_en }}</a>
+      </div>
+      <span class="asset-pill">
+        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        {{ h.asset_count }}
+      </span>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- ── Locations ── -->
+    {% if tab == 'locations' %}
+    <div style="display:grid;grid-template-columns:1fr auto;padding:8px 16px;border-bottom:1px solid #E5E7EB;background:#FAFAFA">
+      <span style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em">Location</span>
+      <span style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em">Assets</span>
+    </div>
+    {% for h in holders %}
+    <div class="holder-row" style="grid-template-columns:1fr auto">
+      <div>
+        <a href="{% url 'locations:detail' h.location.pk %}" class="holder-name">{{ h.location.full_path }}</a>
+      </div>
+      <span class="asset-pill">
+        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        {{ h.asset_count }}
+      </span>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+  {% else %}
+  <div class="empty-state">
+    <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="display:block;margin:0 auto 10px;opacity:.3"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
+    No active holders in this category.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -50,6 +50,12 @@
     QR
   </a>
 
+  <!-- Spec label -->
+  <a href="{% url 'qrcodes:spec_label' asset.pk %}" class="btn btn-outline btn-sm" target="_blank" title="Print Spec Label">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="6" y1="9" x2="10" y2="9"/><line x1="6" y1="12" x2="14" y2="12"/><line x1="6" y1="15" x2="11" y2="15"/></svg>
+    Spec Label
+  </a>
+
   <!-- Disposal certificate (disposed assets only) -->
   {% if asset.status == 'DISPOSED' %}
   <a href="{% url 'reports:disposal_pdf' asset.pk %}" class="btn btn-outline btn-sm" title="Download Disposal Certificate">
@@ -83,6 +89,9 @@
     <div style="flex:1">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px">
         <span class="asset-tag" style="font-size:18px">{{ asset.asset_tag }}</span>
+        <button class="copy-btn" onclick="copyTag('{{ asset.asset_tag }}', this)" title="Copy asset tag">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </button>
         <span class="badge badge-{{ asset.status }}">{{ asset.get_status_display }}</span>
       </div>
       <div style="font-size:15px;font-weight:600;color:#212529">{{ asset.brand }} {{ asset.model_name }}</div>
@@ -206,16 +215,16 @@
             <dd style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;margin-top:2px">{{ asset.purchase_order }}</dd>
           </div>
           {% endif %}
-          {% if asset.warranty_expiry %}
-          <div>
-            <dt class="text-muted text-small" style="font-weight:600">Warranty Expiry</dt>
-            <dd style="font-size:13px;font-weight:600;margin-top:2px">{{ asset.warranty_expiry|date:"d M Y" }}</dd>
+          {% if warranty_info %}
+          <div style="grid-column:1/-1">
+            <dt class="text-muted text-small" style="font-weight:600;margin-bottom:6px">Warranty</dt>
+            <dd>{% include "assets/partials/expiry_bar.html" with info=warranty_info %}</dd>
           </div>
           {% endif %}
-          {% if asset.amc_expiry %}
-          <div>
-            <dt class="text-muted text-small" style="font-weight:600">AMC Expiry</dt>
-            <dd style="font-size:13px;font-weight:600;margin-top:2px">{{ asset.amc_expiry|date:"d M Y" }}</dd>
+          {% if amc_info %}
+          <div style="grid-column:1/-1">
+            <dt class="text-muted text-small" style="font-weight:600;margin-bottom:6px">AMC</dt>
+            <dd>{% include "assets/partials/expiry_bar.html" with info=amc_info %}</dd>
           </div>
           {% endif %}
           {% if not asset.purchase_date and not asset.purchase_cost and not asset.supplier %}
@@ -333,6 +342,25 @@
 {% endif %}
 
 <script>
+// Save to recently viewed
+(function() {
+  try {
+    const entry = {
+      pk: {{ asset.pk }},
+      tag: '{{ asset.asset_tag|escapejs }}',
+      brand: '{{ asset.brand|escapejs }}',
+      model: '{{ asset.model_name|escapejs }}',
+      status: '{{ asset.status }}',
+      type_name: '{{ asset.asset_type.name|escapejs }}',
+      url: '{% url "assets:detail" asset.pk %}'
+    };
+    let recent = JSON.parse(localStorage.getItem('recentAssets') || '[]');
+    recent = recent.filter(a => a.pk !== entry.pk);
+    recent.unshift(entry);
+    localStorage.setItem('recentAssets', JSON.stringify(recent.slice(0, 6)));
+  } catch(e) {}
+})();
+
 function showTab(name, btn) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));

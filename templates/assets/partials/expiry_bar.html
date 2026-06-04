@@ -1,0 +1,23 @@
+{% comment %}
+  Requires: info = {days_left, pct, status, expiry}
+  status: good | warning | danger | expired
+{% endcomment %}
+{% with s=info.status %}
+{% if s == 'good' %}
+  {% with bar_color="#10B981" text_color="#065F46" bg="#ECFDF5" %}
+  {% include "assets/partials/_expiry_bar_inner.html" with info=info bar_color=bar_color text_color=text_color bg=bg %}
+  {% endwith %}
+{% elif s == 'warning' %}
+  {% with bar_color="#F59E0B" text_color="#92400E" bg="#FFFBEB" %}
+  {% include "assets/partials/_expiry_bar_inner.html" with info=info bar_color=bar_color text_color=text_color bg=bg %}
+  {% endwith %}
+{% elif s == 'danger' %}
+  {% with bar_color="#EF4444" text_color="#991B1B" bg="#FEF2F2" %}
+  {% include "assets/partials/_expiry_bar_inner.html" with info=info bar_color=bar_color text_color=text_color bg=bg %}
+  {% endwith %}
+{% else %}
+  {% with bar_color="#9CA3AF" text_color="#4B5563" bg="#F3F4F6" %}
+  {% include "assets/partials/_expiry_bar_inner.html" with info=info bar_color=bar_color text_color=text_color bg=bg %}
+  {% endwith %}
+{% endif %}
+{% endwith %}

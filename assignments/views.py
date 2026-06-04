@@ -250,7 +250,7 @@ def alert_panel(request, pk):
 
     active_assignments = (
         Assignment.objects.filter(assignee=alert.assignee, returned_at__isnull=True)
-        .select_related("asset__asset_type")
+        .select_related("asset__asset_type__category")
     )
 
     if request.method == "POST":

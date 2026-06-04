@@ -45,13 +45,39 @@
         {% if active_assignments %}
         <div style="border:1px solid #E5E7EB;border-radius:6px;overflow:hidden">
           {% for a in active_assignments %}
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;{% if not forloop.last %}border-bottom:1px solid #F3F4F6;{% endif %}background:#fff">
-            <div>
-              <span class="asset-tag" style="font-size:12px">{{ a.asset.asset_tag }}</span>
-              <div class="text-muted text-small">{{ a.asset.asset_type.name }} · {{ a.asset.brand }} {{ a.asset.model_name }}</div>
+          <div style="padding:10px 12px;{% if not forloop.last %}border-bottom:1px solid #F3F4F6;{% endif %}background:#fff">
+            <!-- Asset info -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <div>
+                <span class="asset-tag" style="font-size:12px">{{ a.asset.asset_tag }}</span>
+                <div class="text-muted text-small" style="margin-top:1px">{{ a.asset.asset_type.name }} · {{ a.asset.brand }} {{ a.asset.model_name }}</div>
+              </div>
+              <a href="{% url 'assets:detail' a.asset.pk %}" target="_blank"
+                 style="font-size:11px;color:#6C757D;font-weight:600;white-space:nowrap;flex-shrink:0;margin-left:8px">View →</a>
             </div>
-            <a href="{% url 'assets:detail' a.asset.pk %}" target="_blank"
-               style="font-size:11px;color:#3B82F6;font-weight:600;white-space:nowrap">View →</a>
+            <!-- Action buttons -->
+            {% if a.asset.status == 'ASSIGNED' %}
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-outline btn-sm"
+                      style="flex:1;font-size:11.5px;color:#0076A7;border-color:#BFDBFE;background:#EFF6FF"
+                      hx-get="{% url 'assignments:assign_panel' a.asset.pk %}"
+                      hx-target="#panel-container"
+                      hx-swap="innerHTML"
+                      title="Transfer to another holder">
+                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
+                Transfer
+              </button>
+              <button class="btn btn-outline btn-sm"
+                      style="flex:1;font-size:11.5px;color:#059669;border-color:#A7F3D0;background:#ECFDF5"
+                      hx-get="{% url 'assignments:return_panel' a.asset.pk %}"
+                      hx-target="#panel-container"
+                      hx-swap="innerHTML"
+                      title="Return to stock">
+                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+                Return to Stock
+              </button>
+            </div>
+            {% endif %}
           </div>
           {% endfor %}
         </div>

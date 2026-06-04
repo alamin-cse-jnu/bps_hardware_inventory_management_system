@@ -1,0 +1,162 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Asset Register{% if status_filter %} — {{ status_label }}{% endif %}</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#212529;background:#F3F4F6;padding:20px}
+
+.page{max-width:1000px;margin:0 auto;background:#fff;padding:32px 36px 40px;box-shadow:0 2px 12px rgba(0,0,0,.1);border-radius:6px}
+
+/* Header */
+.ph{display:flex;align-items:center;gap:20px;padding-bottom:16px;margin-bottom:20px;border-bottom:3px solid #0076A7}
+.ph img{width:56px;height:56px;object-fit:contain;flex-shrink:0}
+.ph-org{font-size:14px;font-weight:700;color:#0076A7;letter-spacing:.01em}
+.ph-sub{font-size:10.5px;color:#6C757D;margin-top:2px}
+.ph-title{font-size:19px;font-weight:700;color:#111827;margin-top:4px}
+.ph-meta{font-size:10px;color:#9CA3AF;margin-top:3px}
+.ph-right{margin-left:auto;text-align:right}
+.ph-stat{font-size:28px;font-weight:800;color:#0076A7;line-height:1}
+.ph-stat-label{font-size:10.5px;color:#6C757D;margin-top:2px}
+
+/* Table */
+table{width:100%;border-collapse:collapse;font-size:10.5px;margin-bottom:6px}
+thead th{background:#0076A7;color:#fff;font-weight:700;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;padding:7px 8px;text-align:left;white-space:nowrap}
+tbody tr:nth-child(even){background:#F8FAFC}
+tbody tr:hover{background:#EBF4FA}
+tbody td{padding:6px 8px;border-bottom:1px solid #F0F0F0;vertical-align:middle;color:#374151}
+.mono{font-family:'Courier New',Courier,monospace;font-size:10.5px;color:#0076A7;font-weight:700}
+.sl{color:#9CA3AF;text-align:center;width:30px}
+.status-pill{display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;white-space:nowrap}
+.s-IN_STOCK{background:#DCFCE7;color:#15803D}
+.s-ASSIGNED{background:#DBEAFE;color:#1D4ED8}
+.s-MAINTENANCE{background:#FEF9C3;color:#A16207}
+.s-LOST{background:#FEE2E2;color:#B91C1C}
+.s-DAMAGED{background:#FFEDD5;color:#C2410C}
+.s-DISPOSED{background:#F3F4F6;color:#6B7280}
+.dim{color:#9CA3AF;font-size:10px}
+
+/* Control bar (screen only) */
+.ctrl{max-width:1000px;margin:0 auto 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.btn-print{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:#0076A7;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-back{display:inline-flex;align-items:center;gap:5px;padding:8px 14px;background:#fff;color:#374151;border:1px solid #D1D5DB;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;text-decoration:none}
+.filter-bar{display:flex;align-items:center;gap:8px;margin-left:auto}
+.filter-bar select{height:34px;border:1px solid #E5E7EB;border-radius:5px;padding:0 10px;font-size:12px;font-family:inherit;color:#374151;cursor:pointer}
+.filter-bar button{height:34px;padding:0 14px;background:#0076A7;color:#fff;border:none;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+
+/* Footer */
+.pfooter{margin-top:28px;padding-top:10px;border-top:1px solid #E5E7EB;text-align:center;font-size:10px;color:#9CA3AF;line-height:1.6}
+
+@media print{
+  .no-print{display:none!important}
+  body{background:#fff;padding:0;font-size:9.5pt}
+  .page{box-shadow:none;border-radius:0;padding:0;max-width:100%}
+  @page{size:A4 landscape;margin:10mm 12mm 12mm 12mm}
+  table{page-break-inside:auto}
+  tr{page-break-inside:avoid}
+  thead{display:table-header-group}
+  .pfooter{position:fixed;bottom:0;left:0;right:0;border-top:1px solid #ccc;background:#fff;padding:4px 0}
+}
+</style>
+</head>
+<body>
+
+<!-- Controls (screen only) -->
+<div class="ctrl no-print">
+  <button class="btn-print" onclick="window.print()">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+    Print / Save as PDF
+  </button>
+  <a class="btn-back" href="javascript:history.back()">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    Back
+  </a>
+  <!-- Filter -->
+  <form class="filter-bar" method="get">
+    <select name="status">
+      <option value="">All statuses</option>
+      <option value="IN_STOCK"     {% if status_filter == 'IN_STOCK'     %}selected{% endif %}>In Stock</option>
+      <option value="ASSIGNED"     {% if status_filter == 'ASSIGNED'     %}selected{% endif %}>Assigned</option>
+      <option value="MAINTENANCE"  {% if status_filter == 'MAINTENANCE'  %}selected{% endif %}>Maintenance</option>
+      <option value="LOST"         {% if status_filter == 'LOST'         %}selected{% endif %}>Lost</option>
+      <option value="DAMAGED"      {% if status_filter == 'DAMAGED'      %}selected{% endif %}>Damaged</option>
+      <option value="DISPOSED"     {% if status_filter == 'DISPOSED'     %}selected{% endif %}>Disposed</option>
+    </select>
+    <button type="submit">Filter</button>
+  </form>
+</div>
+
+<div class="page">
+
+  <!-- Header -->
+  <div class="ph">
+    <img src="{% static 'images/parliament_logo.png' %}" alt="Parliament">
+    <div>
+      <div class="ph-org">Bangladesh Parliament Secretariat</div>
+      <div class="ph-title">IT Asset Register{% if status_filter %} — {{ status_label }}{% endif %}</div>
+      <div class="ph-meta">Generated: {{ generated_at|date:"d M Y, H:i" }}</div>
+    </div>
+    <div class="ph-right">
+      <div class="ph-stat">{{ total }}</div>
+      <div class="ph-stat-label">Total Assets</div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <table>
+    <thead>
+      <tr>
+        <th class="sl">SL</th>
+        <th>Asset Tag</th>
+        <th>Category</th>
+        <th>Type</th>
+        <th>Brand / Model</th>
+        <th>Serial Number</th>
+        <th>Status</th>
+        <th>Current Holder</th>
+        <th>Location</th>
+        <th>Purchase Date</th>
+        <th>Warranty Expiry</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for asset, asgn in rows %}
+      <tr>
+        <td class="sl dim">{{ forloop.counter }}</td>
+        <td class="mono">{{ asset.asset_tag }}</td>
+        <td>{{ asset.asset_type.category.name }}</td>
+        <td>{{ asset.asset_type.name }}</td>
+        <td>
+          <span style="font-weight:600">{{ asset.brand }}</span>
+          <span class="dim"> {{ asset.model_name }}</span>
+        </td>
+        <td class="mono" style="font-size:10px;color:#374151">{{ asset.serial_number|default:"—" }}</td>
+        <td><span class="status-pill s-{{ asset.status }}">{{ asset.get_status_display }}</span></td>
+        <td>
+          {% if asgn %}
+            <span style="font-weight:600">{{ asgn.assignee.display_name }}</span>
+            <div class="dim">{{ asgn.assignee.get_assignee_type_display }}</div>
+          {% else %}—{% endif %}
+        </td>
+        <td class="dim">
+          {% if asset.storage_location %}{{ asset.storage_location.full_path }}
+          {% elif asgn %}With holder
+          {% else %}—{% endif %}
+        </td>
+        <td class="dim">{{ asset.purchase_date|date:"d M Y"|default:"—" }}</td>
+        <td class="dim">{{ asset.warranty_expiry|date:"d M Y"|default:"—" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="11" style="text-align:center;padding:32px;color:#9CA3AF;font-style:italic">No assets found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="pfooter">
+    Bangladesh Parliament Secretariat · IT Asset Register · {{ generated_at|date:"d M Y" }}
+  </div>
+
+</div>
+</body>
+</html>

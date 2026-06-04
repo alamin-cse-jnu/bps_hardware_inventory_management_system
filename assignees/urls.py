@@ -8,6 +8,9 @@ urlpatterns = [
     path("search/", views.search, name="search"),
     path("<int:pk>/select/", views.select_card, name="select"),
 
+    # Active holders overview
+    path("active/", views.active_holders, name="active_holders"),
+
     # Employees
     path("employees/", views.employee_list, name="employees"),
     path("employees/new/", views.employee_create, name="employee_create"),

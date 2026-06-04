@@ -8,6 +8,7 @@ urlpatterns = [
     path("", views.location_list, name="list"),
     path("new/", views.location_create, name="create"),
     path("parent-options/", views.location_parent_options, name="parent_options"),
+    path("<int:pk>/", views.location_detail, name="detail"),
     path("<int:pk>/edit/", views.location_edit, name="edit"),
     path("<int:pk>/delete/", views.location_delete, name="delete"),
     path("<int:pk>/history/print/", views.location_history_print, name="history_print"),

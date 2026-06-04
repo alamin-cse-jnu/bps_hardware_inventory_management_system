@@ -785,3 +785,64 @@ def office_history_print(request, pk):
         "history": history,
         "generated_at": timezone.now(),
     })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Active holders — all holders who currently have at least one asset assigned
+# ─────────────────────────────────────────────────────────────────────────────
+
+@viewer_required
+def active_holders(request):
+    tab = request.GET.get("tab", "employees")
+    if tab not in ("employees", "mps", "offices", "locations"):
+        tab = "employees"
+
+    active_filter = Q(assignments__returned_at__isnull=True, assignments__asset__is_deleted=False)
+
+    base = (
+        Assignee.objects
+        .filter(active_filter)
+        .annotate(asset_count=Count("assignments", filter=active_filter))
+        .distinct()
+    )
+
+    employees = (
+        base.filter(assignee_type=AssigneeType.EMPLOYEE)
+        .select_related("employee")
+        .order_by("employee__name_en")
+    )
+    mps = (
+        base.filter(assignee_type=AssigneeType.MP)
+        .select_related("mp")
+        .order_by("mp__name_en")
+    )
+    offices = (
+        base.filter(assignee_type=AssigneeType.OFFICE)
+        .select_related("office")
+        .order_by("office__name_en")
+    )
+    locations = (
+        base.filter(assignee_type=AssigneeType.LOCATION)
+        .select_related("location")
+        .order_by("location__name")
+    )
+
+    counts = {
+        "employees": employees.count(),
+        "mps": mps.count(),
+        "offices": offices.count(),
+        "locations": locations.count(),
+    }
+
+    tab_qs = {
+        "employees": employees,
+        "mps": mps,
+        "offices": offices,
+        "locations": locations,
+    }
+
+    return render(request, "assignees/active_holders.html", {
+        "tab": tab,
+        "holders": tab_qs[tab],
+        "counts": counts,
+    })

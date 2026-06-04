@@ -39,6 +39,24 @@
     .topbar-breadcrumb strong{color:#212529}
     .topbar-actions{display:flex;align-items:center;gap:8px}
     .content{flex:1;overflow-y:auto;padding:24px}
+    .site-footer{padding:10px 24px;font-size:11.5px;color:#9CA3AF;border-top:1px solid #F3F4F6;background:#fff;text-align:center;flex-shrink:0}
+    .site-footer strong{color:#6C757D;font-weight:600}
+    @media print{.site-footer{display:none}}
+
+    /* ── Global search trigger ── */
+    .gs-trigger{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;border:1px solid #E5E7EB;border-radius:6px;background:#F9FAFB;color:#9CA3AF;font-size:12.5px;font-family:'Inter',sans-serif;cursor:pointer;transition:border-color 150ms,background 150ms}
+    .gs-trigger:hover{border-color:#D1D5DB;background:#fff;color:#6C757D}
+    .gs-trigger kbd{font-size:10px;border:1px solid #E5E7EB;border-radius:3px;padding:1px 5px;font-family:'Inter',sans-serif;background:#fff;color:#9CA3AF;margin-left:4px}
+
+    /* ── Search result rows ── */
+    .gs-result{display:block;padding:11px 16px;text-decoration:none;border-bottom:1px solid #F3F4F6;transition:background 100ms}
+    .gs-result:last-of-type{border-bottom:none}
+    .gs-result:hover,.gs-result.gs-active{background:#F0F9FF}
+
+    /* ── Copy button ── */
+    .copy-btn{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid #E5E7EB;border-radius:4px;background:#fff;color:#9CA3AF;cursor:pointer;vertical-align:middle;margin-left:5px;flex-shrink:0;transition:color 150ms,border-color 150ms;padding:0}
+    .copy-btn:hover{color:#0076A7;border-color:#0076A7}
+    @media print{.copy-btn{display:none}}
 
     /* ── Cards ── */
     .card{background:#fff;border:1px solid #E5E7EB;border-radius:8px}
@@ -133,13 +151,13 @@
 
 <!-- ── Sidebar ── -->
 <aside class="sidebar">
-  <div class="sidebar-logo">
+  <a href="{% url 'assets:dashboard' %}" class="sidebar-logo" style="text-decoration:none">
     <img src="{% static 'images/parliament_logo.png' %}" alt="Parliament" style="width:36px;height:36px;object-fit:contain;flex-shrink:0;border-radius:4px">
     <div>
       <div class="logo-title">IT Inventory</div>
       <div class="logo-sub">Parliament Secretariat</div>
     </div>
-  </div>
+  </a>
 
   <div class="nav-section">
     <div class="nav-label">Main</div>
@@ -169,6 +187,11 @@
     <a href="{% url 'assignees:offices' %}" class="nav-item {% if request.resolver_match.namespace == 'assignees' and 'office' in request.resolver_match.url_name %}active{% endif %}">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
       Offices
+    </a>
+
+    <a href="{% url 'assignees:active_holders' %}" class="nav-item {% if request.resolver_match.namespace == 'assignees' and request.resolver_match.url_name == 'active_holders' %}active{% endif %}">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><polyline points="16 3 20 7 16 11"/></svg>
+      Active Holders
     </a>
 
     <div class="nav-label">Setup</div>
@@ -210,10 +233,6 @@
     </a>
     {% endif %}
 
-    <a href="/admin/" class="nav-item">
-      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
-      Admin Panel
-    </a>
   </div>
 
   <div class="sidebar-footer">
@@ -232,6 +251,12 @@
   <header class="topbar">
     <div class="topbar-breadcrumb">{% block breadcrumb %}<strong>IT Inventory</strong>{% endblock %}</div>
     <div class="topbar-actions">
+      <!-- Global search trigger -->
+      <button class="gs-trigger" onclick="openSearch()" title="Search (Ctrl+K)">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span>Search…</span>
+        <kbd>Ctrl K</kbd>
+      </button>
       {% block topbar_actions %}{% endblock %}
       <form method="post" action="{% url 'account_logout' %}" style="display:inline">
         {% csrf_token %}
@@ -258,10 +283,107 @@
     {% endif %}
     {% block content %}{% endblock %}
   </main>
+  <footer class="site-footer">
+    Design and developed by <strong>Md. Al-Amin Hossain</strong>
+  </footer>
 </div>
 
 <!-- HTMX panel mount point -->
 <div id="panel-container"></div>
+
+<!-- ── Global search modal ───────────────────────────────────────────────── -->
+<div id="gs-modal" style="display:none;position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,.5);backdrop-filter:blur(2px);align-items:flex-start;justify-content:center;padding-top:80px" onclick="if(event.target===this)closeSearch()">
+  <div style="width:100%;max-width:580px;background:#fff;border-radius:12px;box-shadow:0 24px 64px rgba(0,0,0,.22);overflow:hidden">
+    <!-- Input row -->
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #F3F4F6">
+      <svg width="16" height="16" fill="none" stroke="#9CA3AF" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="gs-input" type="text" placeholder="Search asset tag, serial number, brand, model…"
+             autocomplete="off"
+             style="flex:1;border:none;outline:none;font-size:14px;color:#212529;font-family:'Inter',sans-serif;background:transparent"
+             hx-get="{% url 'assets:global_search' %}"
+             hx-trigger="input changed delay:180ms"
+             hx-target="#gs-results"
+             hx-swap="innerHTML"
+             name="q">
+      <kbd style="font-size:10px;color:#9CA3AF;border:1px solid #E5E7EB;border-radius:4px;padding:2px 6px;font-family:'Inter',sans-serif;cursor:pointer" onclick="closeSearch()">Esc</kbd>
+    </div>
+    <!-- Results -->
+    <div id="gs-results" style="max-height:400px;overflow-y:auto">
+      <div style="padding:24px 20px;text-align:center;color:#9CA3AF;font-size:13px">
+        Type at least 2 characters to search…
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Copy toast ─────────────────────────────────────────────────────────── -->
+<div id="copy-toast" style="display:none;position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#1F2937;color:#fff;font-size:12.5px;font-weight:600;padding:8px 18px;border-radius:99px;z-index:9000;pointer-events:none">
+  Copied!
+</div>
+
+<script>
+// ── Global search ──────────────────────────────────────────────────────────
+function openSearch() {
+  const modal = document.getElementById('gs-modal');
+  modal.style.display = 'flex';
+  setTimeout(() => document.getElementById('gs-input').focus(), 50);
+}
+function closeSearch() {
+  document.getElementById('gs-modal').style.display = 'none';
+  document.getElementById('gs-input').value = '';
+  document.getElementById('gs-results').innerHTML =
+    '<div style="padding:24px 20px;text-align:center;color:#9CA3AF;font-size:13px">Type at least 2 characters to search…</div>';
+}
+
+document.addEventListener('keydown', function(e) {
+  // Ctrl+K or Cmd+K to open
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault();
+    openSearch();
+    return;
+  }
+  if (e.key === 'Escape') { closeSearch(); return; }
+
+  const modal = document.getElementById('gs-modal');
+  if (modal.style.display === 'none') return;
+
+  // Arrow key navigation through results
+  const items = document.querySelectorAll('.gs-result');
+  if (!items.length) return;
+  const active = document.querySelector('.gs-result.gs-active');
+  let idx = active ? parseInt(active.dataset.index) : -1;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    idx = Math.min(idx + 1, items.length - 1);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    idx = Math.max(idx - 1, 0);
+  } else if (e.key === 'Enter') {
+    const target = active || items[0];
+    if (target) { window.location.href = target.href; closeSearch(); }
+    return;
+  } else { return; }
+
+  items.forEach(el => el.classList.remove('gs-active'));
+  if (items[idx]) items[idx].classList.add('gs-active');
+});
+
+// ── Copy to clipboard ──────────────────────────────────────────────────────
+function copyTag(text, btn) {
+  navigator.clipboard.writeText(text).then(function() {
+    const toast = document.getElementById('copy-toast');
+    toast.style.display = 'block';
+    setTimeout(() => { toast.style.display = 'none'; }, 1600);
+    if (btn) {
+      btn.innerHTML = '<svg width="12" height="12" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';
+      setTimeout(() => {
+        btn.innerHTML = '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+      }, 1600);
+    }
+  });
+}
+</script>
 
 </body>
 </html>

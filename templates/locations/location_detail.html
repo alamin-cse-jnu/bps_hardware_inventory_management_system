@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}{{ location.name }}{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'locations:list' %}">Locations</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>{{ location.name }}</strong>
+{% endblock %}
+
+{% block content %}
+
+<!-- Header -->
+<div class="card" style="margin-bottom:20px">
+  <div class="card-body" style="display:flex;align-items:center;gap:16px">
+    <div style="width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,#0076A7,#10B981);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      <svg width="22" height="22" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:17px;font-weight:700;color:#212529">{{ location.name }}</div>
+      <div class="text-muted text-small" style="margin-top:2px">
+        {{ location.get_level_type_display }}
+        {% if location.parent %} &rsaquo; {{ location.full_path }}{% endif %}
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:24px;font-weight:800;color:#0076A7">{{ active_assignments|length }}</div>
+      <div class="text-muted text-small">Assets here</div>
+    </div>
+  </div>
+</div>
+
+<!-- Active assignments -->
+<div class="card">
+  <div class="card-body" style="padding:0">
+    <div style="padding:14px 16px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:13px;font-weight:700;color:#212529">Assets Currently at this Location</span>
+      {% if active_assignments %}
+      <span style="font-size:11px;color:#6C757D">{{ active_assignments|length }} active assignment{{ active_assignments|length|pluralize }}</span>
+      {% endif %}
+    </div>
+
+    {% if active_assignments %}
+    <table>
+      <thead>
+        <tr>
+          <th>Asset Tag</th>
+          <th>Description</th>
+          <th>Type</th>
+          <th>Assigned Since</th>
+          <th>Performed By</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for asgn in active_assignments %}
+        <tr>
+          <td>
+            <a href="{% url 'assets:detail' asgn.asset.pk %}" class="asset-tag">{{ asgn.asset.asset_tag }}</a>
+          </td>
+          <td style="font-size:13px;font-weight:500;color:#212529">{{ asgn.asset.brand }} {{ asgn.asset.model_name }}</td>
+          <td class="text-small text-muted">{{ asgn.asset.asset_type.category.name }} › {{ asgn.asset.asset_type.name }}</td>
+          <td class="text-small">{{ asgn.assigned_at|date:"d M Y" }}</td>
+          <td class="text-small text-muted">{{ asgn.performed_by.get_full_name|default:asgn.performed_by.username }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="padding:48px 20px;text-align:center;color:#9CA3AF;font-size:13px">
+      <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="display:block;margin:0 auto 10px;opacity:.3"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      No assets currently stored at this location.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

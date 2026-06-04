@@ -3,23 +3,10 @@
 
 {% block breadcrumb %}<strong>Dashboard</strong>{% endblock %}
 
-{% block topbar_actions %}
-<button
-  class="btn btn-primary btn-sm"
-  id="sync-btn"
-  hx-post="{% url 'sync_prp:trigger' %}"
-  hx-target="#sync-result"
-  hx-swap="innerHTML"
-  hx-indicator="#sync-btn"
-  hx-disabled-elt="this"
->
-  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.68"/></svg>
-  Sync Now
-</button>
-<span id="sync-result" style="font-size:12px;color:#6C757D;"></span>
-{% endblock %}
+{% block topbar_actions %}{% endblock %}
 
 {% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
   /* ── KPI cards ── */
   .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
@@ -30,13 +17,25 @@
   .kpi-card.blue{background:linear-gradient(135deg,#3B82F6,#6D5AE6)}
   .kpi-card.teal{background:linear-gradient(135deg,#0076A7,#10B981)}
   .kpi-card.orange{background:linear-gradient(135deg,#F59E0B,#EF8A20)}
+  .kpi-card.slate{background:linear-gradient(135deg,#475569,#64748B)}
   .kpi-label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.8;margin-bottom:8px}
   .kpi-value{font-size:36px;font-weight:800;line-height:1;margin-bottom:6px}
   .kpi-sub{font-size:12px;opacity:.75}
   .kpi-icon{position:absolute;right:18px;top:50%;transform:translateY(-50%);opacity:.25}
 
+  /* ── Charts row ── */
+  .charts-row{display:grid;grid-template-columns:280px 1fr;gap:16px;margin-bottom:24px}
+  .chart-card{background:#fff;border:1px solid #E5E7EB;border-radius:8px;overflow:hidden}
+  .chart-head{padding:14px 16px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;justify-content:space-between}
+  .chart-title{font-size:13px;font-weight:700;color:#212529}
+  .chart-body{padding:16px;display:flex;align-items:center;justify-content:center}
+  .donut-wrap{position:relative;width:180px;height:180px}
+  .donut-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none}
+  .donut-center-value{font-size:26px;font-weight:800;color:#212529;line-height:1}
+  .donut-center-label{font-size:10px;font-weight:600;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+
   /* ── Section layout ── */
-  .dash-grid{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start}
+  .dash-grid{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start}
   .section-card{background:#fff;border:1px solid #E5E7EB;border-radius:8px;overflow:hidden}
   .section-head{padding:14px 16px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;justify-content:space-between}
   .section-title{font-size:13px;font-weight:700;color:#212529}
@@ -46,7 +45,6 @@
   .alert-banner{display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border-radius:6px;margin-bottom:10px;font-size:13px}
   .alert-banner.red{background:#FEF2F2;border:1px solid #FECACA;color:#991B1B}
   .alert-banner.amber{background:#FFFBEB;border:1px solid #FDE68A;color:#92400E}
-  .alert-banner.blue{background:#EFF6FF;border:1px solid #BFDBFE;color:#1E40AF}
   .alert-icon{flex-shrink:0;margin-top:1px}
 
   /* ── Activity feed ── */
@@ -83,12 +81,12 @@
   .expiry-tag{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:#0076A7}
   .expiry-date{font-size:11px;padding:2px 7px;border-radius:4px;font-weight:600}
   .expiry-date.warn{background:#FFFBEB;color:#92400E}
-  .expiry-date.ok{background:#ECFDF5;color:#065F46}
 
   /* ── Empty state ── */
   .empty-state{padding:32px 16px;text-align:center;color:#9CA3AF;font-size:13px}
   .empty-state svg{margin-bottom:8px;opacity:.4}
 
+  @media(max-width:1100px){.charts-row{grid-template-columns:1fr}}
   @media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.dash-grid{grid-template-columns:1fr}}
 </style>
 {% endblock %}
@@ -138,14 +136,14 @@
 
 <!-- ── Alert banners ──────────────────────────────────────────────────────── -->
 {% if open_alerts %}
-<div class="alert-banner red" style="margin-bottom:10px">
+<div class="alert-banner red">
   <div class="alert-icon">
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
   </div>
   <div>
     <strong>{{ open_alerts|length }} Inactive Holder Alert{{ open_alerts|length|pluralize }}</strong> —
     assets assigned to holders no longer in the PRP system.
-    <a href="/admin/assignments/inactiveholderalert/" style="color:inherit;font-weight:700;text-decoration:underline;margin-left:4px">Review →</a>
+    <a href="{% url 'assignments:alerts_list' %}" style="color:inherit;font-weight:700;text-decoration:underline;margin-left:4px">Review →</a>
   </div>
 </div>
 {% endif %}
@@ -161,10 +159,100 @@
 </div>
 {% endif %}
 
+<!-- ── Greeting ──────────────────────────────────────────────────────────── -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;padding:18px 22px;background:linear-gradient(135deg,#0076A7 0%,#005d85 100%);border-radius:10px;color:#fff">
+  <div>
+    <div id="greeting-text" style="font-size:20px;font-weight:700;line-height:1.2"></div>
+    <div id="greeting-date" style="font-size:12.5px;opacity:.75;margin-top:3px"></div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+    {% if open_alerts %}
+    <a href="{% url 'assignments:alerts_list' %}" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:rgba(239,68,68,.2);border:1px solid rgba(239,68,68,.4);border-radius:99px;font-size:12px;font-weight:600;color:#fff;text-decoration:none">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      {{ open_alerts|length }} Alert{{ open_alerts|length|pluralize }}
+    </a>
+    {% endif %}
+    {% if expiring_assets %}
+    <a href="{% url 'reports:warranty_view' %}" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:rgba(245,158,11,.2);border:1px solid rgba(245,158,11,.4);border-radius:99px;font-size:12px;font-weight:600;color:#fff;text-decoration:none">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      {{ expiring_assets|length }} Expiring
+    </a>
+    {% endif %}
+    {% if issues_count %}
+    <span style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:rgba(249,115,22,.2);border:1px solid rgba(249,115,22,.4);border-radius:99px;font-size:12px;font-weight:600;color:#fff">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+      {{ issues_count }} Issue{{ issues_count|pluralize }}
+    </span>
+    {% endif %}
+    {% if last_sync %}
+    <span style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);border-radius:99px;font-size:12px;color:rgba(255,255,255,.85)">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Synced {{ last_sync.started_at|timesince }} ago
+    </span>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── Recently viewed ───────────────────────────────────────────────────── -->
+<div id="recently-viewed" style="display:none;margin-bottom:20px">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+    <svg width="13" height="13" fill="none" stroke="#9CA3AF" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    <span style="font-size:12px;font-weight:600;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em">Recently Viewed</span>
+  </div>
+  <div id="rv-items" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+</div>
+
+<!-- ── Charts row ─────────────────────────────────────────────────────────── -->
+<div class="charts-row">
+
+  <!-- Status donut -->
+  <div class="chart-card">
+    <div class="chart-head">
+      <span class="chart-title">Asset Status</span>
+    </div>
+    <div class="chart-body" style="flex-direction:column;gap:12px">
+      <div class="donut-wrap">
+        <canvas id="statusChart"></canvas>
+        <div class="donut-center">
+          <div class="donut-center-value">{{ total }}</div>
+          <div class="donut-center-label">Total</div>
+        </div>
+      </div>
+      <!-- Legend -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;width:100%">
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#495057">
+          <span style="width:8px;height:8px;border-radius:50%;background:#10B981;flex-shrink:0"></span>In Stock <strong style="margin-left:auto">{{ in_stock_count }}</strong>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#495057">
+          <span style="width:8px;height:8px;border-radius:50%;background:#3B82F6;flex-shrink:0"></span>Assigned <strong style="margin-left:auto">{{ assigned_count }}</strong>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#495057">
+          <span style="width:8px;height:8px;border-radius:50%;background:#F59E0B;flex-shrink:0"></span>Maintenance <strong style="margin-left:auto">{{ issues_count }}</strong>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#495057">
+          <span style="width:8px;height:8px;border-radius:50%;background:#9CA3AF;flex-shrink:0"></span>Disposed <strong style="margin-left:auto">{{ disposed_count }}</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Category bar -->
+  <div class="chart-card">
+    <div class="chart-head">
+      <span class="chart-title">Assets by Category</span>
+      <span style="font-size:11px;color:#9CA3AF">Active assets only</span>
+    </div>
+    <div class="chart-body" style="padding:20px 20px 12px">
+      <canvas id="categoryChart" style="width:100%;max-height:200px"></canvas>
+    </div>
+  </div>
+
+</div>
+
 <!-- ── Main grid ──────────────────────────────────────────────────────────── -->
 <div class="dash-grid">
 
-  <!-- Left column: activity + expiry -->
+  <!-- Left column -->
   <div style="display:flex;flex-direction:column;gap:16px">
 
     <!-- Recent assignments -->
@@ -236,37 +324,83 @@
     </div>
     {% endif %}
 
+    <!-- Recent lifecycle events -->
+    {% if recent_events %}
+    <div class="section-card">
+      <div class="section-head"><span class="section-title">Recent Events</span></div>
+      <div class="section-body">
+        {% for ev in recent_events %}
+        <div class="feed-item">
+          <div class="feed-dot
+            {% if ev.event_type == 'DISPOSED' %}red
+            {% elif ev.event_type == 'MAINTENANCE_SENT' or ev.event_type == 'MAINTENANCE_RETURN' %}amber
+            {% elif ev.event_type == 'LOST' or ev.event_type == 'DAMAGED' %}red
+            {% else %}blue{% endif %}"></div>
+          <div class="feed-content">
+            <div class="feed-main">
+              <span class="asset-tag" style="font-size:11px">{{ ev.asset.asset_tag }}</span>
+              &nbsp;{{ ev.get_event_type_display }}
+            </div>
+            <div class="feed-meta">{{ ev.occurred_at|date:"d M Y, H:i" }} · {{ ev.performed_by.get_full_name|default:ev.performed_by.username }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
   </div>
 
-  <!-- Right column: quick actions + sync status + alerts list -->
+  <!-- Right column -->
   <div style="display:flex;flex-direction:column;gap:16px">
 
     <!-- Quick actions -->
     <div class="section-card">
       <div class="section-head"><span class="section-title">Quick Actions</span></div>
       <div class="quick-actions">
-        <a href="{% url 'assets:list' %}" class="qa-btn primary">
+        {% if user_is_it_officer or user_is_admin %}
+        <a href="{% url 'assets:create' %}" class="qa-btn primary">
           <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Add Asset
         </a>
-        <a href="/admin/assignees/" class="qa-btn">
+        {% endif %}
+        <a href="{% url 'assignees:active_holders' %}" class="qa-btn">
           <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
-          Manage Holders
+          Holders
         </a>
-        <a href="/admin/sync_prp/synclog/" class="qa-btn">
-          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+        <a href="{% url 'sync_prp:dashboard' %}" class="qa-btn">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
           Sync Logs
         </a>
-        <a href="/admin/" class="qa-btn">
-          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-          Admin Panel
+        <a href="{% url 'reports:index' %}" class="qa-btn">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          Reports
         </a>
+        <a href="{% url 'qrcodes:audit_list' %}" class="qa-btn">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Audits
+        </a>
+        {% if user_is_admin %}
+        <a href="{% url 'config:user_list' %}" class="qa-btn">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/><line x1="20" y1="8" x2="20" y2="14"/></svg>
+          Users
+        </a>
+        {% if open_alerts %}
+        <a href="{% url 'assignments:alerts_list' %}" class="qa-btn" style="border-color:#FECACA;color:#EF4444">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          {{ open_alerts|length }} Alert{{ open_alerts|length|pluralize }}
+        </a>
+        {% endif %}
+        {% endif %}
       </div>
     </div>
 
     <!-- PRP Sync status -->
     <div class="section-card">
-      <div class="section-head"><span class="section-title">PRP API Sync</span></div>
+      <div class="section-head">
+        <span class="section-title">PRP Sync Status</span>
+        <a href="{% url 'sync_prp:dashboard' %}" style="font-size:12px;color:#0076A7;font-weight:600;text-decoration:none">All logs →</a>
+      </div>
       {% if last_sync %}
       <div class="sync-strip">
         <div class="sync-dot {{ last_sync.status|lower }}"></div>
@@ -290,7 +424,7 @@
         </div>
       </div>
       {% if last_sync.error_message %}
-      <div style="padding:8px 16px 12px">
+      <div style="padding:0 16px 12px">
         <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;padding:8px 10px;font-size:11.5px;color:#991B1B;font-family:'JetBrains Mono',monospace;white-space:pre-wrap">{{ last_sync.error_message }}</div>
       </div>
       {% endif %}
@@ -320,33 +454,8 @@
         </div>
         {% endfor %}
         <div style="padding:8px 16px 10px;text-align:right">
-          <a href="/admin/assignments/inactiveholderalert/" style="font-size:12px;color:#0076A7;font-weight:600;text-decoration:none">View all in Admin →</a>
+          <a href="{% url 'assignments:alerts_list' %}" style="font-size:12px;color:#0076A7;font-weight:600;text-decoration:none">Review all alerts →</a>
         </div>
-      </div>
-    </div>
-    {% endif %}
-
-    <!-- Recent lifecycle events -->
-    {% if recent_events %}
-    <div class="section-card">
-      <div class="section-head"><span class="section-title">Recent Events</span></div>
-      <div class="section-body">
-        {% for ev in recent_events %}
-        <div class="feed-item">
-          <div class="feed-dot
-            {% if ev.event_type == 'DISPOSED' %}red
-            {% elif ev.event_type == 'MAINTENANCE_SENT' or ev.event_type == 'MAINTENANCE_RETURN' %}amber
-            {% elif ev.event_type == 'LOST' or ev.event_type == 'DAMAGED' %}red
-            {% else %}blue{% endif %}"></div>
-          <div class="feed-content">
-            <div class="feed-main">
-              <span class="asset-tag" style="font-size:11px">{{ ev.asset.asset_tag }}</span>
-              &nbsp;{{ ev.get_event_type_display }}
-            </div>
-            <div class="feed-meta">{{ ev.occurred_at|date:"d M Y, H:i" }} · {{ ev.performed_by.get_full_name|default:ev.performed_by.username }}</div>
-          </div>
-        </div>
-        {% endfor %}
       </div>
     </div>
     {% endif %}
@@ -355,26 +464,124 @@
 </div>
 
 <script>
-  // Update sync button label based on HTMX response
-  document.body.addEventListener('htmx:afterRequest', function(e) {
-    if (e.detail.elt.id === 'sync-btn') {
-      try {
-        const data = JSON.parse(e.detail.xhr.responseText);
-        const el = document.getElementById('sync-result');
-        if (data.status === 'SUCCESS') {
-          el.innerHTML = '&nbsp;✓ Sync complete — +' + data.added + ' updated ' + data.updated + ' flagged ' + data.flagged;
-          el.style.color = '#10B981';
-        } else if (data.status === 'PARTIAL') {
-          el.textContent = ' ⚠ Partial sync';
-          el.style.color = '#F59E0B';
-        } else {
-          el.textContent = ' ✕ Sync failed';
-          el.style.color = '#EF4444';
+// ── Smart greeting ─────────────────────────────────────────────────────────
+(function() {
+  const h = new Date().getHours();
+  const greet = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  const name = '{{ request.user.get_full_name|default:request.user.username|escapejs }}';
+  document.getElementById('greeting-text').textContent = greet + ', ' + name;
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const now = new Date();
+  document.getElementById('greeting-date').textContent =
+    days[now.getDay()] + ', ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear();
+})();
+
+// ── Recently viewed ────────────────────────────────────────────────────────
+(function() {
+  const STATUS_COLORS = {
+    IN_STOCK:'#10B981', ASSIGNED:'#3B82F6', MAINTENANCE:'#F59E0B',
+    LOST:'#EF4444', DAMAGED:'#F97316', DISPOSED:'#9CA3AF'
+  };
+  try {
+    const recent = JSON.parse(localStorage.getItem('recentAssets') || '[]');
+    if (!recent.length) return;
+    const container = document.getElementById('rv-items');
+    recent.forEach(function(a) {
+      const dot = STATUS_COLORS[a.status] || '#9CA3AF';
+      const card = document.createElement('a');
+      card.href = a.url;
+      card.style.cssText = 'display:inline-flex;align-items:center;gap:8px;padding:7px 12px;background:#fff;border:1px solid #E5E7EB;border-radius:7px;text-decoration:none;font-family:\'Inter\',sans-serif;transition:border-color 150ms,box-shadow 150ms';
+      card.onmouseover = () => { card.style.borderColor='#0076A7'; card.style.boxShadow='0 2px 8px rgba(0,118,167,.1)'; };
+      card.onmouseout  = () => { card.style.borderColor='#E5E7EB'; card.style.boxShadow='none'; };
+      card.innerHTML =
+        '<span style="width:7px;height:7px;border-radius:50%;background:'+dot+';flex-shrink:0"></span>' +
+        '<span style="font-family:\'JetBrains Mono\',monospace;font-size:12px;font-weight:700;color:#0076A7">'+a.tag+'</span>' +
+        '<span style="font-size:11.5px;color:#6C757D;max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+a.brand+' '+a.model+'</span>';
+      container.appendChild(card);
+    });
+    document.getElementById('recently-viewed').style.display = 'block';
+  } catch(e) {}
+})();
+
+// ── Status donut chart ─────────────────────────────────────────────────────
+(function() {
+  const d = {{ status_chart|safe }};
+  const nonZero = d.data.some(v => v > 0);
+  new Chart(document.getElementById('statusChart'), {
+    type: 'doughnut',
+    data: {
+      labels: d.labels,
+      datasets: [{
+        data: nonZero ? d.data : [1],
+        backgroundColor: nonZero ? d.colors : ['#E5E7EB'],
+        borderWidth: 2,
+        borderColor: '#fff',
+        hoverOffset: 4,
+      }]
+    },
+    options: {
+      cutout: '68%',
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          enabled: nonZero,
+          callbacks: {
+            label: ctx => ` ${ctx.label}: ${ctx.parsed}`
+          }
         }
-        // Reload page after 1.5s to refresh counts
-        setTimeout(() => location.reload(), 1500);
-      } catch(err) {}
+      }
     }
   });
+})();
+
+// ── Category bar chart ─────────────────────────────────────────────────────
+(function() {
+  const d = {{ category_chart|safe }};
+  new Chart(document.getElementById('categoryChart'), {
+    type: 'bar',
+    data: {
+      labels: d.labels,
+      datasets: [{
+        data: d.data,
+        backgroundColor: '#0076A7',
+        hoverBackgroundColor: '#005d85',
+        borderRadius: 4,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.parsed.y} assets`
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 11, family: 'Inter' }, color: '#6C757D' }
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: '#F3F4F6' },
+          ticks: {
+            font: { size: 11, family: 'Inter' },
+            color: '#6C757D',
+            precision: 0,
+          }
+        }
+      }
+    }
+  });
+})();
+
 </script>
+
 {% endblock %}

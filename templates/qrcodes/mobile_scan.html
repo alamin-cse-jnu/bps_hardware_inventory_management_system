@@ -43,6 +43,44 @@
     .action-btn.danger{background:#FEF2F2;border-color:#FECACA;color:#EF4444}
     .action-btn svg{flex-shrink:0}
     .footer{text-align:center;padding:20px;color:#9CA3AF;font-size:11.5px}
+
+    /* ── Panel (slide-in drawer) ── */
+    .panel-overlay{position:fixed;inset:0;z-index:500;display:flex}
+    .panel-backdrop{flex:1;background:rgba(0,0,0,.3);backdrop-filter:blur(1px)}
+    .panel-drawer{width:100%;max-width:480px;margin-left:auto;background:#fff;display:flex;flex-direction:column;box-shadow:-8px 0 32px rgba(0,0,0,.14);overflow:hidden;height:100vh}
+    .panel-header{padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #E5E7EB;flex-shrink:0}
+    .panel-body{flex:1;overflow-y:auto;padding:20px}
+    .panel-footer{padding:14px 20px;border-top:1px solid #E5E7EB;display:flex;gap:10px;background:#fff;flex-shrink:0}
+
+    /* ── Buttons ── */
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:0 16px;height:36px;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:'Inter',sans-serif;transition:background 150ms;white-space:nowrap}
+    .btn-primary{background:#0076A7;color:#fff}
+    .btn-primary:hover{background:#005d85}
+    .btn-outline{background:#fff;color:#495057;border:1px solid #E5E7EB}
+    .btn-outline:hover{background:#F8F9FA}
+    .btn-danger-soft{background:#FEF2F2;color:#EF4444;border:1px solid #FECACA}
+    .btn-danger-soft:hover{background:#FEE2E2}
+
+    /* ── Forms ── */
+    .form-group{margin-bottom:16px}
+    .form-label{display:block;font-size:12px;font-weight:600;color:#495057;margin-bottom:6px;letter-spacing:.01em}
+    .form-input{width:100%;height:38px;padding:0 12px;border:1px solid #E5E7EB;border-radius:4px;font-size:13px;color:#212529;outline:none;font-family:'Inter',sans-serif;background:#fff}
+    .form-input:focus{border-color:#0076A7;box-shadow:0 0 0 2px rgba(0,118,167,.1)}
+    textarea.form-input{height:auto;padding:9px 12px;resize:vertical;line-height:1.5}
+    select.form-input{cursor:pointer}
+    .form-select{width:100%;height:38px;padding:0 12px;border:1px solid #E5E7EB;border-radius:4px;font-size:13px;color:#212529;outline:none;font-family:'Inter',sans-serif;background:#fff;cursor:pointer}
+    .form-select:focus{border-color:#0076A7;box-shadow:0 0 0 2px rgba(0,118,167,.1)}
+
+    /* ── Callouts ── */
+    .callout{display:flex;gap:10px;padding:11px 14px;border-radius:6px;font-size:13px;margin-bottom:16px}
+    .callout-gold{background:#FBF5E6;border:1px solid rgba(200,169,81,.4)}
+    .callout-red{background:#FEF2F2;border:1px solid #FECACA}
+    .callout-green{background:#ECFDF5;border:1px solid #A7F3D0}
+
+    /* ── Asset tag style ── */
+    .asset-tag{font-family:'JetBrains Mono',monospace;font-weight:700;color:#0076A7;font-size:12px}
+    .divider{height:1px;background:#E5E7EB;margin:8px 0 20px}
+    .assignee-initials{width:32px;height:32px;border-radius:50%;background:#E5E7EB;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#495057;flex-shrink:0}
   </style>
 </head>
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>

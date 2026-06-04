@@ -24,6 +24,21 @@ def location_list(request):
     return render(request, "locations/location_list.html", {"tree": tree})
 
 
+@viewer_required
+def location_detail(request, pk):
+    from assignments.models import Assignment
+    location = get_object_or_404(Location, pk=pk)
+    active_assignments = (
+        Assignment.objects.filter(assignee__location=location, returned_at__isnull=True)
+        .select_related("asset__asset_type__category", "performed_by")
+        .order_by("assigned_at")
+    )
+    return render(request, "locations/location_detail.html", {
+        "location": location,
+        "active_assignments": active_assignments,
+    })
+
+
 @it_officer_required
 def location_create(request):
     if request.method == "POST":

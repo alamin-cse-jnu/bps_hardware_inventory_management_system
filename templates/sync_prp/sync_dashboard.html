@@ -37,14 +37,10 @@
 
 {% block topbar_actions %}
 {% if user_is_it_officer or user_is_admin %}
-<form method="post" action="{% url 'sync_prp:trigger' %}">
-  {% csrf_token %}
-  <input type="hidden" name="entity" value="all">
-  <button type="submit" class="btn btn-primary btn-sm">
-    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-    Full Sync
-  </button>
-</form>
+<button class="btn btn-primary btn-sm" onclick="openSyncModal('all','Full Sync','Pull all employees, MPs, and offices from the PRP API.')">
+  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+  Full Sync
+</button>
 {% endif %}
 {% endblock %}
 
@@ -103,14 +99,11 @@
     </div>
     {% endif %}
     {% if user_is_it_officer or user_is_admin %}
-    <form method="post" action="{% url 'sync_prp:trigger' %}">
-      {% csrf_token %}
-      <input type="hidden" name="entity" value="employees">
-      <button type="submit" class="btn btn-outline btn-sm" style="width:100%">
-        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        Sync Employees
-      </button>
-    </form>
+    <button class="btn btn-outline btn-sm" style="width:100%"
+            onclick="openSyncModal('employees','Sync Employees','Pull the latest employee records from the PRP API. Absent employees will be flagged as inactive.')">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Sync Employees
+    </button>
     {% endif %}
   </div>
 
@@ -135,14 +128,11 @@
     </div>
     {% endif %}
     {% if user_is_it_officer or user_is_admin %}
-    <form method="post" action="{% url 'sync_prp:trigger' %}">
-      {% csrf_token %}
-      <input type="hidden" name="entity" value="mps">
-      <button type="submit" class="btn btn-outline btn-sm" style="width:100%">
-        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        Sync MPs
-      </button>
-    </form>
+    <button class="btn btn-outline btn-sm" style="width:100%"
+            onclick="openSyncModal('mps','Sync MPs','Pull the latest MP records from the PRP API. Absent MPs will be flagged as inactive.')">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Sync MPs
+    </button>
     {% endif %}
   </div>
 
@@ -167,14 +157,11 @@
     </div>
     {% endif %}
     {% if user_is_it_officer or user_is_admin %}
-    <form method="post" action="{% url 'sync_prp:trigger' %}">
-      {% csrf_token %}
-      <input type="hidden" name="entity" value="offices">
-      <button type="submit" class="btn btn-outline btn-sm" style="width:100%">
-        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        Sync Offices
-      </button>
-    </form>
+    <button class="btn btn-outline btn-sm" style="width:100%"
+            onclick="openSyncModal('offices','Sync Offices','Pull the latest office and department records from the PRP API.')">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Sync Offices
+    </button>
     {% endif %}
   </div>
 
@@ -243,5 +230,46 @@
     </tbody>
   </table>
 </div>
+
+<!-- ── Sync confirm modal ─────────────────────────────────────────────────── -->
+<div id="sync-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:10px;padding:28px 28px 20px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+      <div style="width:38px;height:38px;border-radius:8px;background:#EFF6FF;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg width="18" height="18" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </div>
+      <div id="sync-modal-title" style="font-size:15px;font-weight:700;color:#212529"></div>
+    </div>
+    <p id="sync-modal-body" style="font-size:13px;color:#495057;line-height:1.6;margin-bottom:8px"></p>
+    <p style="font-size:12px;color:#92400E;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:8px 10px;margin-bottom:20px">
+      Holders absent from the API will be <strong>flagged as inactive</strong>. No assets will be auto-returned.
+    </p>
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button onclick="closeSyncModal()" style="height:36px;padding:0 16px;border:1px solid #E5E7EB;border-radius:6px;background:#fff;color:#495057;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">Cancel</button>
+      <form id="sync-modal-form" method="post" action="{% url 'sync_prp:trigger' %}" style="display:inline">
+        {% csrf_token %}
+        <input type="hidden" id="sync-modal-entity" name="entity" value="all">
+        <button type="submit" style="height:36px;padding:0 18px;border:none;border-radius:6px;background:#0076A7;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">
+          Proceed
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function openSyncModal(entity, title, body) {
+  document.getElementById('sync-modal-title').textContent = title;
+  document.getElementById('sync-modal-body').textContent = body;
+  document.getElementById('sync-modal-entity').value = entity;
+  document.getElementById('sync-modal').style.display = 'flex';
+}
+function closeSyncModal() {
+  document.getElementById('sync-modal').style.display = 'none';
+}
+document.getElementById('sync-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeSyncModal();
+});
+</script>
 
 {% endblock %}

@@ -1,0 +1,189 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Spec Label — {{ asset.asset_tag }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Inter',sans-serif;background:#F3F4F6;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+
+    .label{
+      width:340px;
+      background:#fff;
+      border:2px solid #0076A7;
+      border-radius:10px;
+      overflow:hidden;
+      page-break-inside:avoid;
+    }
+
+    /* Header bar */
+    .label-header{
+      background:#0076A7;
+      color:#fff;
+      padding:7px 14px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .label-header-org{font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;opacity:.9}
+    .label-header-title{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+
+    /* Body */
+    .label-body{
+      display:flex;
+      gap:0;
+    }
+
+    /* QR column */
+    .label-qr{
+      padding:14px 12px 14px 14px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      flex-shrink:0;
+      border-right:1px dashed #D1D5DB;
+    }
+    .label-qr img{width:90px;height:90px;display:block}
+    .label-qr-hint{font-size:7.5px;color:#9CA3AF;margin-top:5px;text-align:center;line-height:1.3}
+
+    /* Specs column */
+    .label-specs{
+      padding:12px 14px;
+      flex:1;
+      min-width:0;
+    }
+    .asset-tag{
+      font-family:'JetBrains Mono',monospace;
+      font-size:15px;
+      font-weight:700;
+      color:#0076A7;
+      letter-spacing:.04em;
+      line-height:1.1;
+      margin-bottom:2px;
+    }
+    .asset-model{
+      font-size:11px;
+      font-weight:600;
+      color:#212529;
+      margin-bottom:8px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .spec-row{
+      display:flex;
+      align-items:baseline;
+      gap:6px;
+      margin-bottom:3.5px;
+    }
+    .spec-key{
+      font-size:8.5px;
+      font-weight:700;
+      color:#9CA3AF;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+      min-width:30px;
+      flex-shrink:0;
+    }
+    .spec-val{
+      font-family:'JetBrains Mono',monospace;
+      font-size:10px;
+      font-weight:600;
+      color:#1F2937;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .spec-divider{
+      border:none;
+      border-top:1px dashed #E5E7EB;
+      margin:6px 0;
+    }
+
+    /* Footer */
+    .label-footer{
+      border-top:1px solid #E5E7EB;
+      padding:5px 14px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .label-footer-text{font-size:8px;color:#9CA3AF}
+
+    /* Actions (hidden on print) */
+    .actions{margin-top:24px;display:flex;gap:10px;align-items:center}
+    .btn-print{height:38px;padding:0 22px;border:none;border-radius:6px;background:#0076A7;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif}
+    .btn-print:hover{background:#005d85}
+    .btn-back{height:38px;padding:0 18px;border:1px solid #E5E7EB;border-radius:6px;background:#fff;color:#495057;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;text-decoration:none;display:flex;align-items:center}
+
+    @media print{
+      .actions{display:none}
+      body{background:#fff;padding:0;justify-content:flex-start}
+      .label{border-color:#0076A7}
+    }
+  </style>
+</head>
+<body>
+
+  <div class="label">
+
+    <div class="label-header">
+      <span class="label-header-org">Bangladesh Parliament Secretariat</span>
+      <span class="label-header-title">IT Asset Tag</span>
+    </div>
+
+    <div class="label-body">
+
+      <div class="label-qr">
+        <img src="data:image/png;base64,{{ qr_b64 }}" alt="QR">
+        <div class="label-qr-hint">Scan to view<br>asset details</div>
+      </div>
+
+      <div class="label-specs">
+        <div class="asset-tag">{{ asset.asset_tag }}</div>
+        <div class="asset-model">{{ asset.brand }} {{ asset.model_name }}</div>
+
+        {% if asset.serial_number %}
+        <div class="spec-row">
+          <span class="spec-key">S/N</span>
+          <span class="spec-val">{{ asset.serial_number }}</span>
+        </div>
+        {% endif %}
+
+        {% if asset.specifications %}
+          <hr class="spec-divider">
+          {% for key, val in asset.specifications.items %}
+          <div class="spec-row">
+            <span class="spec-key">{{ key|slice:":4" }}</span>
+            <span class="spec-val">{{ val }}</span>
+          </div>
+          {% endfor %}
+        {% endif %}
+
+        {% if asset.warranty_expiry %}
+          <hr class="spec-divider">
+          <div class="spec-row">
+            <span class="spec-key">WTY</span>
+            <span class="spec-val">{{ asset.warranty_expiry|date:"d M Y" }}</span>
+          </div>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <div class="label-footer">
+      <span class="label-footer-text">{{ asset.asset_type.category.name }} &rsaquo; {{ asset.asset_type.name }}</span>
+      <span class="label-footer-text">Parliament IT Inventory</span>
+    </div>
+
+  </div>
+
+  <div class="actions">
+    <button class="btn-print" onclick="window.print()">Print Label</button>
+    <a class="btn-back" href="{% url 'assets:detail' asset.pk %}">Back</a>
+  </div>
+
+</body>
+</html>

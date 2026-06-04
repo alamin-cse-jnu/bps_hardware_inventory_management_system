@@ -152,6 +152,34 @@ def qr_download(request, pk):
 
 
 @viewer_required
+def spec_label(request, pk):
+    asset = get_object_or_404(AssetItem, pk=pk, is_deleted=False)
+    scan_url = request.build_absolute_uri(
+        reverse("qrcodes:mobile_scan", args=[asset.asset_tag])
+    )
+
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=6,
+        border=2,
+    )
+    qr.add_data(scan_url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="#0076A7", back_color="white")
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    import base64
+    qr_b64 = base64.b64encode(buf.getvalue()).decode()
+
+    return render(request, "qrcodes/spec_label.html", {
+        "asset": asset,
+        "qr_b64": qr_b64,
+    })
+
+
+@viewer_required
 def qr_label(request, pk):
     asset = get_object_or_404(AssetItem, pk=pk, is_deleted=False)
     scan_url = request.build_absolute_uri(

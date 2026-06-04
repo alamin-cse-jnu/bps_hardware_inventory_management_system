@@ -4,7 +4,9 @@ from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
-from django.db.models import Q
+import json
+
+from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -102,6 +104,79 @@ def _types_qs():
 
 
 # ---------------------------------------------------------------------------
+# Asset register print
+# ---------------------------------------------------------------------------
+
+@viewer_required
+def asset_register_print(request):
+    from assignments.models import Assignment
+    status_filter = request.GET.get("status", "").strip()
+    qs = (
+        AssetItem.objects.filter(is_deleted=False)
+        .select_related("asset_type__category", "storage_location")
+        .order_by("asset_tag")
+    )
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+    assets = list(qs)
+    active_map = {
+        a.asset_id: a
+        for a in Assignment.objects.filter(
+            asset_id__in=[a.pk for a in assets],
+            returned_at__isnull=True,
+        ).select_related(
+            "assignee__employee", "assignee__mp",
+            "assignee__office", "assignee__location",
+        )
+    }
+    rows = [(asset, active_map.get(asset.pk)) for asset in assets]
+    status_label = dict(AssetItem.Status.choices).get(status_filter, "All")
+    return render(request, "assets/register_print.html", {
+        "rows": rows,
+        "status_filter": status_filter,
+        "status_label": status_label,
+        "total": len(assets),
+        "generated_at": timezone.now(),
+    })
+
+
+# Global search
+# ---------------------------------------------------------------------------
+
+@viewer_required
+def global_search(request):
+    from assignments.models import Assignment
+    q = request.GET.get("q", "").strip()
+    results = []
+    if len(q) >= 2:
+        assets = list(
+            AssetItem.objects.filter(is_deleted=False)
+            .filter(
+                Q(asset_tag__icontains=q) |
+                Q(serial_number__icontains=q) |
+                Q(brand__icontains=q) |
+                Q(model_name__icontains=q)
+            )
+            .select_related("asset_type__category")[:10]
+        )
+        active_map = {
+            a.asset_id: a
+            for a in Assignment.objects.filter(
+                asset_id__in=[a.pk for a in assets],
+                returned_at__isnull=True,
+            ).select_related(
+                "assignee__employee", "assignee__mp",
+                "assignee__office", "assignee__location",
+            )
+        }
+        results = [(asset, active_map.get(asset.pk)) for asset in assets]
+
+    return render(request, "assets/partials/global_search_results.html", {
+        "results": results,
+        "q": q,
+    })
+
+
 # Dashboard
 # ---------------------------------------------------------------------------
 
@@ -114,13 +189,11 @@ def dashboard(request):
     total = qs.count()
     assigned_count = qs.filter(status=AssetItem.Status.ASSIGNED).count()
     in_stock_count = qs.filter(status=AssetItem.Status.IN_STOCK).count()
-    issues_count = qs.filter(
-        status__in=[
-            AssetItem.Status.MAINTENANCE,
-            AssetItem.Status.LOST,
-            AssetItem.Status.DAMAGED,
-        ]
-    ).count()
+    maintenance_count = qs.filter(status=AssetItem.Status.MAINTENANCE).count()
+    lost_count = qs.filter(status=AssetItem.Status.LOST).count()
+    damaged_count = qs.filter(status=AssetItem.Status.DAMAGED).count()
+    disposed_count = qs.filter(status=AssetItem.Status.DISPOSED).count()
+    issues_count = maintenance_count + lost_count + damaged_count
 
     horizon = timezone.now().date() + timedelta(days=30)
     today = timezone.now().date()
@@ -146,16 +219,37 @@ def dashboard(request):
 
     last_sync = SyncLog.objects.order_by("-started_at").first()
 
+    # Chart data
+    category_qs = AssetCategory.objects.filter(is_active=True).annotate(
+        count=Count(
+            "asset_types__items",
+            filter=Q(asset_types__items__is_deleted=False),
+        )
+    ).filter(count__gt=0).order_by("-count")
+
+    status_chart = json.dumps({
+        "labels": ["In Stock", "Assigned", "Maintenance", "Lost", "Damaged", "Disposed"],
+        "data": [in_stock_count, assigned_count, maintenance_count, lost_count, damaged_count, disposed_count],
+        "colors": ["#10B981", "#3B82F6", "#F59E0B", "#EF4444", "#F97316", "#9CA3AF"],
+    })
+    category_chart = json.dumps({
+        "labels": [c.name for c in category_qs],
+        "data": [c.count for c in category_qs],
+    })
+
     return render(request, "dashboard.html", {
         "total": total,
         "assigned_count": assigned_count,
         "in_stock_count": in_stock_count,
         "issues_count": issues_count,
+        "disposed_count": disposed_count,
         "expiring_assets": expiring_assets,
         "open_alerts": open_alerts,
         "recent_assignments": recent_assignments,
         "recent_events": recent_events,
         "last_sync": last_sync,
+        "status_chart": status_chart,
+        "category_chart": category_chart,
     })
 
 
@@ -228,12 +322,39 @@ def asset_detail(request, pk):
         "performed_by", "component",
     ).order_by("-occurred_at")
 
+    def _expiry_info(expiry_date, purchase_date=None):
+        if not expiry_date:
+            return None
+        today = timezone.now().date()
+        days_left = (expiry_date - today).days
+        if purchase_date:
+            total = max((expiry_date - purchase_date).days, 1)
+            elapsed = (today - purchase_date).days
+        else:
+            total = max((expiry_date - (expiry_date - timedelta(days=730))).days, 1)
+            elapsed = 730 - days_left
+        pct = min(max(int(elapsed / total * 100), 0), 100)
+        if days_left < 0:
+            status = "expired"
+        elif days_left <= 30:
+            status = "danger"
+        elif days_left <= 90:
+            status = "warning"
+        else:
+            status = "good"
+        return {"days_left": days_left, "pct": pct, "status": status, "expiry": expiry_date}
+
+    warranty_info = _expiry_info(asset.warranty_expiry, asset.purchase_date)
+    amc_info = _expiry_info(asset.amc_expiry, asset.purchase_date)
+
     return render(request, "assets/asset_detail.html", {
         "asset": asset,
         "history": history,
         "active_assignment": active_assignment,
         "components": asset.components.filter(is_active=True),
         "lifecycle_events": lifecycle_events,
+        "warranty_info": warranty_info,
+        "amc_info": amc_info,
     })
 
 

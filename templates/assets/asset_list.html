@@ -78,9 +78,14 @@
       {% for asset, asgn in asset_rows %}
       <tr>
         <td>
-          <a href="{% url 'assets:detail' asset.pk %}">
-            <span class="asset-tag">{{ asset.asset_tag }}</span>
-          </a>
+          <div style="display:flex;align-items:center;gap:4px">
+            <a href="{% url 'assets:detail' asset.pk %}">
+              <span class="asset-tag">{{ asset.asset_tag }}</span>
+            </a>
+            <button class="copy-btn" onclick="copyTag('{{ asset.asset_tag }}', this)" title="Copy asset tag">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          </div>
           {% if asset.serial_number %}
             <div class="text-muted" style="margin-top:2px;font-family:'JetBrains Mono',monospace;font-size:11px">{{ asset.serial_number }}</div>
           {% endif %}

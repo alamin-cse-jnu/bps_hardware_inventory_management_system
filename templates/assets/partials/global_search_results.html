@@ -1,0 +1,46 @@
+{% if q|length >= 2 %}
+  {% if results %}
+    {% for asset, asgn in results %}
+    <a href="{% url 'assets:detail' asset.pk %}"
+       class="gs-result"
+       data-index="{{ forloop.counter0 }}">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:34px;height:34px;border-radius:7px;background:linear-gradient(135deg,#0076A7,#10B981);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="15" height="15" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#0076A7">{{ asset.asset_tag }}</span>
+            <span class="badge badge-{{ asset.status }}" style="font-size:10px">{{ asset.get_status_display }}</span>
+          </div>
+          <div style="font-size:12px;color:#6C757D;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            {{ asset.brand }} {{ asset.model_name }}
+            <span style="color:#D1D5DB">·</span>
+            {{ asset.asset_type.category.name }}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          {% if asgn %}
+          <div style="font-size:11.5px;font-weight:600;color:#374151;max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ asgn.assignee.display_name }}</div>
+          <div style="font-size:10.5px;color:#9CA3AF">{{ asgn.assignee.get_assignee_type_display }}</div>
+          {% else %}
+          <div style="font-size:11px;color:#9CA3AF">Unassigned</div>
+          {% endif %}
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+    <div style="padding:8px 16px;font-size:11px;color:#9CA3AF;border-top:1px solid #F3F4F6;text-align:center">
+      {{ results|length }} result{{ results|length|pluralize }} &nbsp;·&nbsp; Press Enter to open first result
+    </div>
+  {% else %}
+    <div style="padding:32px 20px;text-align:center;color:#9CA3AF;font-size:13px">
+      <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="display:block;margin:0 auto 8px;opacity:.3"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      No assets found for <strong style="color:#6C757D">"{{ q }}"</strong>
+    </div>
+  {% endif %}
+{% else %}
+  <div style="padding:24px 20px;text-align:center;color:#9CA3AF;font-size:13px">
+    Type at least 2 characters to search…
+  </div>
+{% endif %}

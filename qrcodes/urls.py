@@ -15,4 +15,5 @@ urlpatterns = [
     path("<str:asset_tag>/", views.mobile_scan, name="mobile_scan"),
     path("<int:pk>/download/", views.qr_download, name="qr_download"),
     path("<int:pk>/label/", views.qr_label, name="qr_label"),
+    path("<int:pk>/spec-label/", views.spec_label, name="spec_label"),
 ]
