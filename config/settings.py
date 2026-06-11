@@ -201,7 +201,11 @@ PRP_API_USERNAME = env("PRP_API_USERNAME", default="")
 PRP_API_PASSWORD = env("PRP_API_PASSWORD", default="")
 
 # ---------------------------------------------------------------------------
-# Security hardening (safe to enable even in dev)
+# Security hardening
 # ---------------------------------------------------------------------------
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
+
+# Required in Django 4+ when DEBUG=False: list every origin that can POST forms.
+# Example: CSRF_TRUSTED_ORIGINS=http://172.16.220.159
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
