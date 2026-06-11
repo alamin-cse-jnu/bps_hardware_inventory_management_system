@@ -1,6 +1,6 @@
 # Parliament IT Inventory System — User Manual
 
-**Parliament of Bangladesh · IT Division**  
+**Bangladesh Parliament Secretariat**  
 Version 1.0 · June 2026
 
 ---

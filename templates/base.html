@@ -404,9 +404,24 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') { closeSearch(); return; }
 
   const modal = document.getElementById('gs-modal');
-  if (modal.style.display === 'none') return;
+  const modalOpen = modal.style.display !== 'none' && modal.style.display !== '';
 
-  // Arrow key navigation through results
+  if (!modalOpen) {
+    // Arrow key page scrolling when modal is closed and no form element is focused
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      const tag = document.activeElement ? document.activeElement.tagName : '';
+      const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+        || (document.activeElement && document.activeElement.isContentEditable);
+      if (!isEditable) {
+        e.preventDefault();
+        const content = document.querySelector('.content');
+        if (content) content.scrollBy({top: e.key === 'ArrowDown' ? 80 : -80, behavior: 'smooth'});
+      }
+    }
+    return;
+  }
+
+  // Arrow key navigation through search results
   const items = document.querySelectorAll('.gs-result');
   if (!items.length) return;
   const active = document.querySelector('.gs-result.gs-active');

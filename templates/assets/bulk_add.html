@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block title %}Bulk Add Assets{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:list' %}" style="color:#6C757D">Assets</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>Bulk Add Assets</strong>
+{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'assets:list' %}" class="btn btn-outline btn-sm">Cancel</a>
+{% endblock %}
+
+{% block content %}
+
+{% if errors %}
+<div class="callout callout-red" style="margin-bottom:20px">
+  <svg width="16" height="16" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  <div>
+    <strong>Please fix the following errors:</strong>
+    <ul style="margin:6px 0 0 16px;padding:0">
+      {% for field, msg in errors.items %}<li>{{ msg }}</li>{% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+
+<!-- Instruction callout -->
+<div class="callout callout-green" style="margin-bottom:20px">
+  <svg width="16" height="16" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  <div style="font-size:13px">
+    Fill in the shared details once, enter the quantity, then paste one serial number per line. All assets will share the same brand, model, specs, and procurement info but each gets its own serial number and auto-generated asset tag.
+  </div>
+</div>
+
+<form method="post" id="bulk-form" style="max-width:960px">
+{% csrf_token %}
+
+<!-- Quantity & Serial Numbers Card (prominent, at top) -->
+<div class="card" style="margin-bottom:20px;border:2px solid #0076A7">
+  <div style="padding:14px 20px;border-bottom:1px solid #BFDBFE;display:flex;align-items:center;gap:8px;background:#EFF6FF">
+    <svg width="15" height="15" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="4" rx="1"/><rect x="2" y="10" width="20" height="4" rx="1"/><rect x="2" y="17" width="20" height="4" rx="1"/></svg>
+    <h3 style="font-size:13px;font-weight:700;color:#0076A7;margin:0">Quantity &amp; Serial Numbers</h3>
+  </div>
+  <div class="card-body">
+    <div style="display:grid;grid-template-columns:200px 1fr;gap:20px;align-items:start">
+
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Quantity <span style="color:#EF4444">*</span></label>
+        <input type="number" name="quantity" min="1" max="500"
+               value="{{ form_data.quantity|default:'' }}"
+               class="form-input" placeholder="e.g. 200"
+               id="qty-input"
+               oninput="syncQtyHint()">
+        {% if errors.quantity %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.quantity }}</div>{% endif %}
+        <div id="qty-hint" style="margin-top:6px;font-size:12px;color:#6C757D"></div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">
+          Serial Numbers <span style="color:#EF4444">*</span>
+          <span style="font-weight:400;color:#6C757D;margin-left:6px">— one per line, must match quantity</span>
+        </label>
+        <textarea name="serial_numbers" id="serial-textarea" rows="8"
+                  class="form-input"
+                  style="font-family:'JetBrains Mono',monospace;font-size:12.5px;resize:vertical"
+                  placeholder="SN-001&#10;SN-002&#10;SN-003&#10;…"
+                  oninput="countSerials()">{{ serial_numbers_raw }}</textarea>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+          <div id="serial-count" style="font-size:12px;color:#6C757D">0 serial numbers entered</div>
+          <div id="serial-match" style="font-size:12px;font-weight:600"></div>
+        </div>
+        {% if errors.serial_numbers %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.serial_numbers }}</div>{% endif %}
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+
+  <!-- Identity Card -->
+  <div class="card">
+    <div style="padding:14px 20px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:8px">
+      <svg width="15" height="15" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+      <h3 style="font-size:13px;font-weight:700;color:#212529;margin:0">Shared Identity</h3>
+    </div>
+    <div class="card-body">
+
+      <div class="form-group">
+        <label class="form-label">Asset Type <span style="color:#EF4444">*</span></label>
+        <select name="asset_type" id="id_asset_type" class="form-input"
+                hx-get="{% url 'assets:spec_fields' %}"
+                hx-trigger="change"
+                hx-target="#spec-fields-section"
+                hx-include="this">
+          <option value="">— Select Type —</option>
+          {% regroup types by category as type_groups %}
+          {% for group in type_groups %}
+            <optgroup label="{{ group.grouper.name }}">
+              {% for t in group.list %}
+                <option value="{{ t.pk }}" {% if selected_type and t.pk == selected_type.pk %}selected{% endif %}>{{ t.name }}</option>
+              {% endfor %}
+            </optgroup>
+          {% endfor %}
+        </select>
+        {% if errors.asset_type %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.asset_type }}</div>{% endif %}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Brand <span style="color:#EF4444">*</span></label>
+        <input type="text" name="brand" value="{{ form_data.brand|default:'' }}" class="form-input" placeholder="e.g. Dell, HP, Cisco">
+        {% if errors.brand %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.brand }}</div>{% endif %}
+      </div>
+
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Model Name <span style="color:#EF4444">*</span></label>
+        <input type="text" name="model_name" value="{{ form_data.model_name|default:'' }}" class="form-input" placeholder="e.g. Latitude 5540">
+        {% if errors.model_name %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.model_name }}</div>{% endif %}
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Status & Location Card -->
+  <div class="card">
+    <div style="padding:14px 20px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:8px">
+      <svg width="15" height="15" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      <h3 style="font-size:13px;font-weight:700;color:#212529;margin:0">Status &amp; Location</h3>
+    </div>
+    <div class="card-body">
+
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <div style="display:flex;align-items:center;padding:8px 12px;background:#F8F9FA;border-radius:4px;border:1px solid #E5E7EB">
+          <span class="badge badge-IN_STOCK">In Stock</span>
+          <span class="text-muted text-small" style="margin-left:10px">All bulk assets start In Stock</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Storage Location</label>
+        <select name="storage_location" class="form-input">
+          <option value="">— None —</option>
+          {% for loc in locations %}
+            <option value="{{ loc.pk }}" {% if form_data.storage_location == loc.pk|stringformat:"s" %}selected{% endif %}>{{ loc.full_path }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Notes</label>
+        <textarea name="notes" rows="5" class="form-input" placeholder="Any additional notes shared by all assets…">{{ form_data.notes|default:'' }}</textarea>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- Spec fields: HTMX-swappable section -->
+<div id="spec-fields-section" style="margin-bottom:0">
+  {% include "assets/partials/spec_fields.html" %}
+</div>
+
+<!-- Procurement Card -->
+<div class="card" style="margin-bottom:20px;margin-top:20px">
+  <div style="padding:14px 20px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:8px">
+    <svg width="15" height="15" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+    <h3 style="font-size:13px;font-weight:700;color:#212529;margin:0">Procurement (shared by all)</h3>
+  </div>
+  <div class="card-body">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+
+      <div class="form-group">
+        <label class="form-label">Purchase Date</label>
+        <input type="date" name="purchase_date" value="{{ form_data.purchase_date|default:'' }}" class="form-input">
+        {% if errors.purchase_date %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.purchase_date }}</div>{% endif %}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Purchase Order No.</label>
+        <input type="text" name="purchase_order" value="{{ form_data.purchase_order|default:'' }}" class="form-input" placeholder="PO/2024/001">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Supplier</label>
+        <input type="text" name="supplier" value="{{ form_data.supplier|default:'' }}" class="form-input" placeholder="Vendor name">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Purchase Cost (BDT)</label>
+        <input type="text" name="purchase_cost" value="{{ form_data.purchase_cost|default:'' }}" class="form-input" placeholder="45000.00">
+        {% if errors.purchase_cost %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.purchase_cost }}</div>{% endif %}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Warranty Expiry</label>
+        <input type="date" name="warranty_expiry" value="{{ form_data.warranty_expiry|default:'' }}" class="form-input">
+        {% if errors.warranty_expiry %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.warranty_expiry }}</div>{% endif %}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">AMC Expiry</label>
+        <input type="date" name="amc_expiry" value="{{ form_data.amc_expiry|default:'' }}" class="form-input">
+        {% if errors.amc_expiry %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.amc_expiry }}</div>{% endif %}
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Submit row -->
+<div style="display:flex;align-items:center;gap:12px;padding-bottom:32px">
+  <button type="submit" class="btn btn-primary btn-lg">
+    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+    Create Assets
+  </button>
+  <a href="{% url 'assets:list' %}" class="btn btn-outline btn-lg">Cancel</a>
+</div>
+
+</form>
+
+<script>
+function countSerials() {
+  const ta = document.getElementById('serial-textarea');
+  const lines = ta.value.split('\n').map(s => s.trim()).filter(Boolean);
+  const count = lines.length;
+  document.getElementById('serial-count').textContent = count + ' serial number' + (count !== 1 ? 's' : '') + ' entered';
+  syncQtyHint();
+}
+
+function syncQtyHint() {
+  const qty = parseInt(document.getElementById('qty-input').value) || 0;
+  const ta = document.getElementById('serial-textarea');
+  const lines = ta.value.split('\n').map(s => s.trim()).filter(Boolean);
+  const count = lines.length;
+  const hint = document.getElementById('qty-hint');
+  const match = document.getElementById('serial-match');
+  if (qty > 0) {
+    hint.textContent = qty + ' asset' + (qty !== 1 ? 's' : '') + ' will be created';
+  } else {
+    hint.textContent = '';
+  }
+  if (qty > 0 && count > 0) {
+    if (count === qty) {
+      match.textContent = '✓ Count matches';
+      match.style.color = '#10B981';
+    } else {
+      match.textContent = '✗ ' + count + ' entered, need ' + qty;
+      match.style.color = '#EF4444';
+    }
+  } else {
+    match.textContent = '';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  countSerials();
+});
+</script>
+
+{% endblock %}

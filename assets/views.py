@@ -103,6 +103,64 @@ def _types_qs():
     return AssetType.objects.filter(is_active=True).select_related("category").order_by("category__name", "name")
 
 
+# Keys whose spec values are stored as dicts (composite fields)
+_COMPOSITE_SPEC_KEYS = {"ram", "storage", "display", "display_monitor", "os", "cpu"}
+
+
+def _collect_specs(spec_schema, post_data):
+    """Build the specifications dict from POST data, handling composite keys."""
+    specs = {}
+    for key in spec_schema:
+        if key == "ram":
+            specs[key] = {
+                "qty": post_data.get("spec_ram_qty", "").strip(),
+                "type": post_data.get("spec_ram_type", "").strip(),
+            }
+        elif key == "storage":
+            specs[key] = {
+                "qty": post_data.get("spec_storage_qty", "").strip(),
+                "unit": post_data.get("spec_storage_unit", "GB").strip(),
+                "type": post_data.get("spec_storage_type", "").strip(),
+            }
+        elif key in ("display", "display_monitor"):
+            specs[key] = {
+                "size": post_data.get(f"spec_{key}_size", "").strip(),
+            }
+        elif key == "os":
+            specs[key] = {
+                "name": post_data.get("spec_os_name", "").strip(),
+                "licensed": post_data.get("spec_os_licensed", "").strip(),
+            }
+        elif key == "cpu":
+            specs[key] = {
+                "brand": post_data.get("spec_cpu_brand", "").strip(),
+                "cores": post_data.get("spec_cpu_cores", "").strip(),
+                "generation": post_data.get("spec_cpu_generation", "").strip(),
+            }
+        else:
+            specs[key] = post_data.get(f"spec_{key}", "").strip()
+    return specs
+
+
+def _spec_display_value(key, post_data):
+    """Reconstruct a spec display value (dict or string) from raw POST data."""
+    if key == "ram":
+        return {"qty": post_data.get("spec_ram_qty", ""), "type": post_data.get("spec_ram_type", "")}
+    elif key == "storage":
+        return {"qty": post_data.get("spec_storage_qty", ""), "unit": post_data.get("spec_storage_unit", "GB"), "type": post_data.get("spec_storage_type", "")}
+    elif key in ("display", "display_monitor"):
+        return {"size": post_data.get(f"spec_{key}_size", "")}
+    elif key == "os":
+        return {"name": post_data.get("spec_os_name", ""), "licensed": post_data.get("spec_os_licensed", "")}
+    elif key == "cpu":
+        return {
+            "brand": post_data.get("spec_cpu_brand", ""),
+            "cores": post_data.get("spec_cpu_cores", ""),
+            "generation": post_data.get("spec_cpu_generation", ""),
+        }
+    return post_data.get(f"spec_{key}", "")
+
+
 # ---------------------------------------------------------------------------
 # Asset register print
 # ---------------------------------------------------------------------------
@@ -386,7 +444,7 @@ def asset_create(request):
         errors = _validate_asset_form(request.POST, spec_schema)
 
         if not errors and selected_type:
-            specs = {key: request.POST.get(f"spec_{key}", "") for key in spec_schema}
+            specs = _collect_specs(spec_schema, request.POST)
             tag = request.POST.get("asset_tag", "").strip() or _generate_asset_tag(selected_type)
             asset = AssetItem(
                 asset_tag=tag,
@@ -410,7 +468,10 @@ def asset_create(request):
             messages.success(request, f"Asset {asset.asset_tag} created successfully.")
             return redirect("assets:detail", pk=asset.pk)
 
-    spec_fields = [(key, form_data.get(f"spec_{key}", "")) for key in spec_schema]
+    if request.method == "POST":
+        spec_fields = [(key, _spec_display_value(key, form_data)) for key in spec_schema]
+    else:
+        spec_fields = [(key, {}) for key in spec_schema]
 
     return render(request, "assets/asset_form.html", {
         "categories": categories,
@@ -446,7 +507,7 @@ def asset_edit(request, pk):
         errors = _validate_asset_form(request.POST, spec_schema, exclude_pk=pk)
 
         if not errors:
-            specs = {key: request.POST.get(f"spec_{key}", "") for key in spec_schema}
+            specs = _collect_specs(spec_schema, request.POST)
             asset.asset_tag = request.POST.get("asset_tag", "").strip() or asset.asset_tag
             asset.asset_type = selected_type
             asset.brand = request.POST["brand"].strip()
@@ -483,7 +544,10 @@ def asset_edit(request, pk):
             "notes": asset.notes,
         }
 
-    spec_fields = [(key, form_data.get(f"spec_{key}", "") if request.method == "POST" else asset.specifications.get(key, "")) for key in spec_schema]
+    if request.method == "POST":
+        spec_fields = [(key, _spec_display_value(key, form_data)) for key in spec_schema]
+    else:
+        spec_fields = [(key, asset.specifications.get(key, "")) for key in spec_schema]
 
     return render(request, "assets/asset_form.html", {
         "asset": asset,
@@ -508,6 +572,99 @@ def asset_delete(request, pk):
         messages.success(request, f"Asset {asset.asset_tag} has been deleted.")
         return redirect("assets:list")
     return render(request, "assets/asset_delete_confirm.html", {"asset": asset})
+
+
+@it_officer_required
+def asset_bulk_create(request):
+    categories = AssetCategory.objects.filter(is_active=True)
+    types = _types_qs()
+    locations = _locations_qs()
+
+    selected_type = None
+    spec_schema = []
+    form_data = {}
+    errors = {}
+    serial_numbers = []
+
+    raw_type = request.POST.get("asset_type") if request.method == "POST" else request.GET.get("type_id")
+    if raw_type:
+        try:
+            selected_type = AssetType.objects.get(pk=raw_type, is_active=True)
+            spec_schema = selected_type.spec_schema or []
+        except AssetType.DoesNotExist:
+            pass
+
+    if request.method == "POST":
+        form_data = request.POST
+        errors = _validate_asset_form(request.POST, spec_schema)
+
+        # Validate quantity
+        quantity = 0
+        try:
+            quantity = int(request.POST.get("quantity", 0))
+            if quantity < 1:
+                errors["quantity"] = "Quantity must be at least 1."
+            elif quantity > 500:
+                errors["quantity"] = "Maximum 500 assets per bulk add."
+        except (ValueError, TypeError):
+            errors["quantity"] = "Enter a valid whole number."
+
+        # Parse serial numbers
+        raw_serials = request.POST.get("serial_numbers", "").strip()
+        serial_numbers = [s.strip() for s in raw_serials.splitlines() if s.strip()]
+
+        if not errors.get("quantity") and quantity > 0:
+            if len(serial_numbers) != quantity:
+                errors["serial_numbers"] = (
+                    f"You entered {len(serial_numbers)} serial number(s) but quantity is {quantity}. "
+                    "The count must match exactly."
+                )
+
+        if not errors and selected_type:
+            specs = _collect_specs(spec_schema, request.POST)
+            created_tags = []
+            for serial in serial_numbers:
+                tag = _generate_asset_tag(selected_type)
+                asset = AssetItem(
+                    asset_tag=tag,
+                    asset_type=selected_type,
+                    brand=request.POST["brand"].strip(),
+                    model_name=request.POST["model_name"].strip(),
+                    serial_number=serial,
+                    status=AssetItem.Status.IN_STOCK,
+                    specifications=specs,
+                    storage_location_id=request.POST.get("storage_location") or None,
+                    purchase_date=_parse_date_safe(request.POST.get("purchase_date")),
+                    purchase_order=request.POST.get("purchase_order", "").strip(),
+                    supplier=request.POST.get("supplier", "").strip(),
+                    purchase_cost=_parse_decimal_safe(request.POST.get("purchase_cost")),
+                    warranty_expiry=_parse_date_safe(request.POST.get("warranty_expiry")),
+                    amc_expiry=_parse_date_safe(request.POST.get("amc_expiry")),
+                    notes=request.POST.get("notes", "").strip(),
+                    created_by=request.user,
+                )
+                asset.save()
+                created_tags.append(tag)
+
+            messages.success(request, f"Bulk add complete: {len(created_tags)} asset(s) created successfully.")
+            return redirect("assets:list")
+
+    if request.method == "POST":
+        spec_fields = [(key, _spec_display_value(key, form_data)) for key in spec_schema]
+    else:
+        spec_fields = [(key, {}) for key in spec_schema]
+
+    return render(request, "assets/bulk_add.html", {
+        "categories": categories,
+        "types": types,
+        "locations": locations,
+        "selected_type": selected_type,
+        "spec_schema": spec_schema,
+        "spec_fields": spec_fields,
+        "form_data": form_data,
+        "errors": errors,
+        "serial_numbers_raw": request.POST.get("serial_numbers", "") if request.method == "POST" else "",
+    })
 
 
 @viewer_required

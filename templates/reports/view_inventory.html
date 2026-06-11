@@ -36,12 +36,12 @@
 </div>
 
 <!-- Filter panel -->
-<details {% if status or category or type %}open{% endif %} style="margin-bottom:16px">
+<details {% if status or category or type or ram_type or os_name or os_licensed %}open{% endif %} style="margin-bottom:16px">
   <summary style="list-style:none;cursor:pointer">
     <div class="card" style="padding:10px 16px;display:flex;align-items:center;gap:10px">
       <svg width="14" height="14" fill="none" stroke="#6C757D" stroke-width="2" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
       <span style="font-size:13px;font-weight:600;color:#495057">Filters</span>
-      {% if status or category or type %}
+      {% if status or category or type or ram_type or os_name or os_licensed %}
       <span style="background:#0076A7;color:#fff;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700">Active</span>
       {% endif %}
     </div>
@@ -79,9 +79,35 @@
               {% endfor %}
             </select>
           </div>
+          <!-- Spec filters -->
+          <div>
+            <label style="display:block;font-size:11px;color:#6C757D;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">RAM Type</label>
+            <select name="ram_type" class="filter-input" style="min-width:110px">
+              <option value="">All RAM</option>
+              <option value="DDR4" {% if ram_type == 'DDR4' %}selected{% endif %}>DDR4</option>
+              <option value="DDR5" {% if ram_type == 'DDR5' %}selected{% endif %}>DDR5</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;color:#6C757D;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">OS</label>
+            <select name="os_name" class="filter-input" style="min-width:130px">
+              <option value="">All OS</option>
+              <option value="Windows 11" {% if os_name == 'Windows 11' %}selected{% endif %}>Windows 11</option>
+              <option value="Windows 10" {% if os_name == 'Windows 10' %}selected{% endif %}>Windows 10</option>
+              <option value="Linux" {% if os_name == 'Linux' %}selected{% endif %}>Linux</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;color:#6C757D;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Licensed</label>
+            <select name="os_licensed" class="filter-input" style="min-width:100px">
+              <option value="">Any</option>
+              <option value="Yes" {% if os_licensed == 'Yes' %}selected{% endif %}>Yes</option>
+              <option value="No" {% if os_licensed == 'No' %}selected{% endif %}>No</option>
+            </select>
+          </div>
           <div style="display:flex;gap:8px">
             <button type="submit" class="btn btn-primary btn-sm">Apply</button>
-            {% if status or category or type %}
+            {% if status or category or type or ram_type or os_name or os_licensed %}
             <a href="{% url 'reports:inventory_view' %}{% if request.GET.cols %}?cols={{ request.GET.cols }}{% endif %}" class="btn btn-outline btn-sm">Clear</a>
             {% endif %}
           </div>
@@ -99,6 +125,9 @@
       <input type="hidden" name="status" value="{{ status }}">
       <input type="hidden" name="category" value="{{ category }}">
       <input type="hidden" name="type" value="{{ type }}">
+      <input type="hidden" name="ram_type" value="{{ ram_type }}">
+      <input type="hidden" name="os_name" value="{{ os_name }}">
+      <input type="hidden" name="os_licensed" value="{{ os_licensed }}">
       <input type="hidden" name="per_page" value="{{ per_page }}">
       <input type="hidden" name="cols" id="cols-hidden">
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">

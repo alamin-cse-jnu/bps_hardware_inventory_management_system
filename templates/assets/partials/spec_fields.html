@@ -1,18 +1,310 @@
 {% if spec_fields %}
-<div class="card" style="margin-bottom:20px">
-  <div style="padding:16px 20px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:8px">
-    <svg width="16" height="16" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
-    <h3 style="font-size:14px;font-weight:700;color:#212529">Specifications</h3>
-  </div>
-  <div class="card-body">
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
-      {% for key, value in spec_fields %}
-      <div class="form-group" style="margin-bottom:0">
-        <label class="form-label">{{ key|upper }}</label>
-        <input type="text" name="spec_{{ key }}" value="{{ value }}" class="form-input" placeholder="{{ key }}">
-      </div>
-      {% endfor %}
+<style>
+/* ── Spec section wrapper ─────────────────────────────────────────── */
+.spec-section{
+  background:linear-gradient(135deg,#F0F7FB 0%,#F8FBFD 100%);
+  border:1px solid #C8DFE8;
+  border-radius:10px;
+  padding:20px;
+  margin-bottom:20px;
+}
+.spec-section-header{
+  display:flex;align-items:center;gap:12px;
+  padding-bottom:16px;margin-bottom:18px;
+  border-bottom:1px solid #D6E8F0;
+}
+.spec-icon-wrap{
+  width:34px;height:34px;border-radius:8px;
+  background:#0076A7;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+}
+.spec-section-title{font-size:14px;font-weight:700;color:#0F3547;letter-spacing:-.01em}
+.spec-section-sub{font-size:11.5px;color:#6C8A95;margin-top:2px}
+
+/* ── Spec grid ───────────────────────────────────────────────────── */
+.spec-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px 24px}
+
+/* ── Spec field label ────────────────────────────────────────────── */
+.spec-label{
+  display:block;font-size:11.5px;font-weight:700;
+  color:#374151;margin-bottom:8px;letter-spacing:.02em;
+}
+.spec-label-hint{
+  font-size:10.5px;font-weight:400;color:#9CA3AF;
+  margin-left:5px;letter-spacing:0;
+}
+
+/* ── Input group (number input + right badge) ────────────────────── */
+.spec-ig{
+  display:flex;align-items:stretch;
+  border:1px solid #CBD5E1;border-radius:7px;
+  overflow:hidden;background:#fff;
+  transition:border-color 150ms,box-shadow 150ms;
+}
+.spec-ig:focus-within{border-color:#0076A7;box-shadow:0 0 0 3px rgba(0,118,167,.12)}
+.spec-ig input{
+  flex:1;min-width:0;border:none;outline:none;
+  padding:0 12px;height:40px;font-size:14px;
+  color:#111827;background:transparent;font-family:'Inter',sans-serif;
+}
+.spec-ig input::placeholder{color:#C4CBD4;font-size:13px}
+.spec-ig-unit{
+  background:#EEF4F8;border-left:1px solid #CBD5E1;
+  color:#4B5563;font-size:11.5px;font-weight:700;
+  padding:0 13px;display:flex;align-items:center;
+  white-space:nowrap;letter-spacing:.04em;flex-shrink:0;
+}
+
+/* ── Pill / chip toggles ─────────────────────────────────────────── */
+.spec-chips{
+  display:inline-flex;border:1px solid #CBD5E1;
+  border-radius:7px;overflow:hidden;background:#fff;
+  height:40px;
+}
+.spec-chip{
+  position:relative;cursor:pointer;flex-shrink:0;
+}
+.spec-chip input[type="radio"]{
+  position:absolute;opacity:0;width:0;height:0;pointer-events:none;
+}
+.spec-chip span{
+  display:flex;align-items:center;justify-content:center;
+  height:40px;padding:0 14px;
+  font-size:12.5px;font-weight:600;color:#4B5563;
+  border-right:1px solid #CBD5E1;
+  transition:background 120ms,color 120ms;
+  white-space:nowrap;
+}
+.spec-chip:last-child span{border-right:none}
+.spec-chip input[type="radio"]:checked + span{
+  background:#0076A7;color:#fff;
+}
+.spec-chip:hover span{background:#F1F5F9}
+.spec-chip input[type="radio"]:checked + span:hover{background:#005d85}
+
+/* ── Compound row (input-group + chip group side by side) ────────── */
+.spec-compound{display:flex;gap:8px;align-items:center}
+.spec-compound .spec-ig{flex:0 0 130px}
+.spec-compound .spec-chips{flex:1}
+
+/* ── Standard text / select inputs ──────────────────────────────── */
+.spec-text{
+  width:100%;height:40px;padding:0 12px;
+  border:1px solid #CBD5E1;border-radius:7px;
+  font-size:13.5px;color:#212529;outline:none;
+  font-family:'Inter',sans-serif;background:#fff;
+  transition:border-color 150ms,box-shadow 150ms;
+}
+.spec-text:focus{border-color:#0076A7;box-shadow:0 0 0 3px rgba(0,118,167,.12)}
+.spec-text::placeholder{color:#C4CBD4}
+select.spec-text{
+  appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%236C757D' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 11px center;
+  padding-right:30px;cursor:pointer;
+}
+
+/* ── OS row ──────────────────────────────────────────────────────── */
+.spec-os-grid{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:end}
+
+/* ── Mobile ──────────────────────────────────────────────────────── */
+@media(max-width:767px){
+  .spec-grid{grid-template-columns:1fr}
+  .spec-compound .spec-ig{flex:0 0 100px}
+  .spec-os-grid{grid-template-columns:1fr;gap:12px}
+}
+</style>
+
+<div class="spec-section">
+  <div class="spec-section-header">
+    <div class="spec-icon-wrap">
+      <svg width="15" height="15" fill="none" stroke="#fff" stroke-width="2.2" viewBox="0 0 24 24">
+        <polyline points="4 7 4 4 20 4 20 7"/>
+        <line x1="9" y1="20" x2="15" y2="20"/>
+        <line x1="12" y1="4" x2="12" y2="20"/>
+      </svg>
     </div>
+    <div>
+      <div class="spec-section-title">Specifications</div>
+      <div class="spec-section-sub">Technical details for this asset type</div>
+    </div>
+  </div>
+
+  <div class="spec-grid">
+    {% for key, value in spec_fields %}
+
+    {% if key == 'ram' %}
+    <!-- ── RAM ── -->
+    <div>
+      <label class="spec-label">RAM <span class="spec-label-hint">size &amp; generation</span></label>
+      <div class="spec-compound">
+        <div class="spec-ig">
+          <input type="number" name="spec_ram_qty"
+                 value="{{ value.qty|default:'' }}"
+                 placeholder="16" min="1" max="9999" step="1">
+          <span class="spec-ig-unit">GB</span>
+        </div>
+        <div class="spec-chips">
+          <label class="spec-chip" title="Any DDR generation">
+            <input type="radio" name="spec_ram_type" value=""
+                   {% if not value.type %}checked{% endif %}>
+            <span style="color:#9CA3AF;font-weight:500;font-size:12px">—</span>
+          </label>
+          <label class="spec-chip">
+            <input type="radio" name="spec_ram_type" value="DDR4"
+                   {% if value.type == 'DDR4' %}checked{% endif %}>
+            <span>DDR4</span>
+          </label>
+          <label class="spec-chip">
+            <input type="radio" name="spec_ram_type" value="DDR5"
+                   {% if value.type == 'DDR5' %}checked{% endif %}>
+            <span>DDR5</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    {% elif key == 'storage' %}
+    <!-- ── Storage ── -->
+    <div>
+      <label class="spec-label">Storage <span class="spec-label-hint">capacity &amp; type</span></label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div class="spec-ig" style="flex:0 0 110px">
+          <input type="number" name="spec_storage_qty"
+                 value="{{ value.qty|default:'' }}"
+                 placeholder="512" min="1" max="99999" step="1">
+        </div>
+        <div class="spec-chips">
+          <label class="spec-chip">
+            <input type="radio" name="spec_storage_unit" value="GB"
+                   {% if value.unit != 'TB' %}checked{% endif %}>
+            <span>GB</span>
+          </label>
+          <label class="spec-chip">
+            <input type="radio" name="spec_storage_unit" value="TB"
+                   {% if value.unit == 'TB' %}checked{% endif %}>
+            <span>TB</span>
+          </label>
+        </div>
+        <div class="spec-chips">
+          <label class="spec-chip" title="Any drive type">
+            <input type="radio" name="spec_storage_type" value=""
+                   {% if not value.type %}checked{% endif %}>
+            <span style="color:#9CA3AF;font-weight:500;font-size:12px">—</span>
+          </label>
+          <label class="spec-chip">
+            <input type="radio" name="spec_storage_type" value="SSD"
+                   {% if value.type == 'SSD' %}checked{% endif %}>
+            <span>SSD</span>
+          </label>
+          <label class="spec-chip">
+            <input type="radio" name="spec_storage_type" value="HDD"
+                   {% if value.type == 'HDD' %}checked{% endif %}>
+            <span>HDD</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    {% elif key == 'display' or key == 'display_monitor' %}
+    <!-- ── Display / Monitor ── -->
+    <div>
+      <label class="spec-label">Display / Monitor <span class="spec-label-hint">screen size</span></label>
+      <div class="spec-ig" style="max-width:200px">
+        <input type="number" name="spec_{{ key }}_size"
+               value="{{ value.size|default:'' }}"
+               placeholder="24" min="1" max="200" step="0.1">
+        <span class="spec-ig-unit">inches</span>
+      </div>
+    </div>
+
+    {% elif key == 'os' %}
+    <!-- ── Operating System ── (full-width row) -->
+    <div style="grid-column:1 / -1">
+      <label class="spec-label">Operating System</label>
+      <div class="spec-os-grid">
+        <div>
+          <select name="spec_os_name" class="spec-text">
+            <option value="">— Select operating system —</option>
+            <option value="Windows 11" {% if value.name == 'Windows 11' %}selected{% endif %}>Windows 11</option>
+            <option value="Windows 10" {% if value.name == 'Windows 10' %}selected{% endif %}>Windows 10</option>
+            <option value="Linux"      {% if value.name == 'Linux'      %}selected{% endif %}>Linux</option>
+          </select>
+        </div>
+        <div>
+          <label class="spec-label" style="margin-bottom:8px">Licensed</label>
+          <div class="spec-chips">
+            <label class="spec-chip" title="Not specified">
+              <input type="radio" name="spec_os_licensed" value=""
+                     {% if not value.licensed %}checked{% endif %}>
+              <span style="color:#9CA3AF;font-weight:500;font-size:12px">—</span>
+            </label>
+            <label class="spec-chip">
+              <input type="radio" name="spec_os_licensed" value="Yes"
+                     {% if value.licensed == 'Yes' %}checked{% endif %}>
+              <span>Yes</span>
+            </label>
+            <label class="spec-chip">
+              <input type="radio" name="spec_os_licensed" value="No"
+                     {% if value.licensed == 'No' %}checked{% endif %}>
+              <span>No</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% elif key == 'cpu' %}
+    <!-- ── CPU ── -->
+    <div>
+      <label class="spec-label">CPU <span class="spec-label-hint">processor</span></label>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <!-- Row 1: brand toggle + core count -->
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="spec-chips">
+            <label class="spec-chip" title="Brand not specified">
+              <input type="radio" name="spec_cpu_brand" value=""
+                     {% if not value.brand %}checked{% endif %}>
+              <span style="color:#9CA3AF;font-weight:500;font-size:12px">—</span>
+            </label>
+            <label class="spec-chip">
+              <input type="radio" name="spec_cpu_brand" value="Intel"
+                     {% if value.brand == 'Intel' %}checked{% endif %}>
+              <span>Intel</span>
+            </label>
+            <label class="spec-chip">
+              <input type="radio" name="spec_cpu_brand" value="AMD"
+                     {% if value.brand == 'AMD' %}checked{% endif %}>
+              <span>AMD</span>
+            </label>
+          </div>
+          <div class="spec-ig" style="flex:1">
+            <input type="number" name="spec_cpu_cores"
+                   value="{{ value.cores|default:'' }}"
+                   placeholder="8" min="1" max="256" step="1">
+            <span class="spec-ig-unit">cores</span>
+          </div>
+        </div>
+        <!-- Row 2: generation / model string -->
+        <input type="text" name="spec_cpu_generation"
+               value="{{ value.generation|default:'' }}"
+               class="spec-text"
+               placeholder="e.g. 12th Gen, Core i7-1255U, Ryzen 7 7800X…">
+      </div>
+    </div>
+
+    {% else %}
+    <!-- ── Standard field ── -->
+    <div>
+      <label class="spec-label">{{ key|title }}</label>
+      <input type="text" name="spec_{{ key }}"
+             value="{{ value }}"
+             class="spec-text"
+             placeholder="Enter {{ key|lower }}…">
+    </div>
+    {% endif %}
+
+    {% endfor %}
   </div>
 </div>
 {% endif %}

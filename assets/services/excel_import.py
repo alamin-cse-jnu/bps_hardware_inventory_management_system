@@ -98,10 +98,14 @@ def _parse_date(value: Any) -> date | None:
         return value.date()
     if isinstance(value, date):
         return value
-    try:
-        return datetime.strptime(str(value).strip(), "%Y-%m-%d").date()
-    except ValueError:
-        raise ValueError(f"Invalid date '{value}'. Expected YYYY-MM-DD.")
+    s = str(value).strip()
+    # Try multiple formats; Excel serial dates become "YYYY-MM-DD HH:MM:SS" strings
+    for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except ValueError:
+            continue
+    raise ValueError(f"Invalid date '{value}'. Use YYYY-MM-DD (e.g. 2024-01-15).")
 
 
 def _parse_decimal(value: Any) -> Decimal | None:
@@ -149,9 +153,12 @@ class ExcelTemplateGenerator:
         ws.title = "Data Entry"
         ws.freeze_panes = "A2"
 
-        # Header row
+        _DATE_COLS = {"purchase_date", "warranty_expiry", "amc_expiry"}
+
+        # Header row — date columns get a format hint appended
         for col_idx, col_name in enumerate(all_cols, start=1):
-            cell = ws.cell(row=1, column=col_idx, value=col_name)
+            label = f"{col_name} (YYYY-MM-DD)" if col_name in _DATE_COLS else col_name
+            cell = ws.cell(row=1, column=col_idx, value=label)
             cell.fill = _HEADER_FILL
             cell.font = _HEADER_FONT
             cell.alignment = _HEADER_ALIGN
@@ -161,11 +168,20 @@ class ExcelTemplateGenerator:
         for col_idx, col_name in enumerate(all_cols, start=1):
             cell = ws.cell(row=2, column=col_idx, value=example.get(col_name, ""))
             cell.font = _EXAMPLE_FONT
+            if col_name in _DATE_COLS:
+                cell.number_format = "@"  # text format prevents Excel date auto-conversion
+
+        # Pre-format 300 data rows for date columns as text so Excel won't convert typed dates
+        for col_idx, col_name in enumerate(all_cols, start=1):
+            if col_name in _DATE_COLS:
+                for row_i in range(3, 303):
+                    ws.cell(row_i, col_idx).number_format = "@"
 
         # Auto-width: use max of header length and example value length
         for col_idx, col_name in enumerate(all_cols, start=1):
+            label = f"{col_name} (YYYY-MM-DD)" if col_name in _DATE_COLS else col_name
             example_val = str(example.get(col_name, ""))
-            width = max(len(col_name), len(example_val)) + 4
+            width = max(len(label), len(example_val)) + 4
             ws.column_dimensions[get_column_letter(col_idx)].width = min(width, 40)
 
         ws.row_dimensions[1].height = 28
@@ -273,11 +289,15 @@ class ExcelImportValidator:
         ws = wb["Data Entry"] if "Data Entry" in wb.sheetnames else wb.active
 
         # Build column index map from header row
+        # Strip format hints like " (YYYY-MM-DD)" added by the template generator
         header_row = [ws.cell(1, c).value for c in range(1, ws.max_column + 1)]
         col_map: dict[str, int] = {}
         for idx, header in enumerate(header_row, start=1):
             if header:
-                col_map[str(header).strip()] = idx
+                raw = str(header).strip()
+                # Strip trailing " (FORMAT)" hint if present
+                clean = raw.split(" (")[0].strip()
+                col_map[clean] = idx
 
         # Pre-build location lookup once
         location_lookup = _build_location_lookup()

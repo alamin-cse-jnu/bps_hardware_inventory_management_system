@@ -160,6 +160,12 @@ def inventory_excel(
         qs = qs.filter(asset_type__category_id=filters["category"])
     if filters.get("type"):
         qs = qs.filter(asset_type_id=filters["type"])
+    if filters.get("ram_type"):
+        qs = qs.filter(specifications__ram__type=filters["ram_type"])
+    if filters.get("os_name"):
+        qs = qs.filter(specifications__os__name=filters["os_name"])
+    if filters.get("os_licensed"):
+        qs = qs.filter(specifications__os__licensed=filters["os_licensed"])
 
     pks = list(qs.values_list("pk", flat=True))
     active_map = {

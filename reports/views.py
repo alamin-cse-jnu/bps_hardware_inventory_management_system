@@ -104,9 +104,12 @@ def view_inventory(request):
     from assignments.models import Assignment
 
     # Filters
-    status     = request.GET.get("status") or ""
-    category   = request.GET.get("category") or ""
-    type_      = request.GET.get("type") or ""
+    status      = request.GET.get("status") or ""
+    category    = request.GET.get("category") or ""
+    type_       = request.GET.get("type") or ""
+    ram_type    = request.GET.get("ram_type") or ""
+    os_name     = request.GET.get("os_name") or ""
+    os_licensed = request.GET.get("os_licensed") or ""
 
     # Column selection
     selected_keys = parse_cols(request, INVENTORY_COLS)
@@ -128,6 +131,12 @@ def view_inventory(request):
         qs = qs.filter(asset_type__category_id=category)
     if type_:
         qs = qs.filter(asset_type_id=type_)
+    if ram_type:
+        qs = qs.filter(specifications__ram__type=ram_type)
+    if os_name:
+        qs = qs.filter(specifications__os__name=os_name)
+    if os_licensed:
+        qs = qs.filter(specifications__os__licensed=os_licensed)
 
     paginator = Paginator(qs, per_page)
     page_obj  = paginator.get_page(page_num)
@@ -186,6 +195,9 @@ def view_inventory(request):
         "status":           status,
         "category":         category,
         "type":             type_,
+        "ram_type":         ram_type,
+        "os_name":          os_name,
+        "os_licensed":      os_licensed,
         "categories":       categories,
         "types":            types,
         "status_choices":   AssetItem.Status.choices,
@@ -450,6 +462,12 @@ def download_inventory_pdf(request):
         qs = qs.filter(asset_type__category_id=filters["category"])
     if filters.get("type"):
         qs = qs.filter(asset_type_id=filters["type"])
+    if request.GET.get("ram_type"):
+        qs = qs.filter(specifications__ram__type=request.GET["ram_type"])
+    if request.GET.get("os_name"):
+        qs = qs.filter(specifications__os__name=request.GET["os_name"])
+    if request.GET.get("os_licensed"):
+        qs = qs.filter(specifications__os__licensed=request.GET["os_licensed"])
 
     qs = list(qs[:5000])
     pks = [a.pk for a in qs]
@@ -915,7 +933,8 @@ def download_asset_history_pdf(request, pk: int):
 
 @viewer_required
 def download_inventory(request):
-    filters  = {k: request.GET.get(k) for k in ("status", "category", "type") if request.GET.get(k)}
+    spec_keys = ("ram_type", "os_name", "os_licensed")
+    filters  = {k: request.GET.get(k) for k in ("status", "category", "type", *spec_keys) if request.GET.get(k)}
     columns  = parse_cols(request, INVENTORY_COLS) if request.GET.get("cols") else None
     filename = f"inventory_{date.today():%Y%m%d}.xlsx"
     return _excel_response(inventory_excel(filters or None, columns), filename)

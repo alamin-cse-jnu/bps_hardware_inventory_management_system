@@ -8,6 +8,7 @@ urlpatterns = [
     path("dashboard/", views.dashboard, name="dashboard"),
     path("", views.asset_list, name="list"),
     path("new/", views.asset_create, name="create"),
+    path("bulk-add/", views.asset_bulk_create, name="bulk_create"),
     path("import/", views.import_upload, name="import_upload"),
     path("import/confirm/", views.import_confirm, name="import_confirm"),
     path("import/template/", views.import_template, name="import_template"),
