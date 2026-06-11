@@ -13,7 +13,7 @@
     a{color:inherit;text-decoration:none}
 
     /* ── Sidebar ── */
-    .sidebar{width:240px;flex-shrink:0;background:#0076A7;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+    .sidebar{width:240px;flex-shrink:0;background:#0076A7;display:flex;flex-direction:column;height:100vh;overflow:hidden;transition:transform 250ms ease}
     .sidebar-logo{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0}
     .logo-mark{width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#005d85,#0099CC);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;flex-shrink:0}
     .logo-title{font-size:12.5px;font-weight:700;color:#fff;line-height:1.2}
@@ -89,7 +89,7 @@
     .asset-tag{font-family:'JetBrains Mono',monospace;font-weight:700;color:#0076A7;font-size:13px}
 
     /* ── Table ── */
-    .table-wrap{overflow:hidden;border:1px solid #E5E7EB;border-radius:8px;background:#fff}
+    .table-wrap{overflow-x:auto;border:1px solid #E5E7EB;border-radius:8px;background:#fff}
     table{width:100%;border-collapse:collapse}
     thead th{background:#E8F3F8;border-bottom:2px solid #0076A7;padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:#495057;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
     tbody td{padding:11px 14px;font-size:13.5px;color:#212529;border-bottom:1px solid #E5E7EB;vertical-align:middle}
@@ -107,7 +107,7 @@
     /* ── Panel overlay (HTMX slide-over) ── */
     .panel-overlay{position:fixed;inset:0;z-index:500;display:flex}
     .panel-backdrop{flex:1;background:rgba(0,0,0,.3);backdrop-filter:blur(1px)}
-    .panel-drawer{width:480px;background:#fff;display:flex;flex-direction:column;box-shadow:-8px 0 32px rgba(0,0,0,.14);overflow:hidden;height:100vh}
+    .panel-drawer{width:480px;max-width:100vw;background:#fff;display:flex;flex-direction:column;box-shadow:-8px 0 32px rgba(0,0,0,.14);overflow:hidden;height:100vh}
     .panel-header{padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #E5E7EB;flex-shrink:0}
     .panel-body{flex:1;overflow-y:auto;padding:20px}
     .panel-footer{padding:14px 20px;border-top:1px solid #E5E7EB;display:flex;gap:10px;background:#fff;flex-shrink:0}
@@ -144,10 +144,54 @@
 
     /* ── Nav badge ── */
     .nav-badge{background:rgba(239,68,68,.9);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:99px;margin-left:auto}
+
+    /* ── Hamburger (hidden on desktop) ── */
+    .hamburger{display:none;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid #E5E7EB;border-radius:6px;background:#fff;cursor:pointer;flex-shrink:0;color:#495057;padding:0;transition:background 150ms}
+    .hamburger:hover{background:#F8F9FA}
+
+    /* ── Sidebar backdrop (mobile drawer overlay) ── */
+    .sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:199;-webkit-tap-highlight-color:transparent}
+    .sidebar-backdrop.open{display:block}
+
+    /* ── Mobile / Tablet ── */
+    @media(max-width:767px){
+      /* Sidebar becomes off-canvas drawer */
+      .sidebar{position:fixed;top:0;left:0;z-index:200;transform:translateX(-100%);box-shadow:4px 0 24px rgba(0,0,0,.18)}
+      .sidebar.open{transform:translateX(0)}
+      /* Show hamburger */
+      .hamburger{display:flex}
+      /* Topbar tightened */
+      .topbar{padding:0 12px;gap:8px}
+      .topbar-breadcrumb{font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      /* Actions area scrolls horizontally if many buttons, no scrollbar visible */
+      .topbar-actions{overflow-x:auto;flex-shrink:1;padding-bottom:2px;gap:6px;scrollbar-width:none}
+      .topbar-actions::-webkit-scrollbar{display:none}
+      /* Hide search label and shortcut hint, keep icon */
+      .gs-trigger span,.gs-trigger kbd{display:none}
+      .gs-trigger{padding:0 10px;gap:0;min-width:36px;justify-content:center}
+      /* Content padding */
+      .content{padding:12px}
+      /* Tables scroll horizontally */
+      .table-wrap{-webkit-overflow-scrolling:touch}
+      /* Panel drawer full width */
+      .panel-drawer{width:100%}
+      /* Filter bar stacks vertically */
+      .filter-bar{flex-direction:column;align-items:stretch;gap:10px}
+      .filter-group,.filter-input,select.filter-input{width:100%}
+      /* Page header wraps */
+      .page-header{flex-wrap:wrap;gap:10px}
+      .page-title{font-size:17px}
+      /* Global search modal: full-width with small padding */
+      #gs-modal{padding:12px!important;padding-top:16px!important}
+      #gs-modal>div{border-radius:8px}
+    }
   </style>
   {% block extra_head %}{% endblock %}
 </head>
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+
+<!-- ── Sidebar backdrop (mobile) ── -->
+<div class="sidebar-backdrop" onclick="closeSidebar()"></div>
 
 <!-- ── Sidebar ── -->
 <aside class="sidebar">
@@ -249,6 +293,9 @@
 <!-- ── Main ── -->
 <div class="main">
   <header class="topbar">
+    <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
     <div class="topbar-breadcrumb">{% block breadcrumb %}<strong>IT Inventory</strong>{% endblock %}</div>
     <div class="topbar-actions">
       <!-- Global search trigger -->
@@ -322,6 +369,18 @@
 </div>
 
 <script>
+// ── Sidebar toggle (mobile) ────────────────────────────────────────────────
+function toggleSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  const backdrop = document.querySelector('.sidebar-backdrop');
+  const isOpen = sidebar.classList.toggle('open');
+  backdrop.classList.toggle('open', isOpen);
+}
+function closeSidebar() {
+  document.querySelector('.sidebar').classList.remove('open');
+  document.querySelector('.sidebar-backdrop').classList.remove('open');
+}
+
 // ── Global search ──────────────────────────────────────────────────────────
 function openSearch() {
   const modal = document.getElementById('gs-modal');
@@ -368,6 +427,17 @@ document.addEventListener('keydown', function(e) {
   items.forEach(el => el.classList.remove('gs-active'));
   if (items[idx]) items[idx].classList.add('gs-active');
 });
+
+// ── Responsive inline grids (mobile) ──────────────────────────────────────
+function collapseInlineGrids() {
+  if (window.innerWidth >= 768) return;
+  document.querySelectorAll('[style*="grid-template-columns"]').forEach(function(el) {
+    var s = el.style.gridTemplateColumns;
+    if (s && s !== '1fr') el.style.gridTemplateColumns = '1fr';
+  });
+}
+document.addEventListener('DOMContentLoaded', collapseInlineGrids);
+document.body.addEventListener('htmx:afterSwap', collapseInlineGrids);
 
 // ── Copy to clipboard ──────────────────────────────────────────────────────
 function copyTag(text, btn) {

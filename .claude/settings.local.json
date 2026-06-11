@@ -52,7 +52,17 @@
       "Bash(docker-compose exec web python manage.py shell -c ' *)",
       "Bash(docker-compose exec *)",
       "Bash(xargs grep -l \"print\\\\|@media print\")",
-      "Bash(not exist *)"
+      "Bash(not exist *)",
+      "Bash(ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes root@172.16.220.159 \"echo connected\")",
+      "Bash(python3 -c \"import paramiko; print\\('paramiko ok'\\)\")",
+      "Bash(python3 -m pip install paramiko -q)",
+      "Bash(apt-get install *)",
+      "PowerShell(python --version 2>&1; python3 --version 2>&1; where.exe python 2>&1 | Select-Object -First 2)",
+      "PowerShell(C:\\\\Users\\\\Dell\\\\AppData\\\\Local\\\\Python\\\\bin\\\\python.exe --version)",
+      "PowerShell(C:\\\\Users\\\\Dell\\\\AppData\\\\Local\\\\Python\\\\bin\\\\python.exe -m pip install paramiko -q 2>&1 | Select-Object -Last 3)",
+      "PowerShell(C:\\\\Users\\\\Dell\\\\AppData\\\\Local\\\\Python\\\\bin\\\\python.exe -c \"import paramiko; print\\('paramiko ready'\\)\" 2>&1)",
+      "PowerShell(C:\\\\Users\\\\Dell\\\\AppData\\\\Local\\\\Python\\\\bin\\\\python.exe E:\\\\projects\\\\bps_hardware_inventory_management_system\\\\deploy.py)",
+      "PowerShell($env:PYTHONIOENCODING = \"utf-8\"; C:\\\\Users\\\\Dell\\\\AppData\\\\Local\\\\Python\\\\bin\\\\python.exe E:\\\\projects\\\\bps_hardware_inventory_management_system\\\\deploy.py)"
     ]
   }
 }
