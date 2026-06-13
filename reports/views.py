@@ -111,6 +111,11 @@ def view_inventory(request):
     os_name     = request.GET.get("os_name") or ""
     os_licensed = request.GET.get("os_licensed") or ""
 
+    # Advanced spec filters (CPU brand/cores, RAM/storage/display ranges)
+    from reports import spec_filters
+    spec_f        = spec_filters.parse_spec_filters(request.GET)
+    spec_active   = spec_filters.is_active(spec_f)
+
     # Column selection
     selected_keys = parse_cols(request, INVENTORY_COLS)
     label_map     = dict(INVENTORY_COLS)
@@ -138,7 +143,14 @@ def view_inventory(request):
     if os_licensed:
         qs = qs.filter(specifications__os__licensed=os_licensed)
 
-    paginator = Paginator(qs, per_page)
+    # Advanced spec filtering happens in Python (string-stored numeric specs),
+    # so only materialise the queryset when such a filter is actually active.
+    if spec_active:
+        page_source = spec_filters.filter_assets(qs[:5000], spec_f)
+    else:
+        page_source = qs
+
+    paginator = Paginator(page_source, per_page)
     page_obj  = paginator.get_page(page_num)
 
     # Active assignment map — only for assets on this page
@@ -167,6 +179,10 @@ def view_inventory(request):
             "brand":            asset.brand,
             "model":            asset.model_name,
             "serial_no":        asset.serial_number or "",
+            "cpu":              spec_filters.fmt_cpu(asset.specifications or {}),
+            "ram":              spec_filters.fmt_ram(asset.specifications or {}),
+            "storage":          spec_filters.fmt_storage(asset.specifications or {}),
+            "display":          spec_filters.fmt_display(asset.specifications or {}),
             "status":           asset.get_status_display(),
             "storage_location": asset.storage_location.full_path if asset.storage_location else "",
             "current_holder":   holder,
@@ -198,6 +214,12 @@ def view_inventory(request):
         "ram_type":         ram_type,
         "os_name":          os_name,
         "os_licensed":      os_licensed,
+        "spec_f":           spec_f,
+        "spec_active":      spec_active,
+        "cpu_brands":       spec_filters.CPU_BRANDS,
+        "ram_types":        spec_filters.RAM_TYPES,
+        "storage_types":    spec_filters.STORAGE_TYPES,
+        "core_ops":         spec_filters.CORE_OPS,
         "categories":       categories,
         "types":            types,
         "status_choices":   AssetItem.Status.choices,
@@ -469,7 +491,9 @@ def download_inventory_pdf(request):
     if request.GET.get("os_licensed"):
         qs = qs.filter(specifications__os__licensed=request.GET["os_licensed"])
 
-    qs = list(qs[:5000])
+    from reports import spec_filters
+    spec_f = spec_filters.parse_spec_filters(request.GET)
+    qs = spec_filters.filter_assets(qs[:5000], spec_f)
     pks = [a.pk for a in qs]
     active_map = {
         asgn.asset_id: asgn
@@ -484,6 +508,7 @@ def download_inventory_pdf(request):
         holder = asgn.assignee.display_name if asgn else ""
         htype  = asgn.assignee.get_assignee_type_display() if asgn else ""
         since  = _date_str(asgn.assigned_at.date()) if asgn else ""
+        specs = asset.specifications or {}
         rd = {
             "asset_tag":        asset.asset_tag,
             "category":         asset.asset_type.category.name,
@@ -491,6 +516,10 @@ def download_inventory_pdf(request):
             "brand":            asset.brand,
             "model":            asset.model_name,
             "serial_no":        asset.serial_number or "",
+            "cpu":              spec_filters.fmt_cpu(specs),
+            "ram":              spec_filters.fmt_ram(specs),
+            "storage":          spec_filters.fmt_storage(specs),
+            "display":          spec_filters.fmt_display(specs),
             "status":           asset.get_status_display(),
             "storage_location": asset.storage_location.full_path if asset.storage_location else "",
             "current_holder":   holder,
@@ -933,7 +962,12 @@ def download_asset_history_pdf(request, pk: int):
 
 @viewer_required
 def download_inventory(request):
-    spec_keys = ("ram_type", "os_name", "os_licensed")
+    spec_keys = (
+        "ram_type", "os_name", "os_licensed",
+        "cpu_brand", "cores_op", "cores_val", "ram_min", "ram_max",
+        "storage_type", "storage_min", "storage_max", "storage_unit",
+        "display_min", "display_max",
+    )
     filters  = {k: request.GET.get(k) for k in ("status", "category", "type", *spec_keys) if request.GET.get(k)}
     columns  = parse_cols(request, INVENTORY_COLS) if request.GET.get("cols") else None
     filename = f"inventory_{date.today():%Y%m%d}.xlsx"

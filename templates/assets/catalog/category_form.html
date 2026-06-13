@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == 'edit' %}Edit Category{% else %}New Category{% endif %}{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:dashboard' %}">IT Inventory</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <a href="{% url 'assets:catalog_home' %}">Catalog</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>{% if mode == 'edit' %}Edit Category{% else %}New Category{% endif %}</strong>
+{% endblock %}
+
+{% block content %}
+<div class="page-header"><div class="page-title">{% if mode == 'edit' %}Edit Category{% else %}New Category{% endif %}</div></div>
+
+{% if form_error %}
+<div class="callout" style="background:#FEF2F2;border-color:#FECACA;color:#B91C1C;margin-bottom:16px">{{ form_error }}</div>
+{% endif %}
+
+<div class="card" style="max-width:640px">
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      <div style="margin-bottom:16px">
+        <label class="form-label">Category Name <span style="color:#EF4444">*</span></label>
+        <input type="text" name="name" class="form-input" required autofocus
+               value="{{ post.name|default:category.name }}" placeholder="e.g. Computing Equipment">
+      </div>
+      <div style="margin-bottom:16px">
+        <label class="form-label">Name (Bangla)</label>
+        <input type="text" name="name_bn" class="form-input"
+               value="{{ post.name_bn|default:category.name_bn }}" placeholder="optional">
+      </div>
+      <div style="margin-bottom:16px">
+        <label class="form-label">Description</label>
+        <textarea name="description" class="form-input" rows="2" placeholder="optional">{{ post.description|default:category.description }}</textarea>
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#374151">
+          <input type="checkbox" name="is_active" style="accent-color:#0076A7;width:16px;height:16px"
+                 {% if post %}{% if post.is_active %}checked{% endif %}{% elif category.pk %}{% if category.is_active %}checked{% endif %}{% else %}checked{% endif %}>
+          Active (available for new asset types)
+        </label>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button type="submit" class="btn btn-primary">{% if mode == 'edit' %}Save Changes{% else %}Create Category{% endif %}</button>
+        <a href="{% url 'assets:catalog_home' %}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

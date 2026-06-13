@@ -36,12 +36,12 @@
 </div>
 
 <!-- Filter panel -->
-<details {% if status or category or type or ram_type or os_name or os_licensed %}open{% endif %} style="margin-bottom:16px">
+<details {% if status or category or type or ram_type or os_name or os_licensed or spec_active %}open{% endif %} style="margin-bottom:16px">
   <summary style="list-style:none;cursor:pointer">
     <div class="card" style="padding:10px 16px;display:flex;align-items:center;gap:10px">
       <svg width="14" height="14" fill="none" stroke="#6C757D" stroke-width="2" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
       <span style="font-size:13px;font-weight:600;color:#495057">Filters</span>
-      {% if status or category or type or ram_type or os_name or os_licensed %}
+      {% if status or category or type or ram_type or os_name or os_licensed or spec_active %}
       <span style="background:#0076A7;color:#fff;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700">Active</span>
       {% endif %}
     </div>
@@ -79,15 +79,6 @@
               {% endfor %}
             </select>
           </div>
-          <!-- Spec filters -->
-          <div>
-            <label style="display:block;font-size:11px;color:#6C757D;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">RAM Type</label>
-            <select name="ram_type" class="filter-input" style="min-width:110px">
-              <option value="">All RAM</option>
-              <option value="DDR4" {% if ram_type == 'DDR4' %}selected{% endif %}>DDR4</option>
-              <option value="DDR5" {% if ram_type == 'DDR5' %}selected{% endif %}>DDR5</option>
-            </select>
-          </div>
           <div>
             <label style="display:block;font-size:11px;color:#6C757D;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">OS</label>
             <select name="os_name" class="filter-input" style="min-width:130px">
@@ -105,12 +96,101 @@
               <option value="No" {% if os_licensed == 'No' %}selected{% endif %}>No</option>
             </select>
           </div>
-          <div style="display:flex;gap:8px">
-            <button type="submit" class="btn btn-primary btn-sm">Apply</button>
-            {% if status or category or type or ram_type or os_name or os_licensed %}
-            <a href="{% url 'reports:inventory_view' %}{% if request.GET.cols %}?cols={{ request.GET.cols }}{% endif %}" class="btn btn-outline btn-sm">Clear</a>
-            {% endif %}
+        </div>
+
+        <!-- Hardware specification filters -->
+        <div style="margin-top:16px;padding-top:14px;border-top:1px dashed #E5E7EB">
+          <div style="font-size:11px;font-weight:700;color:#0076A7;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Hardware Specifications</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+
+            <div>
+              <label style="display:block;font-size:11px;color:#6C757D;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">CPU Brand</label>
+              <select name="cpu_brand" class="filter-input" style="min-width:110px">
+                <option value="">All CPUs</option>
+                {% for b in cpu_brands %}
+                <option value="{{ b }}" {% if request.GET.cpu_brand == b %}selected{% endif %}>{{ b }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div>
+              <label style="display:block;font-size:11px;color:#6C757D;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">CPU Cores</label>
+              <div style="display:flex;gap:4px">
+                <select name="cores_op" class="filter-input" style="width:64px">
+                  {% for val, sym in core_ops %}
+                  <option value="{{ val }}" {% if request.GET.cores_op == val %}selected{% endif %}>{{ sym }}</option>
+                  {% endfor %}
+                </select>
+                <input type="number" name="cores_val" min="1" step="1" placeholder="e.g. 4"
+                       value="{{ request.GET.cores_val }}" class="filter-input" style="width:80px">
+              </div>
+            </div>
+
+            <div>
+              <label style="display:block;font-size:11px;color:#6C757D;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">RAM Type</label>
+              <select name="ram_type" class="filter-input" style="min-width:100px">
+                <option value="">All</option>
+                {% for t in ram_types %}
+                <option value="{{ t }}" {% if ram_type == t %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div>
+              <label style="display:block;font-size:11px;color:#6C757D;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">RAM Size (GB)</label>
+              <div style="display:flex;gap:4px;align-items:center">
+                <input type="number" name="ram_min" min="0" step="1" placeholder="Min"
+                       value="{{ request.GET.ram_min }}" class="filter-input" style="width:72px">
+                <span style="color:#9CA3AF">–</span>
+                <input type="number" name="ram_max" min="0" step="1" placeholder="Max"
+                       value="{{ request.GET.ram_max }}" class="filter-input" style="width:72px">
+              </div>
+            </div>
+
+            <div>
+              <label style="display:block;font-size:11px;color:#6C757D;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Storage Type</label>
+              <select name="storage_type" class="filter-input" style="min-width:100px">
+                <option value="">All</option>
+                {% for t in storage_types %}
+                <option value="{{ t }}" {% if request.GET.storage_type == t %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div>
+              <label style="display:block;font-size:11px;color:#6C757D;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Storage Capacity</label>
+              <div style="display:flex;gap:4px;align-items:center">
+                <input type="number" name="storage_min" min="0" step="any" placeholder="Min"
+                       value="{{ request.GET.storage_min }}" class="filter-input" style="width:72px">
+                <span style="color:#9CA3AF">–</span>
+                <input type="number" name="storage_max" min="0" step="any" placeholder="Max"
+                       value="{{ request.GET.storage_max }}" class="filter-input" style="width:72px">
+                <select name="storage_unit" class="filter-input" style="width:62px">
+                  <option value="GB" {% if request.GET.storage_unit != 'TB' %}selected{% endif %}>GB</option>
+                  <option value="TB" {% if request.GET.storage_unit == 'TB' %}selected{% endif %}>TB</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label style="display:block;font-size:11px;color:#6C757D;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Display (inch)</label>
+              <div style="display:flex;gap:4px;align-items:center">
+                <input type="number" name="display_min" min="0" step="0.1" placeholder="Min"
+                       value="{{ request.GET.display_min }}" class="filter-input" style="width:72px">
+                <span style="color:#9CA3AF">–</span>
+                <input type="number" name="display_max" min="0" step="0.1" placeholder="Max"
+                       value="{{ request.GET.display_max }}" class="filter-input" style="width:72px">
+              </div>
+            </div>
+
           </div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:16px">
+          <button type="submit" class="btn btn-primary btn-sm">Apply Filters</button>
+          {% if status or category or type or ram_type or os_name or os_licensed or spec_active %}
+          <a href="{% url 'reports:inventory_view' %}{% if request.GET.cols %}?cols={{ request.GET.cols }}{% endif %}" class="btn btn-outline btn-sm">Clear</a>
+          {% endif %}
         </div>
       </form>
     </div>
@@ -128,6 +208,17 @@
       <input type="hidden" name="ram_type" value="{{ ram_type }}">
       <input type="hidden" name="os_name" value="{{ os_name }}">
       <input type="hidden" name="os_licensed" value="{{ os_licensed }}">
+      <input type="hidden" name="cpu_brand" value="{{ request.GET.cpu_brand }}">
+      <input type="hidden" name="cores_op" value="{{ request.GET.cores_op }}">
+      <input type="hidden" name="cores_val" value="{{ request.GET.cores_val }}">
+      <input type="hidden" name="ram_min" value="{{ request.GET.ram_min }}">
+      <input type="hidden" name="ram_max" value="{{ request.GET.ram_max }}">
+      <input type="hidden" name="storage_type" value="{{ request.GET.storage_type }}">
+      <input type="hidden" name="storage_min" value="{{ request.GET.storage_min }}">
+      <input type="hidden" name="storage_max" value="{{ request.GET.storage_max }}">
+      <input type="hidden" name="storage_unit" value="{{ request.GET.storage_unit }}">
+      <input type="hidden" name="display_min" value="{{ request.GET.display_min }}">
+      <input type="hidden" name="display_max" value="{{ request.GET.display_max }}">
       <input type="hidden" name="per_page" value="{{ per_page }}">
       <input type="hidden" name="cols" id="cols-hidden">
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">

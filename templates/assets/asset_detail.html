@@ -131,6 +131,12 @@
     <span style="margin-left:6px;background:#ECFDF5;color:#10B981;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:99px">{{ components|length }}</span>
   </button>
   {% endif %}
+  {% if user_is_it_officer %}
+  <button class="tab-btn" onclick="showTab('activity', this)">
+    Activity
+    <span style="margin-left:6px;background:#F5F3FF;color:#7C3AED;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:99px">{{ audit_entries|length }}</span>
+  </button>
+  {% endif %}
 </div>
 
 <style>
@@ -339,6 +345,13 @@
     <div class="card-body" style="text-align:center;padding:40px;color:#9CA3AF">No components recorded.</div>
   </div>
   {% endif %}
+</div>
+{% endif %}
+
+<!-- Activity tab -->
+{% if user_is_it_officer %}
+<div id="tab-activity" class="tab-content">
+  {% include "audit/_asset_timeline.html" %}
 </div>
 {% endif %}
 

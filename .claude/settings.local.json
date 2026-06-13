@@ -64,7 +64,8 @@
       "PowerShell(C:\\\\Users\\\\Dell\\\\AppData\\\\Local\\\\Python\\\\bin\\\\python.exe E:\\\\projects\\\\bps_hardware_inventory_management_system\\\\deploy.py)",
       "PowerShell($env:PYTHONIOENCODING = \"utf-8\"; C:\\\\Users\\\\Dell\\\\AppData\\\\Local\\\\Python\\\\bin\\\\python.exe E:\\\\projects\\\\bps_hardware_inventory_management_system\\\\deploy.py)",
       "Bash(dir /b)",
-      "Bash(pip install *)"
+      "Bash(pip install *)",
+      "Bash(New-Item -ItemType File -Force audit/__init__.py, audit/migrations/__init__.py)"
     ]
   }
 }

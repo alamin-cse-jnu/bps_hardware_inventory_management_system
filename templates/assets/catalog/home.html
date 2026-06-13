@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Asset Catalog{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:dashboard' %}">IT Inventory</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>Catalog</strong>
+{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'assets:category_create' %}" class="btn btn-outline btn-sm" style="margin-right:6px">
+  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  New Category
+</a>
+<a href="{% url 'assets:type_create' %}" class="btn btn-primary btn-sm">
+  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  New Asset Type
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Asset Catalog</div>
+    <div class="text-muted text-small" style="margin-top:2px">
+      {{ cat_total }} categor{{ cat_total|pluralize:"y,ies" }} · {{ type_total }} asset type{{ type_total|pluralize }}
+      — configure the categories and types used across the inventory
+    </div>
+  </div>
+</div>
+
+{% for row in cat_rows %}
+{% with cat=row.category %}
+<div class="card" style="margin-bottom:16px;{% if not cat.is_active %}opacity:.6{% endif %}">
+  <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #EEF2F5">
+    <div style="width:34px;height:34px;border-radius:8px;background:#E8F3F8;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      <svg width="17" height="17" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+    </div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:15px;font-weight:700;color:#1F2937">
+        {{ cat.name }}
+        {% if cat.name_bn %}<span style="font-weight:500;color:#9CA3AF;font-size:13px">· {{ cat.name_bn }}</span>{% endif %}
+        {% if not cat.is_active %}<span class="badge" style="background:#F3F4F6;color:#9CA3AF;margin-left:6px">Inactive</span>{% endif %}
+      </div>
+      {% if cat.description %}<div class="text-muted text-small" style="margin-top:1px">{{ cat.description }}</div>{% endif %}
+    </div>
+    <div style="display:flex;gap:4px;white-space:nowrap">
+      <a href="{% url 'assets:category_edit' cat.pk %}" class="btn btn-outline btn-sm">Edit</a>
+      <form method="post" action="{% url 'assets:category_toggle' cat.pk %}" style="display:inline">{% csrf_token %}
+        <button type="submit" class="btn btn-sm btn-outline">{% if cat.is_active %}Deactivate{% else %}Activate{% endif %}</button>
+      </form>
+      {% if not row.types %}
+      <form method="post" action="{% url 'assets:category_delete' cat.pk %}" style="display:inline">{% csrf_token %}
+        <button type="submit" class="btn btn-sm btn-danger-soft" onclick="return confirm('Delete category {{ cat.name }}?')">Delete</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if row.types %}
+  <div class="table-wrap" style="border:none">
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Spec Fields</th>
+          <th style="text-align:center">Components</th>
+          <th style="text-align:center">Assets</th>
+          <th style="text-align:center">Status</th>
+          <th style="width:1px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in row.types %}
+        <tr style="{% if not t.is_active %}opacity:.55{% endif %}">
+          <td>
+            <span style="font-weight:600;color:#374151">{{ t.name }}</span>
+            {% if t.name_bn %}<span style="color:#9CA3AF;font-size:12px"> · {{ t.name_bn }}</span>{% endif %}
+          </td>
+          <td style="max-width:340px">
+            {% for key in t.spec_schema %}
+            <span style="display:inline-block;background:#F1F5F9;color:#475569;font-size:11px;padding:2px 8px;border-radius:99px;margin:1px 2px;font-weight:500">{{ key }}</span>
+            {% empty %}<span class="text-muted text-small">—</span>{% endfor %}
+          </td>
+          <td style="text-align:center">{% if t.has_components %}<span style="color:#0076A7" title="Tracks swappable components">✓</span>{% else %}<span style="color:#D1D5DB">—</span>{% endif %}</td>
+          <td style="text-align:center;font-variant-numeric:tabular-nums;color:#6B7280">{{ t.item_count }}</td>
+          <td style="text-align:center">
+            {% if t.is_active %}<span class="badge" style="background:#ECFDF5;color:#059669">Active</span>
+            {% else %}<span class="badge" style="background:#F3F4F6;color:#9CA3AF">Inactive</span>{% endif %}
+          </td>
+          <td style="white-space:nowrap">
+            <a href="{% url 'assets:type_edit' t.pk %}" class="btn btn-outline btn-sm" style="margin-right:4px">Edit</a>
+            <form method="post" action="{% url 'assets:type_toggle' t.pk %}" style="display:inline">{% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline">{% if t.is_active %}Deactivate{% else %}Activate{% endif %}</button>
+            </form>
+            {% if t.item_count == 0 %}
+            <form method="post" action="{% url 'assets:type_delete' t.pk %}" style="display:inline">{% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-danger-soft" style="margin-left:4px" onclick="return confirm('Delete type {{ t.name }}?')">Delete</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="padding:18px;text-align:center;color:#9CA3AF;font-size:13px">
+    No types yet. <a href="{% url 'assets:type_create' %}?category={{ cat.pk }}" style="color:#0076A7;font-weight:600">Add one →</a>
+  </div>
+  {% endif %}
+</div>
+{% endwith %}
+{% empty %}
+<div class="card" style="padding:48px;text-align:center;color:#9CA3AF">
+  No categories yet. Start by <a href="{% url 'assets:category_create' %}" style="color:#0076A7;font-weight:600">creating a category</a>.
+</div>
+{% endfor %}
+{% endblock %}

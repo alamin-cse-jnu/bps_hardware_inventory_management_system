@@ -617,3 +617,134 @@ class ExcelImportExecutorTests(TestCase):
         result = ExcelImportExecutor().execute([row], self.asset_type.pk, self.user)
         self.assertEqual(result["created"], 1)
         self.assertTrue(AssetItem.objects.filter(asset_tag="LAP-WARN-001").exists())
+
+
+# ---------------------------------------------------------------------------
+# Catalog management (in-app asset type / category config)
+# ---------------------------------------------------------------------------
+
+from django.contrib.auth.models import Group  # noqa: E402
+
+from .specs import compose_schema, slugify_spec_key, split_schema  # noqa: E402
+
+
+def _role_user(username, group):
+    u = User.objects.create_user(username=username, password="pw12345!")
+    grp, _ = Group.objects.get_or_create(name=group)
+    u.groups.add(grp)
+    return u
+
+
+class SpecSchemaHelperTests(TestCase):
+    def test_slugify(self):
+        self.assertEqual(slugify_spec_key("WiFi Standard"), "wifi_standard")
+        self.assertEqual(slugify_spec_key("  Ports!! "), "ports")
+
+    def test_compose_orders_known_then_custom_and_dedupes(self):
+        # known fields come back in registry order regardless of input order;
+        # custom 'ram' is dropped (collides with known), 'bogus' known ignored.
+        schema = compose_schema(["ram", "cpu", "bogus"], ["Ports", "WiFi Standard", "ram"])
+        self.assertEqual(schema, ["cpu", "ram", "ports", "wifi_standard"])
+
+    def test_split_schema(self):
+        known, custom = split_schema(["cpu", "ports", "ram"])
+        self.assertEqual(known, ["cpu", "ram"])
+        self.assertEqual(custom, ["ports"])
+
+
+class CatalogPermissionTests(TestCase):
+    def setUp(self):
+        self.category = make_category()
+
+    def test_it_officer_forbidden(self):
+        self.client.force_login(_role_user("officer", "IT Officer"))
+        self.assertEqual(self.client.get("/catalog/").status_code, 403)
+
+    def test_viewer_forbidden(self):
+        self.client.force_login(_role_user("viewer", "Viewer"))
+        self.assertEqual(self.client.get("/catalog/").status_code, 403)
+
+    def test_admin_allowed(self):
+        self.client.force_login(_role_user("admin", "Admin"))
+        self.assertEqual(self.client.get("/catalog/").status_code, 200)
+
+
+class CatalogTypeViewTests(TestCase):
+    def setUp(self):
+        self.admin = _role_user("admin", "Admin")
+        self.client.force_login(self.admin)
+        self.category = make_category("Computing Equipment")
+
+    def test_create_type_with_mixed_schema(self):
+        resp = self.client.post("/catalog/types/new/", {
+            "name": "Router",
+            "category": self.category.pk,
+            "known_specs": ["cpu", "ram"],
+            "custom_specs": ["Ports", "WiFi Standard"],
+            "is_active": "on",
+        })
+        self.assertRedirects(resp, "/catalog/")
+        t = AssetType.objects.get(name="Router")
+        self.assertEqual(t.spec_schema, ["cpu", "ram", "ports", "wifi_standard"])
+        self.assertTrue(t.is_active)
+        self.assertFalse(t.has_components)
+
+    def test_duplicate_name_in_category_rejected(self):
+        make_type(category=self.category, name="Laptop")
+        resp = self.client.post("/catalog/types/new/", {
+            "name": "laptop",  # case-insensitive clash
+            "category": self.category.pk,
+        })
+        self.assertEqual(resp.status_code, 200)  # re-renders form
+        self.assertContains(resp, "already exists")
+        self.assertEqual(AssetType.objects.filter(name__iexact="laptop").count(), 1)
+
+    def test_edit_preserves_and_updates_schema(self):
+        t = make_type(category=self.category, name="PC Set", has_components=True)
+        resp = self.client.post(f"/catalog/types/{t.pk}/edit/", {
+            "name": "PC Set",
+            "category": self.category.pk,
+            "known_specs": ["cpu", "ram", "storage"],
+            "has_components": "on",
+            "is_active": "on",
+        })
+        self.assertRedirects(resp, "/catalog/")
+        t.refresh_from_db()
+        self.assertEqual(t.spec_schema, ["cpu", "ram", "storage"])
+
+    def test_toggle_active(self):
+        t = make_type(category=self.category, name="Scanner")
+        self.client.post(f"/catalog/types/{t.pk}/toggle/")
+        t.refresh_from_db()
+        self.assertFalse(t.is_active)
+
+    def test_delete_blocked_when_items_exist(self):
+        t = make_type(category=self.category, name="UPS")
+        make_item(asset_type=t, asset_tag="UPS-1")
+        resp = self.client.post(f"/catalog/types/{t.pk}/delete/", follow=True)
+        self.assertTrue(AssetType.objects.filter(pk=t.pk).exists())
+        self.assertContains(resp, "Cannot delete")
+
+    def test_delete_allowed_when_empty(self):
+        t = make_type(category=self.category, name="Projector")
+        self.client.post(f"/catalog/types/{t.pk}/delete/")
+        self.assertFalse(AssetType.objects.filter(pk=t.pk).exists())
+
+
+class CatalogCategoryViewTests(TestCase):
+    def setUp(self):
+        self.client.force_login(_role_user("admin", "Admin"))
+
+    def test_create_category(self):
+        resp = self.client.post("/catalog/categories/new/", {
+            "name": "Networking", "is_active": "on",
+        })
+        self.assertRedirects(resp, "/catalog/")
+        self.assertTrue(AssetCategory.objects.filter(name="Networking").exists())
+
+    def test_delete_blocked_when_types_exist(self):
+        cat = make_category("HasTypes")
+        make_type(category=cat, name="Switch")
+        resp = self.client.post(f"/catalog/categories/{cat.pk}/delete/", follow=True)
+        self.assertTrue(AssetCategory.objects.filter(pk=cat.pk).exists())
+        self.assertContains(resp, "Cannot delete")

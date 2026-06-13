@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Activity Log{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:dashboard' %}">IT Inventory</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>Activity Log</strong>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  .audit-action{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px;white-space:nowrap}
+  .a-CREATE{background:#ECFDF5;color:#059669}
+  .a-UPDATE{background:#EFF6FF;color:#2563EB}
+  .a-DELETE{background:#FEF2F2;color:#DC2626}
+  .a-RESTORE{background:#F0FDF4;color:#16A34A}
+  .a-STATUS{background:#FFFBEB;color:#B45309}
+  .a-ASSIGN{background:#F5F3FF;color:#7C3AED}
+  .a-RETURN{background:#F3F4F6;color:#4B5563}
+  .diff-old{color:#B91C1C;text-decoration:line-through;opacity:.75}
+  .diff-arrow{color:#9CA3AF;margin:0 5px}
+  .diff-new{color:#065F46;font-weight:600}
+  .diff-row{font-size:12px;line-height:1.7}
+  .diff-field{color:#6B7280;font-weight:600;margin-right:6px}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="page-title">Activity Log</div>
+    <span style="background:#E8F3F8;color:#0076A7;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700">{{ total_count }} entr{{ total_count|pluralize:"y,ies" }}</span>
+  </div>
+</div>
+
+<!-- Filters -->
+<details {% if action or model or actor or q or date_from or date_to %}open{% endif %} style="margin-bottom:16px">
+  <summary style="list-style:none;cursor:pointer">
+    <div class="card" style="padding:10px 16px;display:flex;align-items:center;gap:10px">
+      <svg width="14" height="14" fill="none" stroke="#6C757D" stroke-width="2" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      <span style="font-size:13px;font-weight:600;color:#495057">Filters</span>
+      {% if action or model or actor or q or date_from or date_to %}<span style="background:#0076A7;color:#fff;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700">Active</span>{% endif %}
+    </div>
+  </summary>
+  <div class="card" style="border-top:1px solid #E5E7EB">
+    <div class="card-body">
+      <form method="get">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+          <div>
+            <label class="form-label">Action</label>
+            <select name="action" class="form-input" style="min-width:130px">
+              <option value="">All</option>
+              {% for val, label in action_choices %}<option value="{{ val }}" {% if action == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Record Type</label>
+            <select name="model" class="form-input" style="min-width:140px">
+              <option value="">All types</option>
+              {% for val, label in model_choices %}<option value="{{ val }}" {% if model == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="form-label">User</label>
+            <select name="actor" class="form-input" style="min-width:150px">
+              <option value="">Anyone</option>
+              <option value="system" {% if actor == 'system' %}selected{% endif %}>System (sync)</option>
+              {% for u in actors %}<option value="{{ u.pk }}" {% if actor == u.pk|stringformat:'s' %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>{% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="form-label">From</label>
+            <input type="date" name="date_from" value="{{ date_from }}" class="form-input" style="min-width:140px">
+          </div>
+          <div>
+            <label class="form-label">To</label>
+            <input type="date" name="date_to" value="{{ date_to }}" class="form-input" style="min-width:140px">
+          </div>
+          <div>
+            <label class="form-label">Search</label>
+            <input type="text" name="q" value="{{ q }}" class="form-input" placeholder="Asset tag, name…" style="min-width:160px">
+          </div>
+          <div style="display:flex;gap:8px">
+            <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+            {% if action or model or actor or q or date_from or date_to %}<a href="{% url 'audit:log' %}" class="btn btn-outline btn-sm">Clear</a>{% endif %}
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</details>
+
+<!-- Table -->
+<div class="card" style="margin-bottom:16px">
+  <div class="table-wrap">
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr>
+          <th style="width:150px">When</th>
+          <th style="width:90px">Action</th>
+          <th>Record</th>
+          <th>What changed (before → after)</th>
+          <th style="width:160px">Who</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        {% with log=row.log %}
+        <tr style="vertical-align:top">
+          <td style="white-space:nowrap;font-size:12px;color:#6B7280">{{ log.created_at|date:"d M Y" }}<br><span style="color:#9CA3AF">{{ log.created_at|date:"H:i" }}</span></td>
+          <td><span class="audit-action a-{{ log.action }}">{{ log.get_action_display }}</span></td>
+          <td style="font-size:12.5px">
+            <div style="color:#9CA3AF;font-size:11px">{{ log.target_model|cut:"assets."|cut:"locations."|cut:"auth." }}</div>
+            <strong style="color:#374151">{{ log.target_label|default:"—" }}</strong>
+          </td>
+          <td>
+            {% if log.note %}<div style="font-size:12px;color:#6B7280;margin-bottom:3px">{{ log.note }}</div>{% endif %}
+            {% for c in row.changes %}
+            <div class="diff-row">
+              <span class="diff-field">{{ c.field }}:</span>
+              {% if c.before != "—" %}<span class="diff-old">{{ c.before }}</span><span class="diff-arrow">→</span>{% endif %}
+              <span class="diff-new">{{ c.after }}</span>
+            </div>
+            {% empty %}{% if not log.note %}<span style="color:#9CA3AF;font-size:12px">—</span>{% endif %}{% endfor %}
+          </td>
+          <td style="font-size:12.5px;color:#374151">{{ log.actor_label }}</td>
+        </tr>
+        {% endwith %}
+        {% empty %}
+        <tr><td colspan="5" style="text-align:center;padding:48px;color:#9CA3AF;font-size:13px">No activity recorded yet for the current filters.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Pagination -->
+{% if page_obj.paginator.num_pages > 1 %}
+<div style="display:flex;align-items:center;gap:6px">
+  {% if page_obj.has_previous %}<a href="?{{ base_qs }}&page={{ page_obj.previous_page_number }}" class="btn btn-outline btn-sm">← Prev</a>
+  {% else %}<span class="btn btn-outline btn-sm" style="opacity:.4">← Prev</span>{% endif %}
+  <span style="font-size:13px;color:#495057;padding:0 8px">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}<a href="?{{ base_qs }}&page={{ page_obj.next_page_number }}" class="btn btn-outline btn-sm">Next →</a>
+  {% else %}<span class="btn btn-outline btn-sm" style="opacity:.4">Next →</span>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,44 @@
+{% comment %}
+Per-asset audit timeline. Expects `audit_entries` (output of services.prepare_entries).
+Render only for IT Officers and above.
+{% endcomment %}
+<div class="card" style="margin-bottom:20px">
+  <div style="padding:14px 18px;border-bottom:1px solid #EEF2F5;display:flex;align-items:center;gap:8px">
+    <svg width="16" height="16" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    <strong style="font-size:14px;color:#1F2937">Activity & Change History</strong>
+  </div>
+  <div style="padding:6px 18px">
+    {% for row in audit_entries %}
+    {% with log=row.log %}
+    <div style="display:flex;gap:12px;padding:12px 0;{% if not forloop.last %}border-bottom:1px solid #F3F4F6{% endif %}">
+      <div style="flex-shrink:0;width:80px;font-size:11px;color:#9CA3AF;line-height:1.5">
+        {{ log.created_at|date:"d M y" }}<br>{{ log.created_at|date:"H:i" }}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12.5px;margin-bottom:2px">
+          <span class="audit-action a-{{ log.action }}">{{ log.get_action_display }}</span>
+          {% if log.note %}<span style="color:#6B7280;margin-left:6px">{{ log.note }}</span>{% endif %}
+          <span style="color:#9CA3AF;margin-left:6px">by {{ log.actor_label }}</span>
+        </div>
+        {% for c in row.changes %}
+        <div style="font-size:12px;line-height:1.7">
+          <span style="color:#6B7280;font-weight:600;margin-right:6px">{{ c.field }}:</span>
+          {% if c.before != "—" %}<span style="color:#B91C1C;text-decoration:line-through;opacity:.75">{{ c.before }}</span><span style="color:#9CA3AF;margin:0 5px">→</span>{% endif %}
+          <span style="color:#065F46;font-weight:600">{{ c.after }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endwith %}
+    {% empty %}
+    <div style="padding:18px 0;text-align:center;color:#9CA3AF;font-size:12.5px">No recorded changes yet.</div>
+    {% endfor %}
+  </div>
+</div>
+<style>
+  .audit-action{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px;white-space:nowrap}
+  .a-CREATE{background:#ECFDF5;color:#059669}.a-UPDATE{background:#EFF6FF;color:#2563EB}
+  .a-DELETE{background:#FEF2F2;color:#DC2626}.a-RESTORE{background:#F0FDF4;color:#16A34A}
+  .a-STATUS{background:#FFFBEB;color:#B45309}.a-ASSIGN{background:#F5F3FF;color:#7C3AED}
+  .a-RETURN{background:#F3F4F6;color:#4B5563}
+</style>

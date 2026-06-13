@@ -405,6 +405,15 @@ def asset_detail(request, pk):
     warranty_info = _expiry_info(asset.warranty_expiry, asset.purchase_date)
     amc_info = _expiry_info(asset.amc_expiry, asset.purchase_date)
 
+    # Audit timeline (IT Officers and above; rendered conditionally in template)
+    from audit.models import AuditLog
+    from audit.services import prepare_entries
+    audit_entries = prepare_entries(
+        AuditLog.objects.filter(
+            target_model="assets.AssetItem", target_id=str(asset.pk),
+        ).select_related("actor")[:25]
+    )
+
     return render(request, "assets/asset_detail.html", {
         "asset": asset,
         "history": history,
@@ -413,6 +422,7 @@ def asset_detail(request, pk):
         "lifecycle_events": lifecycle_events,
         "warranty_info": warranty_info,
         "amc_info": amc_info,
+        "audit_entries": audit_entries,
     })
 
 
@@ -569,6 +579,8 @@ def asset_delete(request, pk):
     asset = get_object_or_404(AssetItem, pk=pk, is_deleted=False)
     if request.method == "POST":
         asset.soft_delete()
+        from audit.services import record as audit_record
+        audit_record("DELETE", asset, note="Soft-deleted")
         messages.success(request, f"Asset {asset.asset_tag} has been deleted.")
         return redirect("assets:list")
     return render(request, "assets/asset_delete_confirm.html", {"asset": asset})

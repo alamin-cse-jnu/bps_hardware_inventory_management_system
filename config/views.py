@@ -86,6 +86,8 @@ def user_toggle_active(request, pk):
     user.is_active = not user.is_active
     user.save(update_fields=["is_active"])
     state = "activated" if user.is_active else "deactivated"
+    from audit.services import record as audit_record
+    audit_record("UPDATE", user, changes={"is_active": [not user.is_active, user.is_active]}, note=state.title())
     messages.success(request, f"User '{user.username}' {state}.")
     return redirect("config:user_list")
 
@@ -94,6 +96,8 @@ def user_toggle_active(request, pk):
 
 def _save_user(request, user) -> str | None:
     """Create or update a user. Returns error string or None on success."""
+    from audit.services import record as audit_record
+
     data = request.POST
     username = data.get("username", "").strip()
     first_name = data.get("first_name", "").strip()
@@ -102,6 +106,12 @@ def _save_user(request, user) -> str | None:
     role = data.get("role", "").strip()
     password = data.get("password", "").strip()
     confirm = data.get("confirm_password", "").strip()
+
+    is_create = user is None
+    before = None if is_create else {
+        "first_name": user.first_name, "last_name": user.last_name,
+        "email": user.email, "is_active": user.is_active, "role": _user_role(user),
+    }
 
     if user is None:
         if not username:
@@ -137,5 +147,23 @@ def _save_user(request, user) -> str | None:
     if role in _ALL_GROUPS:
         grp = Group.objects.get(name=role)
         user.groups.add(grp)
+
+    # Audit (User isn't auto-tracked by signals — role is an m2m relation)
+    if is_create:
+        audit_record("CREATE", user, changes={
+            "username": [None, user.username],
+            "role": [None, role or "—"],
+            "is_active": [None, user.is_active],
+        })
+    else:
+        after = {
+            "first_name": first_name, "last_name": last_name,
+            "email": email, "is_active": user.is_active, "role": role,
+        }
+        changes = {k: [before[k], after[k]] for k in after if before.get(k) != after[k]}
+        if password:
+            changes["password"] = ["••••", "changed"]
+        if changes:
+            audit_record("UPDATE", user, changes=changes)
 
     return None

@@ -34,7 +34,8 @@ _ALIGN_L    = Alignment(horizontal="left",   vertical="center", wrap_text=False)
 # ── Per-report column → default width maps ────────────────────────────────────
 _INV_WIDTHS: dict[str, int] = {
     "asset_tag": 14, "category": 14, "type": 16, "brand": 14, "model": 22,
-    "serial_no": 16, "status": 12, "storage_location": 24, "current_holder": 28,
+    "serial_no": 16, "cpu": 24, "ram": 14, "storage": 16, "display": 10,
+    "status": 12, "storage_location": 24, "current_holder": 28,
     "holder_type": 12, "assigned_since": 14, "purchase_date": 14,
     "warranty_expiry": 16, "amc_expiry": 14,
 }
@@ -167,7 +168,12 @@ def inventory_excel(
     if filters.get("os_licensed"):
         qs = qs.filter(specifications__os__licensed=filters["os_licensed"])
 
-    pks = list(qs.values_list("pk", flat=True))
+    # Advanced spec filters (CPU/RAM/storage/display) — applied in Python.
+    from reports import spec_filters
+    spec_f = spec_filters.parse_spec_filters(filters)
+    assets = spec_filters.filter_assets(qs, spec_f) if spec_filters.is_active(spec_f) else list(qs)
+
+    pks = [a.pk for a in assets]
     active_map = {
         a.asset_id: a
         for a in Assignment.objects.filter(
@@ -184,7 +190,7 @@ def inventory_excel(
     _header_row(ws, hrow, _labels_for(eff, INVENTORY_COLS))
     _col_widths(ws, _widths_for(eff, _INV_WIDTHS))
 
-    for i, asset in enumerate(qs):
+    for i, asset in enumerate(assets):
         asgn = active_map.get(asset.pk)
         if asgn:
             holder = asgn.assignee.display_name
@@ -193,6 +199,7 @@ def inventory_excel(
         else:
             holder = htype = since = ""
 
+        specs = asset.specifications or {}
         row_dict = {
             "asset_tag":        asset.asset_tag,
             "category":         asset.asset_type.category.name,
@@ -200,6 +207,10 @@ def inventory_excel(
             "brand":            asset.brand,
             "model":            asset.model_name,
             "serial_no":        asset.serial_number,
+            "cpu":              spec_filters.fmt_cpu(specs),
+            "ram":              spec_filters.fmt_ram(specs),
+            "storage":          spec_filters.fmt_storage(specs),
+            "display":          spec_filters.fmt_display(specs),
             "status":           asset.get_status_display(),
             "storage_location": asset.storage_location.full_path if asset.storage_location else "",
             "current_holder":   holder,

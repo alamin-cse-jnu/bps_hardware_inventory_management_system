@@ -32,6 +32,7 @@ urlpatterns = [
     path("lifecycle/", include("lifecycle.urls", namespace="lifecycle")),
     path("qr/", include("qrcodes.urls", namespace="qrcodes")),
     path("reports/", include("reports.urls", namespace="reports")),
+    path("activity/", include("audit.urls", namespace="audit")),
     path("users/", include(_user_patterns)),
 ]
 

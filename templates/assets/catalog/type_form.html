@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == 'edit' %}Edit Asset Type{% else %}New Asset Type{% endif %}{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:dashboard' %}">IT Inventory</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <a href="{% url 'assets:catalog_home' %}">Catalog</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>{% if mode == 'edit' %}Edit Type{% else %}New Type{% endif %}</strong>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  .spec-card{position:relative;border:1.5px solid #E5E7EB;border-radius:9px;padding:13px 15px;cursor:pointer;transition:border-color 120ms,background 120ms;background:#fff}
+  .spec-card:hover{border-color:#B6D7E5}
+  .spec-card.on{border-color:#0076A7;background:#F0F7FB}
+  .spec-card input{position:absolute;opacity:0;pointer-events:none}
+  .spec-card-title{font-size:13.5px;font-weight:700;color:#1F2937;display:flex;align-items:center;gap:8px}
+  .spec-card-desc{font-size:11.5px;color:#6B7280;margin-top:3px;line-height:1.4}
+  .spec-tick{width:18px;height:18px;border-radius:5px;border:1.5px solid #CBD5E1;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#fff}
+  .spec-card.on .spec-tick{background:#0076A7;border-color:#0076A7}
+  .spec-tick svg{opacity:0}
+  .spec-card.on .spec-tick svg{opacity:1}
+  .custom-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header"><div class="page-title">{% if mode == 'edit' %}Edit Asset Type{% else %}New Asset Type{% endif %}</div></div>
+
+{% if form_error %}
+<div class="callout callout-red" style="color:#B91C1C">{{ form_error }}</div>
+{% endif %}
+
+{% if mode == 'edit' and item_count %}
+<div class="callout callout-gold" style="color:#78350F">
+  <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  <div>{{ item_count }} asset{{ item_count|pluralize }} already use this type. Changing the spec fields here only affects <strong>new</strong> asset forms — existing assets keep their stored specifications.</div>
+</div>
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+  <div class="card" style="max-width:820px">
+    <div class="card-body">
+
+      <!-- Identity -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+        <div>
+          <label class="form-label">Type Name <span style="color:#EF4444">*</span></label>
+          <input type="text" name="name" class="form-input" required autofocus
+                 value="{{ name }}" placeholder="e.g. Laptop">
+        </div>
+        <div>
+          <label class="form-label">Name (Bangla)</label>
+          <input type="text" name="name_bn" class="form-input" value="{{ name_bn }}" placeholder="optional">
+        </div>
+      </div>
+
+      <div style="margin-bottom:18px">
+        <label class="form-label">Category <span style="color:#EF4444">*</span></label>
+        <select name="category" class="form-input" required style="cursor:pointer">
+          <option value="">— Select category —</option>
+          {% for c in categories %}
+          <option value="{{ c.pk }}" {% if selected_category == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+        {% if not categories %}
+        <div class="text-muted text-small" style="margin-top:6px">No active categories. <a href="{% url 'assets:category_create' %}" style="color:#0076A7;font-weight:600">Create one first →</a></div>
+        {% endif %}
+      </div>
+
+      <!-- Spec fields builder -->
+      <div style="border-top:1px solid #EEF2F5;padding-top:18px;margin-bottom:6px">
+        <div style="font-size:13px;font-weight:700;color:#0076A7;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Specification Fields</div>
+        <div class="text-muted text-small" style="margin-bottom:14px">Choose which technical details this type captures. These become the fields on the add/edit asset form.</div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+          {% for f in known_fields %}
+          <label class="spec-card {% if f.checked %}on{% endif %}">
+            <input type="checkbox" name="known_specs" value="{{ f.key }}" {% if f.checked %}checked{% endif %}
+                   onchange="this.closest('.spec-card').classList.toggle('on', this.checked)">
+            <div class="spec-card-title">
+              <span class="spec-tick"><svg width="12" height="12" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>
+              {{ f.label }}
+            </div>
+            <div class="spec-card-desc">{{ f.desc }}</div>
+          </label>
+          {% endfor %}
+        </div>
+
+        <!-- Custom fields -->
+        <label class="form-label">Custom Fields <span style="font-weight:400;color:#9CA3AF">— free-text specs for any equipment (e.g. Ports, Lumens, WiFi Standard)</span></label>
+        <div id="custom-list">
+          {% for cf in custom_fields %}
+          <div class="custom-row">
+            <input type="text" name="custom_specs" class="form-input" value="{{ cf.label }}" placeholder="Field name">
+            <button type="button" class="btn btn-danger-soft btn-sm" onclick="this.closest('.custom-row').remove()">Remove</button>
+          </div>
+          {% endfor %}
+        </div>
+        <button type="button" class="btn btn-outline btn-sm" onclick="addCustom()" style="margin-top:4px">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Field
+        </button>
+      </div>
+
+      <!-- Flags -->
+      <div style="border-top:1px solid #EEF2F5;padding-top:18px;margin-top:18px;display:flex;flex-direction:column;gap:12px">
+        <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;font-size:13px;color:#374151">
+          <input type="checkbox" name="has_components" style="accent-color:#0076A7;width:16px;height:16px;margin-top:1px" {% if has_components %}checked{% endif %}>
+          <span><strong>Component set</strong> — this type is a bundle with swappable parts (like a PC Set). Enables child-component tracking on its assets.</span>
+        </label>
+        <label style="display:inline-flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;color:#374151">
+          <input type="checkbox" name="is_active" style="accent-color:#0076A7;width:16px;height:16px" {% if is_active %}checked{% endif %}>
+          <span><strong>Active</strong> — available for selection when adding new assets.</span>
+        </label>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="display:flex;gap:8px;margin-top:16px;max-width:820px">
+    <button type="submit" class="btn btn-primary">{% if mode == 'edit' %}Save Changes{% else %}Create Asset Type{% endif %}</button>
+    <a href="{% url 'assets:catalog_home' %}" class="btn btn-outline">Cancel</a>
+  </div>
+</form>
+
+<script>
+function addCustom(value) {
+  const row = document.createElement('div');
+  row.className = 'custom-row';
+  row.innerHTML =
+    '<input type="text" name="custom_specs" class="form-input" placeholder="Field name">' +
+    '<button type="button" class="btn btn-danger-soft btn-sm">Remove</button>';
+  row.querySelector('button').addEventListener('click', () => row.remove());
+  if (value) row.querySelector('input').value = value;
+  document.getElementById('custom-list').appendChild(row);
+  row.querySelector('input').focus();
+}
+</script>
+{% endblock %}
