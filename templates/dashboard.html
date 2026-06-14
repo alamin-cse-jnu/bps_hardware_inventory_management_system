@@ -238,14 +238,34 @@
     </div>
   </div>
 
-  <!-- Category bar -->
+  <!-- Category + type breakdown -->
   <div class="chart-card">
     <div class="chart-head">
-      <span class="chart-title">Assets by Category</span>
+      <span class="chart-title">Assets by Category &amp; Type</span>
       <span style="font-size:11px;color:#9CA3AF">Active assets only</span>
     </div>
-    <div class="chart-body" style="padding:20px 20px 12px">
-      <canvas id="categoryChart" style="width:100%;max-height:200px"></canvas>
+    <div class="chart-body" style="display:block;padding:16px 20px 16px;max-height:260px;overflow-y:auto">
+      {% for cat in category_breakdown %}
+      <div style="margin-bottom:{% if not forloop.last %}16px{% else %}0{% endif %}">
+        <!-- Category row -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.6px">{{ cat.name }}</span>
+          <span style="font-size:12px;font-weight:700;color:#0076A7">{{ cat.total }}</span>
+        </div>
+        <!-- Type rows -->
+        {% for t in cat.types %}
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;padding-left:10px">
+          <span style="font-size:12.5px;color:#374151;white-space:nowrap;width:160px;overflow:hidden;text-overflow:ellipsis">{{ t.name }}</span>
+          <div style="flex:1;background:#EEF2F6;border-radius:99px;height:8px;overflow:hidden;min-width:60px">
+            <div style="height:100%;background:#0076A7;border-radius:99px;width:{% widthratio t.count breakdown_max 100 %}%"></div>
+          </div>
+          <span style="font-size:12px;font-weight:600;color:#374151;min-width:24px;text-align:right">{{ t.count }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% empty %}
+      <div style="text-align:center;color:#9CA3AF;font-size:13px;padding:20px 0">No assets yet.</div>
+      {% endfor %}
     </div>
   </div>
 
@@ -539,50 +559,6 @@
   });
 })();
 
-// ── Category bar chart ─────────────────────────────────────────────────────
-(function() {
-  const d = {{ category_chart|safe }};
-  new Chart(document.getElementById('categoryChart'), {
-    type: 'bar',
-    data: {
-      labels: d.labels,
-      datasets: [{
-        data: d.data,
-        backgroundColor: '#0076A7',
-        hoverBackgroundColor: '#005d85',
-        borderRadius: 4,
-        borderSkipped: false,
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => ` ${ctx.parsed.y} assets`
-          }
-        }
-      },
-      scales: {
-        x: {
-          grid: { display: false },
-          ticks: { font: { size: 11, family: 'Inter' }, color: '#6C757D' }
-        },
-        y: {
-          beginAtZero: true,
-          grid: { color: '#F3F4F6' },
-          ticks: {
-            font: { size: 11, family: 'Inter' },
-            color: '#6C757D',
-            precision: 0,
-          }
-        }
-      }
-    }
-  });
-})();
 
 </script>
 

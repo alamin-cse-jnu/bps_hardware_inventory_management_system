@@ -321,22 +321,29 @@ def dashboard(request):
     last_sync = SyncLog.objects.order_by("-started_at").first()
 
     # Chart data
-    category_qs = AssetCategory.objects.filter(is_active=True).annotate(
-        count=Count(
-            "asset_types__items",
-            filter=Q(asset_types__items__is_deleted=False),
-        )
-    ).filter(count__gt=0).order_by("-count")
-
     status_chart = json.dumps({
         "labels": ["In Stock", "Assigned", "Maintenance", "Lost", "Damaged", "Disposed"],
         "data": [in_stock_count, assigned_count, maintenance_count, lost_count, damaged_count, disposed_count],
         "colors": ["#10B981", "#3B82F6", "#F59E0B", "#EF4444", "#F97316", "#9CA3AF"],
     })
-    category_chart = json.dumps({
-        "labels": [c.name for c in category_qs],
-        "data": [c.count for c in category_qs],
-    })
+
+    # Category + asset-type breakdown
+    type_qs = (
+        AssetType.objects.filter(is_active=True)
+        .annotate(count=Count("items", filter=Q(items__is_deleted=False)))
+        .filter(count__gt=0)
+        .select_related("category")
+        .order_by("category__name", "-count")
+    )
+    _cat_map = {}
+    for t in type_qs:
+        cat = t.category
+        if cat.pk not in _cat_map:
+            _cat_map[cat.pk] = {"name": cat.name, "types": [], "total": 0}
+        _cat_map[cat.pk]["types"].append({"name": t.name, "count": t.count})
+        _cat_map[cat.pk]["total"] += t.count
+    category_breakdown = sorted(_cat_map.values(), key=lambda x: -x["total"])
+    breakdown_max = category_breakdown[0]["total"] if category_breakdown else 1
 
     return render(request, "dashboard.html", {
         "total": total,
@@ -350,7 +357,8 @@ def dashboard(request):
         "recent_events": recent_events,
         "last_sync": last_sync,
         "status_chart": status_chart,
-        "category_chart": category_chart,
+        "category_breakdown": category_breakdown,
+        "breakdown_max": breakdown_max,
     })
 
 

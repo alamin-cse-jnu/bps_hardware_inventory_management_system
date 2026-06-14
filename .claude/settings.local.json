@@ -76,7 +76,8 @@
       "Bash(xargs grep -l \"work.*order\\\\|WorkOrder\\\\|document.*model\")",
       "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:8000/new/\" -UseBasicParsing -TimeoutSec 10; \"Status: $\\($r.StatusCode\\)\" } catch { \"Error: $_\" })",
       "PowerShell(Out-Null *)",
-      "PowerShell(Get-Command *)"
+      "PowerShell(Get-Command *)",
+      "PowerShell(cd E:\\\\projects\\\\bps_hardware_inventory_management_system; $sv = New-Object Microsoft.PowerShell.Commands.WebRequestSession; $login = Invoke-WebRequest -Uri \"http://localhost:8000/accounts/login/\" -SessionVariable sv -UseBasicParsing; $csrf = \\($login.Content | Select-String 'csrfmiddlewaretoken\" value=\"\\([^\"]+\\)\"'\\).Matches.Groups[1].Value; $r = Invoke-WebRequest -Uri \"http://localhost:8000/accounts/login/\" -Method POST -Body \"csrfmiddlewaretoken=$csrf&login=superuser&password=admin123\" -WebSession $sv -UseBasicParsing; $r.Content.Substring\\(0,200\\))"
     ]
   }
 }
