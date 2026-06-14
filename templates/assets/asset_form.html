@@ -26,7 +26,7 @@
 </div>
 {% endif %}
 
-<form method="post" id="asset-form" style="max-width:960px">
+<form method="post" id="asset-form" style="max-width:960px" enctype="multipart/form-data">
 {% csrf_token %}
 
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
@@ -75,14 +75,26 @@
 
       <div class="form-group">
         <label class="form-label">Brand <span style="color:#EF4444">*</span></label>
-        <input type="text" name="brand" value="{{ form_data.brand|default:'' }}" class="form-input" placeholder="e.g. Dell, HP, Cisco">
+        <select name="brand" class="form-input">
+          <option value="">— Select Brand —</option>
+          {% for b in brands %}
+          <option value="{{ b.name }}" {% if form_data.brand == b.name %}selected{% endif %}>{{ b.name }}</option>
+          {% endfor %}
+        </select>
         {% if errors.brand %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.brand }}</div>{% endif %}
+        {% if not brands %}<div style="color:#9CA3AF;font-size:11px;margin-top:3px">No brands yet — {% if user_is_admin %}<a href="{% url 'assets:brand_create' %}" style="color:#0076A7">add one now →</a>{% else %}ask Admin to add brands.{% endif %}</div>{% endif %}
       </div>
 
       <div class="form-group">
         <label class="form-label">Model Name <span style="color:#EF4444">*</span></label>
-        <input type="text" name="model_name" value="{{ form_data.model_name|default:'' }}" class="form-input" placeholder="e.g. Latitude 5540">
+        <select name="model_name" class="form-input">
+          <option value="">— Select Model —</option>
+          {% for m in model_names %}
+          <option value="{{ m.name }}" {% if form_data.model_name == m.name %}selected{% endif %}>{{ m.name }}</option>
+          {% endfor %}
+        </select>
         {% if errors.model_name %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.model_name }}</div>{% endif %}
+        {% if not model_names %}<div style="color:#9CA3AF;font-size:11px;margin-top:3px">No model names yet — {% if user_is_admin %}<a href="{% url 'assets:model_name_create' %}" style="color:#0076A7">add one now →</a>{% else %}ask Admin to add model names.{% endif %}</div>{% endif %}
       </div>
 
       <div class="form-group" style="margin-bottom:0">
@@ -162,8 +174,14 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label">Supplier</label>
-        <input type="text" name="supplier" value="{{ form_data.supplier|default:'' }}" class="form-input" placeholder="Vendor name">
+        <label class="form-label">Supplier / Vendor</label>
+        <select name="supplier" class="form-input">
+          <option value="">— Select Vendor —</option>
+          {% for v in vendors %}
+          <option value="{{ v.name }}" {% if form_data.supplier == v.name %}selected{% endif %}>{{ v.name }}</option>
+          {% endfor %}
+        </select>
+        {% if not vendors %}<div style="color:#9CA3AF;font-size:11px;margin-top:3px">No vendors yet — {% if user_is_admin %}<a href="{% url 'assets:vendor_create' %}" style="color:#0076A7">add one now →</a>{% else %}ask Admin to add vendors.{% endif %}</div>{% endif %}
       </div>
 
       <div class="form-group">
@@ -184,6 +202,43 @@
         {% if errors.amc_expiry %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.amc_expiry }}</div>{% endif %}
       </div>
 
+    </div>
+  </div>
+</div>
+
+<!-- Work Order Upload Card -->
+<div class="card" style="margin-bottom:20px">
+  <div style="padding:14px 20px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:8px">
+    <svg width="15" height="15" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    <h3 style="font-size:13px;font-weight:700;color:#212529;margin:0">Work Order Document</h3>
+    <span style="font-size:11px;color:#9CA3AF;margin-left:4px">optional</span>
+  </div>
+  <div class="card-body">
+    {% if is_edit and asset.work_order %}
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;margin-bottom:14px">
+      <svg width="16" height="16" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12.5px;font-weight:600;color:#0076A7">Current: {{ asset.work_order.reference|default:asset.work_order.filename }}</div>
+        <div style="font-size:11px;color:#6B7280">{{ asset.work_order.filename }}</div>
+      </div>
+      <a href="{% url 'assets:work_order_serve' asset.work_order.pk %}" target="_blank" class="btn btn-outline btn-sm">View</a>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#EF4444;cursor:pointer">
+        <input type="checkbox" name="clear_work_order" value="1"> Remove
+      </label>
+    </div>
+    {% endif %}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Upload File <span style="color:#9CA3AF;font-weight:400">(PDF or JPG/PNG)</span></label>
+        <input type="file" name="work_order_file" accept=".pdf,.jpg,.jpeg,.png"
+               class="form-input" style="padding:6px 12px;height:auto">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Work Order / Reference No.</label>
+        <input type="text" name="work_order_reference"
+               value="{{ form_data.work_order_reference|default:'' }}"
+               class="form-input" placeholder="e.g. WO/2026/001">
+      </div>
     </div>
   </div>
 </div>

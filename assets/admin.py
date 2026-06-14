@@ -5,7 +5,10 @@ from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import path
 
-from .models import AssetCategory, AssetComponent, AssetItem, AssetType
+from .models import (
+    AssetCategory, AssetComponent, AssetItem, AssetModelName, AssetType,
+    Brand, SpecChoice, Vendor, WorkOrder,
+)
 from .services.excel_import import (
     SESSION_KEY_COLS,
     SESSION_KEY_ROWS,
@@ -15,6 +18,51 @@ from .services.excel_import import (
     ExcelImportValidator,
     ExcelTemplateGenerator,
 )
+
+
+@admin.register(Brand)
+class BrandAdmin(admin.ModelAdmin):
+    list_display = ("name", "is_active", "created_at")
+    list_filter = ("is_active",)
+    search_fields = ("name",)
+    readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(AssetModelName)
+class AssetModelNameAdmin(admin.ModelAdmin):
+    list_display = ("name", "is_active", "created_at")
+    list_filter = ("is_active",)
+    search_fields = ("name",)
+    readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(Vendor)
+class VendorAdmin(admin.ModelAdmin):
+    list_display = ("name", "contact_info", "is_active", "created_at")
+    list_filter = ("is_active",)
+    search_fields = ("name", "contact_info")
+    readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(SpecChoice)
+class SpecChoiceAdmin(admin.ModelAdmin):
+    list_display = ("spec_key", "value", "label", "order", "is_active")
+    list_filter = ("spec_key", "is_active")
+    search_fields = ("spec_key", "value", "label")
+    ordering = ("spec_key", "order", "label")
+    list_editable = ("order", "is_active")
+
+
+@admin.register(WorkOrder)
+class WorkOrderAdmin(admin.ModelAdmin):
+    list_display = ("__str__", "reference", "filename", "uploaded_at", "uploaded_by")
+    list_filter = ("uploaded_at",)
+    search_fields = ("reference", "description")
+    readonly_fields = ("uploaded_at", "uploaded_by", "filename")
+
+    def filename(self, obj):
+        return obj.filename
+    filename.short_description = "File"
 
 
 @admin.register(AssetCategory)
@@ -86,6 +134,7 @@ class AssetItemAdmin(admin.ModelAdmin):
                 "purchase_cost",
                 "warranty_expiry",
                 "amc_expiry",
+                "work_order",
             ),
             "classes": ("collapse",),
         }),

@@ -12,7 +12,9 @@ INVENTORY_COLS: list[tuple[str, str]] = [
     ("brand",            "Brand"),
     ("model",            "Model"),
     ("serial_no",        "Serial No."),
+    ("vendor",           "Vendor"),
     ("cpu",              "CPU"),
+    ("gpu",              "GPU"),
     ("ram",              "RAM"),
     ("storage",          "Storage"),
     ("display",          "Display"),
@@ -24,6 +26,7 @@ INVENTORY_COLS: list[tuple[str, str]] = [
     ("purchase_date",    "Purchase Date"),
     ("warranty_expiry",  "Warranty Expiry"),
     ("amc_expiry",       "AMC Expiry"),
+    ("work_order_ref",   "Work Order Ref"),
 ]
 
 TRANSFER_LOG_COLS: list[tuple[str, str]] = [

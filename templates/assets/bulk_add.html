@@ -34,7 +34,7 @@
   </div>
 </div>
 
-<form method="post" id="bulk-form" style="max-width:960px">
+<form method="post" id="bulk-form" style="max-width:960px" enctype="multipart/form-data">
 {% csrf_token %}
 
 <!-- Quantity & Serial Numbers Card (prominent, at top) -->
@@ -110,13 +110,23 @@
 
       <div class="form-group">
         <label class="form-label">Brand <span style="color:#EF4444">*</span></label>
-        <input type="text" name="brand" value="{{ form_data.brand|default:'' }}" class="form-input" placeholder="e.g. Dell, HP, Cisco">
+        <select name="brand" class="form-input">
+          <option value="">— Select Brand —</option>
+          {% for b in brands %}
+          <option value="{{ b.name }}" {% if form_data.brand == b.name %}selected{% endif %}>{{ b.name }}</option>
+          {% endfor %}
+        </select>
         {% if errors.brand %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.brand }}</div>{% endif %}
       </div>
 
       <div class="form-group" style="margin-bottom:0">
         <label class="form-label">Model Name <span style="color:#EF4444">*</span></label>
-        <input type="text" name="model_name" value="{{ form_data.model_name|default:'' }}" class="form-input" placeholder="e.g. Latitude 5540">
+        <select name="model_name" class="form-input">
+          <option value="">— Select Model —</option>
+          {% for m in model_names %}
+          <option value="{{ m.name }}" {% if form_data.model_name == m.name %}selected{% endif %}>{{ m.name }}</option>
+          {% endfor %}
+        </select>
         {% if errors.model_name %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.model_name }}</div>{% endif %}
       </div>
 
@@ -185,8 +195,13 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label">Supplier</label>
-        <input type="text" name="supplier" value="{{ form_data.supplier|default:'' }}" class="form-input" placeholder="Vendor name">
+        <label class="form-label">Supplier / Vendor</label>
+        <select name="supplier" class="form-input">
+          <option value="">— Select Vendor —</option>
+          {% for v in vendors %}
+          <option value="{{ v.name }}" {% if form_data.supplier == v.name %}selected{% endif %}>{{ v.name }}</option>
+          {% endfor %}
+        </select>
       </div>
 
       <div class="form-group">
@@ -207,6 +222,34 @@
         {% if errors.amc_expiry %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.amc_expiry }}</div>{% endif %}
       </div>
 
+    </div>
+  </div>
+</div>
+
+<!-- Work Order Upload Card (shared across all assets in this batch) -->
+<div class="card" style="margin-bottom:20px">
+  <div style="padding:14px 20px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:8px">
+    <svg width="15" height="15" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    <h3 style="font-size:13px;font-weight:700;color:#212529;margin:0">Work Order Document</h3>
+    <span style="font-size:11px;color:#9CA3AF;margin-left:4px">optional — shared by all assets in this batch</span>
+  </div>
+  <div class="card-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Upload File <span style="color:#9CA3AF;font-weight:400">(PDF or JPG/PNG)</span></label>
+        <input type="file" name="work_order_file" accept=".pdf,.jpg,.jpeg,.png"
+               class="form-input" style="padding:6px 12px;height:auto">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Work Order / Reference No.</label>
+        <input type="text" name="work_order_reference"
+               value="{{ form_data.work_order_reference|default:'' }}"
+               class="form-input" placeholder="e.g. WO/2026/001">
+      </div>
+    </div>
+    <div class="callout callout-green" style="margin-top:12px;padding:8px 12px">
+      <svg width="13" height="13" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span style="font-size:12px">If uploaded, this document will be linked to all assets created in this batch and viewable from each asset's detail page.</span>
     </div>
   </div>
 </div>

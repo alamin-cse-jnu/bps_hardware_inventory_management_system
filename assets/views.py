@@ -15,7 +15,10 @@ from assignments.models import Assignment, AlertStatus, InactiveHolderAlert
 from config.permissions import it_officer_required, viewer_required
 from locations.models import Location
 
-from .models import AssetCategory, AssetItem, AssetType
+from .models import (
+    AssetCategory, AssetItem, AssetModelName, AssetType,
+    Brand, SpecChoice, Vendor, WorkOrder,
+)
 from .services.excel_import import (
     SESSION_KEY_COLS,
     SESSION_KEY_ROWS,
@@ -103,8 +106,34 @@ def _types_qs():
     return AssetType.objects.filter(is_active=True).select_related("category").order_by("category__name", "name")
 
 
+def _catalog_context():
+    """Extra context for asset create/edit forms: dropdown lists."""
+    choices = {}
+    for sc in SpecChoice.objects.filter(is_active=True).order_by("spec_key", "order", "label"):
+        choices.setdefault(sc.spec_key, []).append((sc.value, sc.display_label()))
+    return {
+        "brands": Brand.objects.filter(is_active=True),
+        "model_names": AssetModelName.objects.filter(is_active=True),
+        "vendors": Vendor.objects.filter(is_active=True),
+        "spec_choices_by_key": choices,
+    }
+
+
+def _save_work_order(request):
+    """Create and return a WorkOrder from the uploaded file, or None."""
+    f = request.FILES.get("work_order_file")
+    if not f:
+        return None
+    return WorkOrder.objects.create(
+        reference=request.POST.get("work_order_reference", "").strip(),
+        document=f,
+        description=request.POST.get("work_order_description", "").strip(),
+        uploaded_by=request.user,
+    )
+
+
 # Keys whose spec values are stored as dicts (composite fields)
-_COMPOSITE_SPEC_KEYS = {"ram", "storage", "display", "display_monitor", "os", "cpu"}
+_COMPOSITE_SPEC_KEYS = {"ram", "storage", "display", "display_monitor", "os", "cpu", "gpu"}
 
 
 def _collect_specs(spec_schema, post_data):
@@ -134,8 +163,15 @@ def _collect_specs(spec_schema, post_data):
         elif key == "cpu":
             specs[key] = {
                 "brand": post_data.get("spec_cpu_brand", "").strip(),
+                "model": post_data.get("spec_cpu_model", "").strip(),
                 "cores": post_data.get("spec_cpu_cores", "").strip(),
                 "generation": post_data.get("spec_cpu_generation", "").strip(),
+            }
+        elif key == "gpu":
+            specs[key] = {
+                "chipset": post_data.get("spec_gpu_chipset", "").strip(),
+                "memory_type": post_data.get("spec_gpu_memory_type", "").strip(),
+                "capacity": post_data.get("spec_gpu_capacity", "").strip(),
             }
         else:
             specs[key] = post_data.get(f"spec_{key}", "").strip()
@@ -155,8 +191,15 @@ def _spec_display_value(key, post_data):
     elif key == "cpu":
         return {
             "brand": post_data.get("spec_cpu_brand", ""),
+            "model": post_data.get("spec_cpu_model", ""),
             "cores": post_data.get("spec_cpu_cores", ""),
             "generation": post_data.get("spec_cpu_generation", ""),
+        }
+    elif key == "gpu":
+        return {
+            "chipset": post_data.get("spec_gpu_chipset", ""),
+            "memory_type": post_data.get("spec_gpu_memory_type", ""),
+            "capacity": post_data.get("spec_gpu_capacity", ""),
         }
     return post_data.get(f"spec_{key}", "")
 
@@ -456,6 +499,7 @@ def asset_create(request):
         if not errors and selected_type:
             specs = _collect_specs(spec_schema, request.POST)
             tag = request.POST.get("asset_tag", "").strip() or _generate_asset_tag(selected_type)
+            work_order = _save_work_order(request)
             asset = AssetItem(
                 asset_tag=tag,
                 asset_type=selected_type,
@@ -472,6 +516,7 @@ def asset_create(request):
                 warranty_expiry=_parse_date_safe(request.POST.get("warranty_expiry")),
                 amc_expiry=_parse_date_safe(request.POST.get("amc_expiry")),
                 notes=request.POST.get("notes", "").strip(),
+                work_order=work_order,
                 created_by=request.user,
             )
             asset.save()
@@ -494,6 +539,7 @@ def asset_create(request):
         "errors": errors,
         "form_title": "Add New Asset",
         "is_edit": False,
+        **_catalog_context(),
     })
 
 
@@ -532,6 +578,12 @@ def asset_edit(request, pk):
             asset.warranty_expiry = _parse_date_safe(request.POST.get("warranty_expiry"))
             asset.amc_expiry = _parse_date_safe(request.POST.get("amc_expiry"))
             asset.notes = request.POST.get("notes", "").strip()
+            # New work order file replaces the old one; "clear" checkbox removes it
+            new_wo = _save_work_order(request)
+            if new_wo:
+                asset.work_order = new_wo
+            elif request.POST.get("clear_work_order"):
+                asset.work_order = None
             asset.save()
             messages.success(request, f"Asset {asset.asset_tag} updated.")
             return redirect("assets:detail", pk=asset.pk)
@@ -571,6 +623,7 @@ def asset_edit(request, pk):
         "errors": errors,
         "form_title": f"Edit {asset.asset_tag}",
         "is_edit": True,
+        **_catalog_context(),
     })
 
 
@@ -634,6 +687,8 @@ def asset_bulk_create(request):
 
         if not errors and selected_type:
             specs = _collect_specs(spec_schema, request.POST)
+            # One work order shared by all assets in this batch
+            shared_work_order = _save_work_order(request)
             created_tags = []
             for serial in serial_numbers:
                 tag = _generate_asset_tag(selected_type)
@@ -653,6 +708,7 @@ def asset_bulk_create(request):
                     warranty_expiry=_parse_date_safe(request.POST.get("warranty_expiry")),
                     amc_expiry=_parse_date_safe(request.POST.get("amc_expiry")),
                     notes=request.POST.get("notes", "").strip(),
+                    work_order=shared_work_order,
                     created_by=request.user,
                 )
                 asset.save()
@@ -676,6 +732,7 @@ def asset_bulk_create(request):
         "form_data": form_data,
         "errors": errors,
         "serial_numbers_raw": request.POST.get("serial_numbers", "") if request.method == "POST" else "",
+        **_catalog_context(),
     })
 
 
@@ -690,8 +747,29 @@ def asset_spec_fields(request):
             spec_schema = asset_type.spec_schema or []
         except AssetType.DoesNotExist:
             pass
-    spec_fields = [(key, "") for key in spec_schema]
-    return render(request, "assets/partials/spec_fields.html", {"spec_fields": spec_fields})
+    spec_fields = [(key, {}) for key in spec_schema]
+    choices = {}
+    for sc in SpecChoice.objects.filter(is_active=True).order_by("spec_key", "order", "label"):
+        choices.setdefault(sc.spec_key, []).append((sc.value, sc.display_label()))
+    return render(request, "assets/partials/spec_fields.html", {
+        "spec_fields": spec_fields,
+        "spec_choices_by_key": choices,
+    })
+
+
+@viewer_required
+def work_order_serve(request, pk):
+    """Serve a work order document (login required; never direct media URL)."""
+    import mimetypes
+    from django.http import FileResponse
+    wo = WorkOrder.objects.get(pk=pk)
+    mime, _ = mimetypes.guess_type(wo.document.name)
+    mime = mime or "application/octet-stream"
+    # Inline for PDF/images so the browser renders them; force download otherwise
+    disposition = "inline" if mime in ("application/pdf", "image/jpeg", "image/png") else "attachment"
+    response = FileResponse(wo.document.open("rb"), content_type=mime)
+    response["Content-Disposition"] = f'{disposition}; filename="{wo.filename}"'
+    return response
 
 
 @viewer_required

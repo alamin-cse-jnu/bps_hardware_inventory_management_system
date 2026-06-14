@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Spec Options{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:dashboard' %}">IT Inventory</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>Spec Options</strong>
+{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'assets:spec_choice_create' %}" class="btn btn-primary btn-sm">+ Add Option</a>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Spec Options</div>
+    <div class="text-muted text-small" style="margin-top:2px">Dropdown choices for specification fields (CPU model, RAM type, storage type, OS, GPU specs)</div>
+  </div>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div class="callout {% if msg.tags == 'error' %}callout-red{% else %}callout-blue{% endif %}" style="margin-bottom:16px">{{ msg }}</div>
+{% endfor %}
+{% endif %}
+
+{% for group in groups %}
+<div class="card" style="margin-bottom:16px">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #EEF2F5">
+    <div>
+      <span style="font-size:14px;font-weight:700;color:#1F2937">{{ group.label }}</span>
+      <span style="font-size:12px;color:#9CA3AF;margin-left:8px;font-family:'JetBrains Mono',monospace">{{ group.key }}</span>
+    </div>
+    <a href="{% url 'assets:spec_choice_create' %}?spec_key={{ group.key }}" class="btn btn-outline btn-sm">+ Add Choice</a>
+  </div>
+  {% if group.choices %}
+  <div class="table-wrap" style="border:none">
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr>
+          <th>Value</th>
+          <th>Display Label</th>
+          <th style="text-align:center">Order</th>
+          <th style="text-align:center">Status</th>
+          <th style="width:1px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sc in group.choices %}
+        <tr style="{% if not sc.is_active %}opacity:.5{% endif %}">
+          <td style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#374151">{{ sc.value }}</td>
+          <td style="color:#6B7280">{% if sc.label %}{{ sc.label }}{% else %}<span style="color:#D1D5DB">—</span>{% endif %}</td>
+          <td style="text-align:center;color:#9CA3AF;font-size:12px">{{ sc.order }}</td>
+          <td style="text-align:center">
+            {% if sc.is_active %}<span class="badge" style="background:#ECFDF5;color:#059669">Active</span>
+            {% else %}<span class="badge" style="background:#F3F4F6;color:#9CA3AF">Inactive</span>{% endif %}
+          </td>
+          <td style="white-space:nowrap">
+            <a href="{% url 'assets:spec_choice_edit' sc.pk %}" class="btn btn-outline btn-sm" style="margin-right:4px">Edit</a>
+            <form method="post" action="{% url 'assets:spec_choice_toggle' sc.pk %}" style="display:inline">{% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline">{% if sc.is_active %}Deactivate{% else %}Activate{% endif %}</button>
+            </form>
+            <form method="post" action="{% url 'assets:spec_choice_delete' sc.pk %}" style="display:inline">{% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-danger-soft" style="margin-left:4px"
+                      onclick="return confirm('Delete choice {{ sc.value }}?')">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="padding:18px;text-align:center;color:#9CA3AF;font-size:13px">
+    No choices yet. <a href="{% url 'assets:spec_choice_create' %}?spec_key={{ group.key }}" style="color:#0076A7;font-weight:600">Add one →</a>
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+{% endblock %}

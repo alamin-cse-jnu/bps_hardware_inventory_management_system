@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% load report_tags %}
+{% block title %}{% if mode == 'edit' %}Edit Spec Option{% else %}New Spec Option{% endif %}{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:dashboard' %}">IT Inventory</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <a href="{% url 'assets:spec_choices_home' %}">Spec Options</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>{% if mode == 'edit' %}Edit Option{% else %}New Option{% endif %}</strong>
+{% endblock %}
+
+{% block content %}
+<div class="page-header"><div class="page-title">{% if mode == 'edit' %}Edit Spec Option{% else %}New Spec Option{% endif %}</div></div>
+
+{% if form_error %}
+<div class="callout" style="background:#FEF2F2;border-color:#FECACA;color:#B91C1C;margin-bottom:16px">{{ form_error }}</div>
+{% endif %}
+
+<div class="card" style="max-width:560px">
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+
+      <div style="margin-bottom:16px">
+        <label class="form-label">Spec Field <span style="color:#EF4444">*</span></label>
+        <select name="spec_key" class="form-input" required>
+          <option value="">— Choose a spec field —</option>
+          {% for key in all_spec_keys %}
+          {% with lbl=spec_key_labels|get_item:key %}
+          <option value="{{ key }}"
+            {% if post %}{% if post.spec_key == key %}selected{% endif %}
+            {% elif obj %}{% if obj.spec_key == key %}selected{% endif %}
+            {% elif pre_key == key %}selected{% endif %}>
+            {{ key }}{% if lbl %} — {{ lbl }}{% endif %}
+          </option>
+          {% endwith %}
+          {% endfor %}
+        </select>
+        <div style="font-size:11px;color:#9CA3AF;margin-top:4px">Which spec dropdown this choice belongs to</div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <label class="form-label">Value <span style="color:#EF4444">*</span></label>
+        <input type="text" name="value" class="form-input" required
+               value="{{ post.value|default:obj.value }}"
+               placeholder="e.g. DDR4, i7, SSD"
+               style="font-family:'JetBrains Mono',monospace">
+        <div style="font-size:11px;color:#9CA3AF;margin-top:4px">Stored in the database — must be unique per spec field</div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <label class="form-label">Display Label <span style="color:#9CA3AF;font-weight:400">(optional)</span></label>
+        <input type="text" name="label" class="form-input"
+               value="{{ post.label|default:obj.label }}"
+               placeholder="e.g. DDR4 RAM — leave blank to use Value">
+        <div style="font-size:11px;color:#9CA3AF;margin-top:4px">Shown in the dropdown; defaults to the value if left blank</div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <label class="form-label">Sort Order</label>
+        <input type="number" name="order" class="form-input" style="max-width:120px"
+               value="{{ post.order|default:obj.order|default:'0' }}" min="0">
+        <div style="font-size:11px;color:#9CA3AF;margin-top:4px">Lower numbers appear first in the dropdown</div>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#374151">
+          <input type="checkbox" name="is_active" style="accent-color:#0076A7;width:16px;height:16px"
+                 {% if post %}{% if post.is_active %}checked{% endif %}{% elif obj and obj.pk %}{% if obj.is_active %}checked{% endif %}{% else %}checked{% endif %}>
+          Active (show in spec dropdowns)
+        </label>
+      </div>
+
+      <div style="display:flex;gap:8px">
+        <button type="submit" class="btn btn-primary">{% if mode == 'edit' %}Save Changes{% else %}Add Option{% endif %}</button>
+        <a href="{% url 'assets:spec_choices_home' %}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

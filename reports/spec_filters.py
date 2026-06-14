@@ -74,18 +74,6 @@ def display_inches(specs):
 
 # ── Display formatters (for table cells / Excel / PDF) ──────────────────────────
 
-def fmt_cpu(specs):
-    d = _sub(specs, "cpu")
-    parts = []
-    if d.get("brand"):
-        parts.append(str(d["brand"]))
-    if d.get("cores"):
-        parts.append(f"{d['cores']} cores")
-    if d.get("generation"):
-        parts.append(str(d["generation"]))
-    return " · ".join(parts)
-
-
 def fmt_ram(specs):
     d = _sub(specs, "ram")
     parts = []
@@ -111,6 +99,32 @@ def fmt_storage(specs):
 def fmt_display(specs):
     size = (_sub(specs, "display") or _sub(specs, "display_monitor")).get("size", "")
     return f'{size}"' if size else ""
+
+
+def fmt_gpu(specs):
+    d = _sub(specs, "gpu")
+    parts = []
+    if d.get("chipset"):
+        parts.append(str(d["chipset"]))
+    if d.get("memory_type"):
+        parts.append(str(d["memory_type"]))
+    if d.get("capacity"):
+        parts.append(str(d["capacity"]))
+    return " · ".join(parts)
+
+
+def fmt_cpu(specs):  # updated to include model
+    d = _sub(specs, "cpu")
+    parts = []
+    if d.get("brand"):
+        parts.append(str(d["brand"]))
+    if d.get("model"):
+        parts.append(str(d["model"]))
+    if d.get("cores"):
+        parts.append(f"{d['cores']} cores")
+    if d.get("generation"):
+        parts.append(str(d["generation"]))
+    return " · ".join(parts)
 
 
 # ── Filter parsing & application ────────────────────────────────────────────────

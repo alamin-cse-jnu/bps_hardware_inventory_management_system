@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}Dropdowns Management{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:dashboard' %}">IT Inventory</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>Dropdowns</strong>
+{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'assets:brand_create' %}" class="btn btn-outline btn-sm" style="margin-right:6px">+ Brand</a>
+<a href="{% url 'assets:model_name_create' %}" class="btn btn-outline btn-sm" style="margin-right:6px">+ Model</a>
+<a href="{% url 'assets:vendor_create' %}" class="btn btn-primary btn-sm">+ Vendor</a>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Dropdowns Management</div>
+    <div class="text-muted text-small" style="margin-top:2px">Manage Brands, Model Names, and Vendors used in asset forms</div>
+  </div>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div class="callout {% if msg.tags == 'error' %}callout-red{% else %}callout-blue{% endif %}" style="margin-bottom:16px">{{ msg }}</div>
+{% endfor %}
+{% endif %}
+
+<!-- Brands -->
+<div class="card" style="margin-bottom:20px">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #EEF2F5">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:32px;height:32px;border-radius:8px;background:#E8F3F8;display:flex;align-items:center;justify-content:center">
+        <svg width="15" height="15" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+      </div>
+      <h3 style="font-size:14px;font-weight:700;color:#1F2937;margin:0">Brands <span style="font-weight:400;color:#9CA3AF">({{ brands|length }})</span></h3>
+    </div>
+    <a href="{% url 'assets:brand_create' %}" class="btn btn-outline btn-sm">+ Add Brand</a>
+  </div>
+  {% if brands %}
+  <div class="table-wrap" style="border:none">
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr>
+          <th>Brand Name</th>
+          <th style="text-align:center">Assets</th>
+          <th style="text-align:center">Status</th>
+          <th style="width:1px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in brands %}
+        <tr style="{% if not b.is_active %}opacity:.55{% endif %}">
+          <td style="font-weight:600;color:#374151">{{ b.name }}</td>
+          <td style="text-align:center;color:#6B7280">{{ b.asset_count }}</td>
+          <td style="text-align:center">
+            {% if b.is_active %}<span class="badge" style="background:#ECFDF5;color:#059669">Active</span>
+            {% else %}<span class="badge" style="background:#F3F4F6;color:#9CA3AF">Inactive</span>{% endif %}
+          </td>
+          <td style="white-space:nowrap">
+            <a href="{% url 'assets:brand_edit' b.pk %}" class="btn btn-outline btn-sm" style="margin-right:4px">Edit</a>
+            <form method="post" action="{% url 'assets:brand_toggle' b.pk %}" style="display:inline">{% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline">{% if b.is_active %}Deactivate{% else %}Activate{% endif %}</button>
+            </form>
+            {% if b.asset_count == 0 %}
+            <form method="post" action="{% url 'assets:brand_delete' b.pk %}" style="display:inline">{% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-danger-soft" style="margin-left:4px" onclick="return confirm('Delete brand {{ b.name }}?')">Delete</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="padding:24px;text-align:center;color:#9CA3AF;font-size:13px">No brands yet. <a href="{% url 'assets:brand_create' %}" style="color:#0076A7;font-weight:600">Add one →</a></div>
+  {% endif %}
+</div>
+
+<!-- Model Names -->
+<div class="card" style="margin-bottom:20px">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #EEF2F5">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:32px;height:32px;border-radius:8px;background:#E8F3F8;display:flex;align-items:center;justify-content:center">
+        <svg width="15" height="15" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      </div>
+      <h3 style="font-size:14px;font-weight:700;color:#1F2937;margin:0">Model Names <span style="font-weight:400;color:#9CA3AF">({{ model_names|length }})</span></h3>
+    </div>
+    <a href="{% url 'assets:model_name_create' %}" class="btn btn-outline btn-sm">+ Add Model</a>
+  </div>
+  {% if model_names %}
+  <div class="table-wrap" style="border:none">
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr>
+          <th>Model Name</th>
+          <th style="text-align:center">Assets</th>
+          <th style="text-align:center">Status</th>
+          <th style="width:1px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in model_names %}
+        <tr style="{% if not m.is_active %}opacity:.55{% endif %}">
+          <td style="font-weight:600;color:#374151">{{ m.name }}</td>
+          <td style="text-align:center;color:#6B7280">{{ m.asset_count }}</td>
+          <td style="text-align:center">
+            {% if m.is_active %}<span class="badge" style="background:#ECFDF5;color:#059669">Active</span>
+            {% else %}<span class="badge" style="background:#F3F4F6;color:#9CA3AF">Inactive</span>{% endif %}
+          </td>
+          <td style="white-space:nowrap">
+            <a href="{% url 'assets:model_name_edit' m.pk %}" class="btn btn-outline btn-sm" style="margin-right:4px">Edit</a>
+            <form method="post" action="{% url 'assets:model_name_toggle' m.pk %}" style="display:inline">{% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline">{% if m.is_active %}Deactivate{% else %}Activate{% endif %}</button>
+            </form>
+            {% if m.asset_count == 0 %}
+            <form method="post" action="{% url 'assets:model_name_delete' m.pk %}" style="display:inline">{% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-danger-soft" style="margin-left:4px" onclick="return confirm('Delete model {{ m.name }}?')">Delete</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="padding:24px;text-align:center;color:#9CA3AF;font-size:13px">No model names yet. <a href="{% url 'assets:model_name_create' %}" style="color:#0076A7;font-weight:600">Add one →</a></div>
+  {% endif %}
+</div>
+
+<!-- Vendors -->
+<div class="card" style="margin-bottom:20px">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #EEF2F5">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:32px;height:32px;border-radius:8px;background:#E8F3F8;display:flex;align-items:center;justify-content:center">
+        <svg width="15" height="15" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </div>
+      <h3 style="font-size:14px;font-weight:700;color:#1F2937;margin:0">Vendors / Suppliers <span style="font-weight:400;color:#9CA3AF">({{ vendors|length }})</span></h3>
+    </div>
+    <a href="{% url 'assets:vendor_create' %}" class="btn btn-outline btn-sm">+ Add Vendor</a>
+  </div>
+  {% if vendors %}
+  <div class="table-wrap" style="border:none">
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr>
+          <th>Vendor Name</th>
+          <th>Contact Info</th>
+          <th style="text-align:center">Assets</th>
+          <th style="text-align:center">Status</th>
+          <th style="width:1px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in vendors %}
+        <tr style="{% if not v.is_active %}opacity:.55{% endif %}">
+          <td style="font-weight:600;color:#374151">{{ v.name }}</td>
+          <td style="color:#6B7280;font-size:13px">{{ v.contact_info|default:"—" }}</td>
+          <td style="text-align:center;color:#6B7280">{{ v.asset_count }}</td>
+          <td style="text-align:center">
+            {% if v.is_active %}<span class="badge" style="background:#ECFDF5;color:#059669">Active</span>
+            {% else %}<span class="badge" style="background:#F3F4F6;color:#9CA3AF">Inactive</span>{% endif %}
+          </td>
+          <td style="white-space:nowrap">
+            <a href="{% url 'assets:vendor_edit' v.pk %}" class="btn btn-outline btn-sm" style="margin-right:4px">Edit</a>
+            <form method="post" action="{% url 'assets:vendor_toggle' v.pk %}" style="display:inline">{% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline">{% if v.is_active %}Deactivate{% else %}Activate{% endif %}</button>
+            </form>
+            {% if v.asset_count == 0 %}
+            <form method="post" action="{% url 'assets:vendor_delete' v.pk %}" style="display:inline">{% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-danger-soft" style="margin-left:4px" onclick="return confirm('Delete vendor {{ v.name }}?')">Delete</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="padding:24px;text-align:center;color:#9CA3AF;font-size:13px">No vendors yet. <a href="{% url 'assets:vendor_create' %}" style="color:#0076A7;font-weight:600">Add one →</a></div>
+  {% endif %}
+</div>
+{% endblock %}

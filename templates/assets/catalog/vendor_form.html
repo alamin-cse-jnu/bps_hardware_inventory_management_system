@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == 'edit' %}Edit Vendor{% else %}New Vendor{% endif %}{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:dashboard' %}">IT Inventory</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <a href="{% url 'assets:dropdowns_home' %}">Dropdowns</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>{% if mode == 'edit' %}Edit Vendor{% else %}New Vendor{% endif %}</strong>
+{% endblock %}
+
+{% block content %}
+<div class="page-header"><div class="page-title">{% if mode == 'edit' %}Edit Vendor{% else %}New Vendor{% endif %}</div></div>
+
+{% if form_error %}
+<div class="callout" style="background:#FEF2F2;border-color:#FECACA;color:#B91C1C;margin-bottom:16px">{{ form_error }}</div>
+{% endif %}
+
+<div class="card" style="max-width:560px">
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      <div style="margin-bottom:16px">
+        <label class="form-label">Vendor / Supplier Name <span style="color:#EF4444">*</span></label>
+        <input type="text" name="name" class="form-input" required autofocus
+               value="{{ post.name|default:obj.name }}" placeholder="e.g. Star Tech Ltd, Ryans Computers">
+      </div>
+      <div style="margin-bottom:16px">
+        <label class="form-label">Contact Info <span style="color:#9CA3AF;font-weight:400">(optional)</span></label>
+        <input type="text" name="contact_info" class="form-input"
+               value="{{ post.contact_info|default:obj.contact_info }}"
+               placeholder="Phone, email or address">
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#374151">
+          <input type="checkbox" name="is_active" style="accent-color:#0076A7;width:16px;height:16px"
+                 {% if post %}{% if post.is_active %}checked{% endif %}{% elif obj and obj.pk %}{% if obj.is_active %}checked{% endif %}{% else %}checked{% endif %}>
+          Active (show in asset forms)
+        </label>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button type="submit" class="btn btn-primary">{% if mode == 'edit' %}Save Changes{% else %}Add Vendor{% endif %}</button>
+        <a href="{% url 'assets:dropdowns_home' %}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

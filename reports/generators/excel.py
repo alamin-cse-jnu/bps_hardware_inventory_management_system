@@ -34,10 +34,11 @@ _ALIGN_L    = Alignment(horizontal="left",   vertical="center", wrap_text=False)
 # ── Per-report column → default width maps ────────────────────────────────────
 _INV_WIDTHS: dict[str, int] = {
     "asset_tag": 14, "category": 14, "type": 16, "brand": 14, "model": 22,
-    "serial_no": 16, "cpu": 24, "ram": 14, "storage": 16, "display": 10,
-    "status": 12, "storage_location": 24, "current_holder": 28,
-    "holder_type": 12, "assigned_since": 14, "purchase_date": 14,
-    "warranty_expiry": 16, "amc_expiry": 14,
+    "serial_no": 16, "vendor": 20, "cpu": 28, "gpu": 28, "ram": 14,
+    "storage": 16, "display": 10, "status": 12, "storage_location": 24,
+    "current_holder": 28, "holder_type": 12, "assigned_since": 14,
+    "purchase_date": 14, "warranty_expiry": 16, "amc_expiry": 14,
+    "work_order_ref": 18,
 }
 _TLOG_WIDTHS: dict[str, int] = {
     "transfer_date": 18, "asset_tag": 14, "category": 14, "type": 16, "brand": 14,
@@ -207,7 +208,9 @@ def inventory_excel(
             "brand":            asset.brand,
             "model":            asset.model_name,
             "serial_no":        asset.serial_number,
+            "vendor":           asset.supplier,
             "cpu":              spec_filters.fmt_cpu(specs),
+            "gpu":              spec_filters.fmt_gpu(specs),
             "ram":              spec_filters.fmt_ram(specs),
             "storage":          spec_filters.fmt_storage(specs),
             "display":          spec_filters.fmt_display(specs),
@@ -219,6 +222,7 @@ def inventory_excel(
             "purchase_date":    _date_s(asset.purchase_date),
             "warranty_expiry":  _date_s(asset.warranty_expiry),
             "amc_expiry":       _date_s(asset.amc_expiry),
+            "work_order_ref":   asset.work_order.reference if asset.work_order and asset.work_order.reference else "",
         }
         _data_row(ws, hrow + 1 + i, [row_dict[k] for k in eff], alt=(i % 2 == 1))
 

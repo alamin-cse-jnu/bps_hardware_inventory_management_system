@@ -65,7 +65,18 @@
       "PowerShell($env:PYTHONIOENCODING = \"utf-8\"; C:\\\\Users\\\\Dell\\\\AppData\\\\Local\\\\Python\\\\bin\\\\python.exe E:\\\\projects\\\\bps_hardware_inventory_management_system\\\\deploy.py)",
       "PowerShell($env:PYTHONIOENCODING = \"utf-8\"; C:\\\\Users\\\\Dell\\\\AppData\\\\Local\\\\Python\\\\bin\\\\python.exe E:\\\\projects\\\\bps_hardware_inventory_management_system\\\\update.py)",
       "PowerShell(docker compose ps *)",
-      "PowerShell(docker compose *)"
+      "PowerShell(docker compose *)",
+      "Bash(Test-NetConnection -ComputerName localhost -Port 8000)",
+      "Bash(Select-Object TcpTestSucceeded, RemotePort, RemoteAddress)",
+      "PowerShell(Test-NetConnection *)",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:8000/\" -UseBasicParsing -TimeoutSec 10; \"Status: $\\($r.StatusCode\\)\" } catch { \"Error: $_\" })",
+      "PowerShell(python -c \"import paramiko; print\\('paramiko', paramiko.__version__\\)\")",
+      "PowerShell(python3 -c \"import paramiko; print\\('paramiko', paramiko.__version__\\)\")",
+      "PowerShell(& \"C:\\\\Users\\\\Dell\\\\AppData\\\\Local\\\\Python\\\\bin\\\\python.exe\" -c \"import paramiko; print\\('paramiko', paramiko.__version__\\)\")",
+      "Bash(xargs grep -l \"work.*order\\\\|WorkOrder\\\\|document.*model\")",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:8000/new/\" -UseBasicParsing -TimeoutSec 10; \"Status: $\\($r.StatusCode\\)\" } catch { \"Error: $_\" })",
+      "PowerShell(Out-Null *)",
+      "PowerShell(Get-Command *)"
     ]
   }
 }

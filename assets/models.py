@@ -6,6 +6,108 @@ from django.utils import timezone
 User = get_user_model()
 
 
+# ---------------------------------------------------------------------------
+# Admin-managed catalog lookup tables
+# ---------------------------------------------------------------------------
+
+class Brand(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "Brand"
+        verbose_name_plural = "Brands"
+
+    def __str__(self):
+        return self.name
+
+
+class AssetModelName(models.Model):
+    name = models.CharField(max_length=200, unique=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "Model Name"
+        verbose_name_plural = "Model Names"
+
+    def __str__(self):
+        return self.name
+
+
+class Vendor(models.Model):
+    name = models.CharField(max_length=200, unique=True)
+    contact_info = models.CharField(max_length=300, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "Vendor"
+        verbose_name_plural = "Vendors"
+
+    def __str__(self):
+        return self.name
+
+
+class SpecChoice(models.Model):
+    """Admin-managed dropdown option for a specific spec field key."""
+    spec_key = models.CharField(
+        max_length=60,
+        help_text="e.g. cpu_model, ram_type, storage_type, os_name, gpu_chipset, gpu_memory_type, gpu_capacity",
+    )
+    value = models.CharField(max_length=200)
+    label = models.CharField(max_length=200, blank=True, help_text="Display label; defaults to value if blank")
+    order = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["spec_key", "order", "label"]
+        unique_together = [("spec_key", "value")]
+        verbose_name = "Spec Choice"
+        verbose_name_plural = "Spec Choices"
+
+    def __str__(self):
+        return f"{self.spec_key}: {self.label or self.value}"
+
+    def display_label(self):
+        return self.label or self.value
+
+
+class WorkOrder(models.Model):
+    """Uploaded work order / supply order document (PDF or image)."""
+    reference = models.CharField(max_length=100, blank=True)
+    document = models.FileField(upload_to="work_orders/")
+    description = models.TextField(blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    uploaded_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="work_orders_uploaded",
+    )
+
+    class Meta:
+        ordering = ["-uploaded_at"]
+        verbose_name = "Work Order"
+        verbose_name_plural = "Work Orders"
+
+    def __str__(self):
+        return self.reference or f"Work Order #{self.pk}"
+
+    @property
+    def filename(self):
+        import os
+        return os.path.basename(self.document.name) if self.document else ""
+
+
 class AssetCategory(models.Model):
     name = models.CharField(max_length=100, unique=True)
     name_bn = models.CharField(max_length=100, blank=True)
@@ -100,6 +202,15 @@ class AssetItem(models.Model):
     amc_expiry = models.DateField(null=True, blank=True)
 
     notes = models.TextField(blank=True)
+
+    # Work order document (shared across bulk-add batches)
+    work_order = models.ForeignKey(
+        WorkOrder,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="assets",
+    )
 
     # Soft delete (architectural convention: never hard-delete)
     is_deleted = models.BooleanField(default=False)

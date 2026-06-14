@@ -13,7 +13,8 @@ import re
 
 # (key, label, description shown in the builder UI)
 KNOWN_SPEC_FIELDS: list[tuple[str, str, str]] = [
-    ("cpu",     "CPU",                "Brand (Intel / AMD), core count, generation"),
+    ("cpu",     "CPU",                "Brand (Intel / AMD), model (i5/i7/i9…), core count, generation"),
+    ("gpu",     "GPU",                "Chipset, memory type, capacity — optional"),
     ("ram",     "RAM",                "Size in GB and DDR generation"),
     ("storage", "Storage",            "Capacity (GB / TB) and SSD / HDD type"),
     ("display", "Display / Monitor",  "Screen size in inches"),
