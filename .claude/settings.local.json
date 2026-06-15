@@ -82,7 +82,14 @@
       "PowerShell(C:\\\\Users\\\\Dell\\\\AppData\\\\Local\\\\Python\\\\bin\\\\pip.exe show django-environ 2>&1 | Select-Object -First 3)",
       "PowerShell(C:\\\\Users\\\\Dell\\\\AppData\\\\Local\\\\Python\\\\Scripts\\\\python3.14.exe -m py_compile E:\\\\projects\\\\bps_hardware_inventory_management_system\\\\assignments\\\\views.py 2>&1; if \\($?\\) { \"OK\" } else { \"FAIL\" })",
       "PowerShell(C:\\\\Users\\\\Dell\\\\AppData\\\\Local\\\\Python\\\\bin\\\\python3.exe -m py_compile E:\\\\projects\\\\bps_hardware_inventory_management_system\\\\assignments\\\\views.py 2>&1; if \\($LASTEXITCODE -eq 0\\) { \"OK\" } else { \"FAIL\" })",
-      "PowerShell(C:\\\\Users\\\\Dell\\\\AppData\\\\Local\\\\Python\\\\bin\\\\python3.exe -m py_compile E:\\\\projects\\\\bps_hardware_inventory_management_system\\\\assignments\\\\urls.py 2>&1; if \\($LASTEXITCODE -eq 0\\) { \"OK\" } else { \"FAIL\" })"
+      "PowerShell(C:\\\\Users\\\\Dell\\\\AppData\\\\Local\\\\Python\\\\bin\\\\python3.exe -m py_compile E:\\\\projects\\\\bps_hardware_inventory_management_system\\\\assignments\\\\urls.py 2>&1; if \\($LASTEXITCODE -eq 0\\) { \"OK\" } else { \"FAIL\" })",
+      "PowerShell(docker compose version *)",
+      "PowerShell(Invoke-WebRequest -Uri \"http://172.16.220.159/\" -UseBasicParsing -TimeoutSec 10 2>&1 | Select-Object StatusCode, StatusDescription)",
+      "PowerShell(Invoke-WebRequest -Uri \"http://172.16.220.159/\" -UseBasicParsing -TimeoutSec 10 2>&1 | Select-Object StatusCode)",
+      "PowerShell(docker compose exec *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }
