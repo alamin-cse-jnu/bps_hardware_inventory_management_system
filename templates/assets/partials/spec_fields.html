@@ -87,6 +87,12 @@
 .spec-compound .spec-ig{flex:0 0 130px}
 .spec-compound .spec-chips{flex:1}
 
+/* ── Storage row (qty input + GB/TB chips + type select) ─────────── */
+.spec-storage{display:flex;gap:8px;align-items:center}
+.spec-storage .spec-ig{flex:0 0 100px}
+.spec-storage .spec-chips{flex-shrink:0}          /* GB/TB must never clip */
+.spec-storage .spec-text{flex:1 1 0;min-width:0;width:auto}
+
 /* ── Standard text / select inputs ──────────────────────────────── */
 .spec-text{
   width:100%;height:40px;padding:0 12px;
@@ -114,6 +120,8 @@ select.spec-text{
 @media(max-width:767px){
   .spec-grid{grid-template-columns:1fr}
   .spec-compound .spec-ig{flex:0 0 100px}
+  .spec-storage{flex-wrap:wrap}
+  .spec-storage .spec-text{flex:1 1 140px}
   .spec-os-grid{grid-template-columns:1fr;gap:12px}
   .spec-gpu-grid{grid-template-columns:1fr}
 }
@@ -158,11 +166,11 @@ select.spec-text{
     </div>
 
     {% elif key == 'storage' %}
-    <!-- ── Storage ── -->
-    <div>
+    <!-- ── Storage ── (full-width: qty + GB/TB + type need the room) -->
+    <div style="grid-column:1 / -1">
       <label class="spec-label">Storage <span class="spec-label-hint">capacity &amp; type</span></label>
-      <div style="display:flex;gap:8px;align-items:center">
-        <div class="spec-ig" style="flex:0 0 110px">
+      <div class="spec-storage">
+        <div class="spec-ig">
           <input type="number" name="spec_storage_qty"
                  value="{{ value.qty|default:'' }}"
                  placeholder="512" min="1" max="99999" step="1">
