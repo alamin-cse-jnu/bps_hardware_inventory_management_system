@@ -44,7 +44,11 @@
         <!-- Assignee field (search or selected card) -->
         <div class="form-group">
           <label class="form-label">{{ mode }} To</label>
-          {% include "assignments/assignee_field.html" %}
+          {% if pre_assignee %}
+            {% with assignee=pre_assignee %}{% include "assignees/selected_card.html" %}{% endwith %}
+          {% else %}
+            {% include "assignments/assignee_field.html" %}
+          {% endif %}
         </div>
 
         <!-- Quick picks from past holders -->

@@ -77,7 +77,12 @@
       "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:8000/new/\" -UseBasicParsing -TimeoutSec 10; \"Status: $\\($r.StatusCode\\)\" } catch { \"Error: $_\" })",
       "PowerShell(Out-Null *)",
       "PowerShell(Get-Command *)",
-      "PowerShell(cd E:\\\\projects\\\\bps_hardware_inventory_management_system; $sv = New-Object Microsoft.PowerShell.Commands.WebRequestSession; $login = Invoke-WebRequest -Uri \"http://localhost:8000/accounts/login/\" -SessionVariable sv -UseBasicParsing; $csrf = \\($login.Content | Select-String 'csrfmiddlewaretoken\" value=\"\\([^\"]+\\)\"'\\).Matches.Groups[1].Value; $r = Invoke-WebRequest -Uri \"http://localhost:8000/accounts/login/\" -Method POST -Body \"csrfmiddlewaretoken=$csrf&login=superuser&password=admin123\" -WebSession $sv -UseBasicParsing; $r.Content.Substring\\(0,200\\))"
+      "PowerShell(cd E:\\\\projects\\\\bps_hardware_inventory_management_system; $sv = New-Object Microsoft.PowerShell.Commands.WebRequestSession; $login = Invoke-WebRequest -Uri \"http://localhost:8000/accounts/login/\" -SessionVariable sv -UseBasicParsing; $csrf = \\($login.Content | Select-String 'csrfmiddlewaretoken\" value=\"\\([^\"]+\\)\"'\\).Matches.Groups[1].Value; $r = Invoke-WebRequest -Uri \"http://localhost:8000/accounts/login/\" -Method POST -Body \"csrfmiddlewaretoken=$csrf&login=superuser&password=admin123\" -WebSession $sv -UseBasicParsing; $r.Content.Substring\\(0,200\\))",
+      "PowerShell(C:\\\\Users\\\\Dell\\\\AppData\\\\Local\\\\Python\\\\bin\\\\pip.exe show django 2>&1 | Select-Object -First 3)",
+      "PowerShell(C:\\\\Users\\\\Dell\\\\AppData\\\\Local\\\\Python\\\\bin\\\\pip.exe show django-environ 2>&1 | Select-Object -First 3)",
+      "PowerShell(C:\\\\Users\\\\Dell\\\\AppData\\\\Local\\\\Python\\\\Scripts\\\\python3.14.exe -m py_compile E:\\\\projects\\\\bps_hardware_inventory_management_system\\\\assignments\\\\views.py 2>&1; if \\($?\\) { \"OK\" } else { \"FAIL\" })",
+      "PowerShell(C:\\\\Users\\\\Dell\\\\AppData\\\\Local\\\\Python\\\\bin\\\\python3.exe -m py_compile E:\\\\projects\\\\bps_hardware_inventory_management_system\\\\assignments\\\\views.py 2>&1; if \\($LASTEXITCODE -eq 0\\) { \"OK\" } else { \"FAIL\" })",
+      "PowerShell(C:\\\\Users\\\\Dell\\\\AppData\\\\Local\\\\Python\\\\bin\\\\python3.exe -m py_compile E:\\\\projects\\\\bps_hardware_inventory_management_system\\\\assignments\\\\urls.py 2>&1; if \\($LASTEXITCODE -eq 0\\) { \"OK\" } else { \"FAIL\" })"
     ]
   }
 }

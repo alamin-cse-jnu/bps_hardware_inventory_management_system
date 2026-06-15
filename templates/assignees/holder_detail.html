@@ -7,6 +7,12 @@
 {% endblock %}
 
 {% block topbar_actions %}
+  {% if user_is_it_officer and holder.is_active %}
+  <a href="{% url 'assignments:assign_to_holder' holder_type holder.pk %}" class="btn btn-primary btn-sm">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+    Assign Asset
+  </a>
+  {% endif %}
   {% if holder_type == 'employee' %}
     <a href="{% url 'assignees:employee_history_print' holder.pk %}" class="btn btn-outline btn-sm" target="_blank">
       <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>

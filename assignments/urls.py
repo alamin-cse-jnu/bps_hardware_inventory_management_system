@@ -6,6 +6,7 @@ app_name = "assignments"
 
 urlpatterns = [
     path("<int:asset_pk>/assign/", views.assign_panel, name="assign_panel"),
+    path("assign-to/<str:holder_type>/<int:holder_pk>/", views.assign_to_holder, name="assign_to_holder"),
     path("<int:asset_pk>/assign/clear/", views.clear_assignee, name="clear_assignee"),
     path("<int:asset_pk>/return/", views.return_panel, name="return_panel"),
     path("bulk-return/", views.bulk_return, name="bulk_return"),

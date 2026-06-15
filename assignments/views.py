@@ -1,11 +1,13 @@
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
-from assets.models import AssetItem
-from assignees.models import Assignee
+from assets.models import AssetItem, AssetType
+from assignees.models import Assignee, AssigneeType, CachedEmployee, CachedMP, CachedOffice
 from config.permissions import it_officer_required, viewer_required
 
 from .models import AlertStatus, Assignment, InactiveHolderAlert, TransferBatch
@@ -19,11 +21,21 @@ class _BulkAsset:
 _BULK_ASSET = _BulkAsset()
 
 
+def _get_assignee_with_related(pk):
+    try:
+        return Assignee.objects.select_related(
+            "employee", "mp", "office", "location__parent__parent"
+        ).get(pk=pk, is_active=True)
+    except Assignee.DoesNotExist:
+        return None
+
+
 @it_officer_required
 @require_http_methods(["GET", "POST"])
 def assign_panel(request, asset_pk):
     asset = get_object_or_404(AssetItem, pk=asset_pk, is_deleted=False)
     mode = "Transfer" if asset.status == AssetItem.Status.ASSIGNED else "Assign"
+    clear_url = reverse("assignments:clear_assignee", args=[asset.pk])
 
     if request.method == "POST":
         assignee_id = request.POST.get("assignee_id", "").strip()
@@ -35,6 +47,7 @@ def assign_panel(request, asset_pk):
                 "mode": mode,
                 "error": "Please select an assignee before confirming.",
                 "past_holders": _past_holders(asset),
+                "clear_url": clear_url,
             })
 
         try:
@@ -56,12 +69,21 @@ def assign_panel(request, asset_pk):
             "mode": mode,
             "error": error,
             "past_holders": _past_holders(asset),
+            "pre_assignee": _get_assignee_with_related(assignee_id),
+            "clear_url": clear_url,
         })
+
+    pre_assignee = None
+    assignee_pk_param = request.GET.get("assignee_pk", "").strip()
+    if assignee_pk_param:
+        pre_assignee = _get_assignee_with_related(assignee_pk_param)
 
     return render(request, "assignments/assign_panel.html", {
         "asset": asset,
         "mode": mode,
         "past_holders": _past_holders(asset),
+        "pre_assignee": pre_assignee,
+        "clear_url": clear_url,
     })
 
 
@@ -276,6 +298,79 @@ def alert_panel(request, pk):
     return render(request, "assignments/alert_panel.html", {
         "alert": alert,
         "active_assignments": active_assignments,
+    })
+
+
+# ── Assign from holder page ───────────────────────────────────────────────────
+
+@it_officer_required
+def assign_to_holder(request, holder_type, holder_pk):
+    from locations.models import Location as LocationModel
+
+    if holder_type == "employee":
+        holder = get_object_or_404(CachedEmployee, pk=holder_pk)
+        assignee, _ = Assignee.objects.get_or_create(
+            assignee_type=AssigneeType.EMPLOYEE,
+            employee=holder,
+            defaults={"is_active": holder.is_active},
+        )
+    elif holder_type == "mp":
+        holder = get_object_or_404(CachedMP, pk=holder_pk)
+        assignee, _ = Assignee.objects.get_or_create(
+            assignee_type=AssigneeType.MP,
+            mp=holder,
+            defaults={"is_active": holder.is_active},
+        )
+    elif holder_type == "office":
+        holder = get_object_or_404(CachedOffice, pk=holder_pk)
+        assignee, _ = Assignee.objects.get_or_create(
+            assignee_type=AssigneeType.OFFICE,
+            office=holder,
+            defaults={"is_active": holder.is_active},
+        )
+    elif holder_type == "location":
+        holder = get_object_or_404(LocationModel, pk=holder_pk)
+        assignee, _ = Assignee.objects.get_or_create(
+            assignee_type=AssigneeType.LOCATION,
+            location=holder,
+            defaults={"is_active": True},
+        )
+    else:
+        raise Http404
+
+    assignee = Assignee.objects.select_related(
+        "employee", "mp", "office", "location__parent__parent"
+    ).get(pk=assignee.pk)
+
+    qs = (
+        AssetItem.objects.filter(status=AssetItem.Status.IN_STOCK, is_deleted=False)
+        .select_related("asset_type__category")
+        .order_by("asset_tag")
+    )
+
+    q = request.GET.get("q", "").strip()
+    type_filter = request.GET.get("asset_type", "").strip()
+    if q:
+        qs = qs.filter(
+            Q(asset_tag__icontains=q)
+            | Q(asset_type__name__icontains=q)
+            | Q(brand__icontains=q)
+            | Q(model_name__icontains=q)
+            | Q(serial_number__icontains=q)
+        )
+    if type_filter:
+        qs = qs.filter(asset_type_id=type_filter)
+
+    assets = list(qs[:300])
+    asset_types = AssetType.objects.filter(is_active=True).order_by("name")
+
+    return render(request, "assignments/assign_to_holder.html", {
+        "assignee": assignee,
+        "holder_type": holder_type,
+        "assets": assets,
+        "q": q,
+        "type_filter": type_filter,
+        "asset_types": asset_types,
     })
 
 
