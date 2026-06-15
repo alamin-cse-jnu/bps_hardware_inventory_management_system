@@ -161,8 +161,8 @@
           {% if user_is_it_officer %}
           <div style="display:flex;gap:4px">
             {% if mp.is_active %}
-            <a href="{% url 'assignments:assign_to_holder' 'mp' mp.pk %}" class="btn btn-outline btn-sm" style="padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center" title="Assign Asset">
-              <svg width="12" height="12" fill="none" stroke="#0076A7" stroke-width="2.5" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            <a href="{% url 'assignments:assign_to_holder' 'mp' mp.pk %}" class="btn btn-primary btn-sm" style="padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center" title="Assign Asset">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
             </a>
             {% endif %}
             {% if mp.source == 'MANUAL' %}
