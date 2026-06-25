@@ -89,7 +89,10 @@
       "PowerShell(docker compose exec *)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "PowerShell(& \"C:\\\\Users\\\\Dell\\\\AppData\\\\Local\\\\Python\\\\bin\\\\python.exe\" update.py)",
+      "PowerShell(docker exec bps_hardware_inventory_management_system-web-1 *)",
+      "Bash(PYTHONIOENCODING=utf-8 /c/Users/Dell/AppData/Local/Microsoft/WindowsApps/py *)"
     ]
   }
 }
