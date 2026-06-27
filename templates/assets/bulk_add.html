@@ -88,44 +88,41 @@
     </div>
     <div class="card-body">
 
+      {# ── Cascading catalogue: Main Asset → Sub Asset → Brand → Model ── #}
       <div class="form-group">
-        <label class="form-label">Asset Type <span style="color:#EF4444">*</span></label>
-        <select name="asset_type" id="id_asset_type" class="form-input"
+        <label class="form-label">Main Asset <span style="color:#EF4444">*</span></label>
+        <select id="cat-main" class="form-input">
+          <option value="">— Select Main Asset —</option>
+          {% for c in categories %}
+          <option value="{{ c.pk }}" {% if sel_category_id == c.pk %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Sub Asset <span style="color:#EF4444">*</span></label>
+        <select name="asset_type" id="cat-sub" class="form-input"
                 hx-get="{% url 'assets:spec_fields' %}"
                 hx-trigger="change"
                 hx-target="#spec-fields-section"
                 hx-include="this">
-          <option value="">— Select Type —</option>
-          {% regroup types by category as type_groups %}
-          {% for group in type_groups %}
-            <optgroup label="{{ group.grouper.name }}">
-              {% for t in group.list %}
-                <option value="{{ t.pk }}" {% if selected_type and t.pk == selected_type.pk %}selected{% endif %}>{{ t.name }}</option>
-              {% endfor %}
-            </optgroup>
-          {% endfor %}
+          <option value="">— Select Sub Asset —</option>
         </select>
         {% if errors.asset_type %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.asset_type }}</div>{% endif %}
       </div>
 
       <div class="form-group">
         <label class="form-label">Brand <span style="color:#EF4444">*</span></label>
-        <select name="brand" class="form-input">
+        <select name="brand" id="cat-brand" class="form-input">
           <option value="">— Select Brand —</option>
-          {% for b in brands %}
-          <option value="{{ b.name }}" {% if form_data.brand == b.name %}selected{% endif %}>{{ b.name }}</option>
-          {% endfor %}
         </select>
         {% if errors.brand %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.brand }}</div>{% endif %}
       </div>
 
       <div class="form-group" style="margin-bottom:0">
-        <label class="form-label">Model Name <span style="color:#EF4444">*</span></label>
-        <select name="model_name" class="form-input">
+        <label class="form-label">Model <span style="color:#EF4444">*</span></label>
+        <select name="model_name" id="cat-model" class="form-input">
           <option value="">— Select Model —</option>
-          {% for m in model_names %}
-          <option value="{{ m.name }}" {% if form_data.model_name == m.name %}selected{% endif %}>{{ m.name }}</option>
-          {% endfor %}
         </select>
         {% if errors.model_name %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.model_name }}</div>{% endif %}
       </div>
@@ -304,4 +301,5 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+{% include "catalogue/partials/cascade_script.html" %}
 {% endblock %}

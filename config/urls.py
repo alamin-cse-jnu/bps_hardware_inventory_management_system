@@ -26,6 +26,7 @@ urlpatterns = [
     path("api/", include("rest_framework.urls")),
     path("sync/", include("sync_prp.urls", namespace="sync_prp")),
     path("locations/", include("locations.urls", namespace="locations")),
+    path("catalogue/", include("catalogue.urls", namespace="catalogue")),
     path("", include("assets.urls", namespace="assets")),
     path("assignees/", include("assignees.urls", namespace="assignees")),
     path("assignments/", include("assignments.urls", namespace="assignments")),

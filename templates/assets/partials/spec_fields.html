@@ -29,10 +29,7 @@
   display:block;font-size:11.5px;font-weight:700;
   color:#374151;margin-bottom:8px;letter-spacing:.02em;
 }
-.spec-label-hint{
-  font-size:10.5px;font-weight:400;color:#9CA3AF;
-  margin-left:5px;letter-spacing:0;
-}
+.spec-req{color:#EF4444;margin-left:3px}
 
 /* ── Input group (number input + right badge) ────────────────────── */
 .spec-ig{
@@ -61,9 +58,7 @@
   border-radius:7px;overflow:hidden;background:#fff;
   height:40px;
 }
-.spec-chip{
-  position:relative;cursor:pointer;flex-shrink:0;
-}
+.spec-chip{position:relative;cursor:pointer;flex-shrink:0}
 .spec-chip input[type="radio"]{
   position:absolute;opacity:0;width:0;height:0;pointer-events:none;
 }
@@ -72,26 +67,17 @@
   height:40px;padding:0 14px;
   font-size:12.5px;font-weight:600;color:#4B5563;
   border-right:1px solid #CBD5E1;
-  transition:background 120ms,color 120ms;
-  white-space:nowrap;
+  transition:background 120ms,color 120ms;white-space:nowrap;
 }
 .spec-chip:last-child span{border-right:none}
-.spec-chip input[type="radio"]:checked + span{
-  background:#0076A7;color:#fff;
-}
+.spec-chip input[type="radio"]:checked + span{background:#0076A7;color:#fff}
 .spec-chip:hover span{background:#F1F5F9}
 .spec-chip input[type="radio"]:checked + span:hover{background:#005d85}
 
-/* ── Compound row (input-group + chip group side by side) ────────── */
+/* ── Compound row (number + unit chips) ──────────────────────────── */
 .spec-compound{display:flex;gap:8px;align-items:center}
 .spec-compound .spec-ig{flex:0 0 130px}
-.spec-compound .spec-chips{flex:1}
-
-/* ── Storage row (qty input + GB/TB chips + type select) ─────────── */
-.spec-storage{display:flex;gap:8px;align-items:center}
-.spec-storage .spec-ig{flex:0 0 100px}
-.spec-storage .spec-chips{flex-shrink:0}          /* GB/TB must never clip */
-.spec-storage .spec-text{flex:1 1 0;min-width:0;width:auto}
+.spec-compound .spec-chips{flex-shrink:0}
 
 /* ── Standard text / select inputs ──────────────────────────────── */
 .spec-text{
@@ -110,30 +96,14 @@ select.spec-text{
   padding-right:30px;cursor:pointer;
 }
 
-/* ── OS row ──────────────────────────────────────────────────────── */
-.spec-os-grid{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:end}
-
-/* ── GPU 3-col grid ──────────────────────────────────────────────── */
-.spec-gpu-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-
-/* ── Mobile ──────────────────────────────────────────────────────── */
-@media(max-width:767px){
-  .spec-grid{grid-template-columns:1fr}
-  .spec-compound .spec-ig{flex:0 0 100px}
-  .spec-storage{flex-wrap:wrap}
-  .spec-storage .spec-text{flex:1 1 140px}
-  .spec-os-grid{grid-template-columns:1fr;gap:12px}
-  .spec-gpu-grid{grid-template-columns:1fr}
-}
+@media(max-width:767px){.spec-grid{grid-template-columns:1fr}}
 </style>
 
 <div class="spec-section">
   <div class="spec-section-header">
     <div class="spec-icon-wrap">
       <svg width="15" height="15" fill="none" stroke="#fff" stroke-width="2.2" viewBox="0 0 24 24">
-        <polyline points="4 7 4 4 20 4 20 7"/>
-        <line x1="9" y1="20" x2="15" y2="20"/>
-        <line x1="12" y1="4" x2="12" y2="20"/>
+        <polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/>
       </svg>
     </div>
     <div>
@@ -143,198 +113,58 @@ select.spec-text{
   </div>
 
   <div class="spec-grid">
-    {% for key, value in spec_fields %}
+    {% for f in spec_fields %}
+    <div {% if f.widget == 'units' or f.widget == 'select' and f.options|length > 4 %}style="grid-column:1 / -1"{% endif %}>
+      <label class="spec-label">{{ f.label }}{% if f.required %}<span class="spec-req">*</span>{% endif %}</label>
 
-    {% if key == 'ram' %}
-    <!-- ── RAM ── -->
-    <div>
-      <label class="spec-label">RAM <span class="spec-label-hint">size &amp; generation</span></label>
-      <div class="spec-compound">
-        <div class="spec-ig">
-          <input type="number" name="spec_ram_qty"
-                 value="{{ value.qty|default:'' }}"
-                 placeholder="16" min="1" max="9999" step="1">
-          <span class="spec-ig-unit">GB</span>
+      {% if f.widget == 'number' %}
+        <div class="spec-ig" style="max-width:220px">
+          <input type="number" name="spec_{{ f.key }}" value="{{ f.value }}" placeholder="0" step="any">
+          {% if f.unit %}<span class="spec-ig-unit">{{ f.unit }}</span>{% endif %}
         </div>
-        <select name="spec_ram_type" class="spec-text">
-          <option value="">— Type —</option>
-          {% for val, lbl in spec_choices_by_key.ram_type %}
-          <option value="{{ val }}" {% if value.type == val %}selected{% endif %}>{{ lbl }}</option>
-          {% endfor %}
-        </select>
-      </div>
-    </div>
 
-    {% elif key == 'storage' %}
-    <!-- ── Storage ── (full-width: qty + GB/TB + type need the room) -->
-    <div style="grid-column:1 / -1">
-      <label class="spec-label">Storage <span class="spec-label-hint">capacity &amp; type</span></label>
-      <div class="spec-storage">
-        <div class="spec-ig">
-          <input type="number" name="spec_storage_qty"
-                 value="{{ value.qty|default:'' }}"
-                 placeholder="512" min="1" max="99999" step="1">
-        </div>
-        <div class="spec-chips">
-          <label class="spec-chip">
-            <input type="radio" name="spec_storage_unit" value="GB"
-                   {% if value.unit != 'TB' %}checked{% endif %}>
-            <span>GB</span>
-          </label>
-          <label class="spec-chip">
-            <input type="radio" name="spec_storage_unit" value="TB"
-                   {% if value.unit == 'TB' %}checked{% endif %}>
-            <span>TB</span>
-          </label>
-        </div>
-        <select name="spec_storage_type" class="spec-text">
-          <option value="">— Type —</option>
-          {% for val, lbl in spec_choices_by_key.storage_type %}
-          <option value="{{ val }}" {% if value.type == val %}selected{% endif %}>{{ lbl }}</option>
-          {% endfor %}
-        </select>
-      </div>
-    </div>
-
-    {% elif key == 'display' or key == 'display_monitor' %}
-    <!-- ── Display / Monitor ── -->
-    <div>
-      <label class="spec-label">Display / Monitor <span class="spec-label-hint">screen size</span></label>
-      <div class="spec-ig" style="max-width:200px">
-        <input type="number" name="spec_{{ key }}_size"
-               value="{{ value.size|default:'' }}"
-               placeholder="24" min="1" max="200" step="0.1">
-        <span class="spec-ig-unit">inches</span>
-      </div>
-    </div>
-
-    {% elif key == 'os' %}
-    <!-- ── Operating System ── (full-width row) -->
-    <div style="grid-column:1 / -1">
-      <label class="spec-label">Operating System</label>
-      <div class="spec-os-grid">
-        <div>
-          <select name="spec_os_name" class="spec-text">
-            <option value="">— Select operating system —</option>
-            {% for val, lbl in spec_choices_by_key.os_name %}
-            <option value="{{ val }}" {% if value.name == val %}selected{% endif %}>{{ lbl }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div>
-          <label class="spec-label" style="margin-bottom:8px">Licensed</label>
+      {% elif f.widget == 'units' %}
+        <div class="spec-compound">
+          <div class="spec-ig">
+            <input type="number" name="spec_{{ f.key }}" value="{{ f.qty }}" placeholder="0" step="any">
+          </div>
           <div class="spec-chips">
-            <label class="spec-chip" title="Not specified">
-              <input type="radio" name="spec_os_licensed" value=""
-                     {% if not value.licensed %}checked{% endif %}>
-              <span style="color:#9CA3AF;font-weight:500;font-size:12px">—</span>
-            </label>
+            {% for opt in f.options %}
             <label class="spec-chip">
-              <input type="radio" name="spec_os_licensed" value="Yes"
-                     {% if value.licensed == 'Yes' %}checked{% endif %}>
-              <span>Yes</span>
+              <input type="radio" name="spec_{{ f.key }}_unit" value="{{ opt }}"
+                     {% if f.unit == opt or not f.unit and forloop.first %}checked{% endif %}>
+              <span>{{ opt }}</span>
             </label>
-            <label class="spec-chip">
-              <input type="radio" name="spec_os_licensed" value="No"
-                     {% if value.licensed == 'No' %}checked{% endif %}>
-              <span>No</span>
-            </label>
+            {% endfor %}
           </div>
         </div>
-      </div>
-    </div>
 
-    {% elif key == 'cpu' %}
-    <!-- ── CPU ── (full-width) -->
-    <div style="grid-column:1 / -1">
-      <label class="spec-label">CPU <span class="spec-label-hint">processor</span></label>
-      <div style="display:grid;grid-template-columns:auto auto 1fr auto;gap:8px;align-items:center">
-        <!-- Brand chip -->
-        <div class="spec-chips">
-          <label class="spec-chip" title="Brand not specified">
-            <input type="radio" name="spec_cpu_brand" value=""
-                   {% if not value.brand %}checked{% endif %}>
-            <span style="color:#9CA3AF;font-weight:500;font-size:12px">—</span>
-          </label>
-          <label class="spec-chip">
-            <input type="radio" name="spec_cpu_brand" value="Intel"
-                   {% if value.brand == 'Intel' %}checked{% endif %}>
-            <span>Intel</span>
-          </label>
-          <label class="spec-chip">
-            <input type="radio" name="spec_cpu_brand" value="AMD"
-                   {% if value.brand == 'AMD' %}checked{% endif %}>
-            <span>AMD</span>
-          </label>
-        </div>
-        <!-- Model dropdown (i5/i7/i9…) -->
-        <select name="spec_cpu_model" class="spec-text" style="width:160px">
-          <option value="">— Model —</option>
-          {% for val, lbl in spec_choices_by_key.cpu_model %}
-          <option value="{{ val }}" {% if value.model == val %}selected{% endif %}>{{ lbl }}</option>
+      {% elif f.widget == 'select' %}
+        <select name="spec_{{ f.key }}" class="spec-text">
+          <option value="">— Select —</option>
+          {% for opt in f.options %}
+          <option value="{{ opt }}" {% if f.value == opt %}selected{% endif %}>{{ opt }}</option>
           {% endfor %}
         </select>
-        <!-- Generation / model string -->
-        <input type="text" name="spec_cpu_generation"
-               value="{{ value.generation|default:'' }}"
-               class="spec-text"
-               placeholder="e.g. 12th Gen, i7-1255U, Ryzen 7 5800X…">
-        <!-- Core count -->
-        <div class="spec-ig" style="width:110px">
-          <input type="number" name="spec_cpu_cores"
-                 value="{{ value.cores|default:'' }}"
-                 placeholder="8" min="1" max="256" step="1">
-          <span class="spec-ig-unit">cores</span>
-        </div>
-      </div>
-    </div>
 
-    {% elif key == 'gpu' %}
-    <!-- ── GPU ── (full-width) -->
-    <div style="grid-column:1 / -1">
-      <label class="spec-label">GPU <span class="spec-label-hint">graphics card — optional</span></label>
-      <div class="spec-gpu-grid">
-        <div>
-          <label class="spec-label" style="font-size:10.5px;margin-bottom:6px">Chipset</label>
-          <select name="spec_gpu_chipset" class="spec-text">
-            <option value="">— Select chipset —</option>
-            {% for val, lbl in spec_choices_by_key.gpu_chipset %}
-            <option value="{{ val }}" {% if value.chipset == val %}selected{% endif %}>{{ lbl }}</option>
-            {% endfor %}
-          </select>
+      {% elif f.widget == 'toggle' %}
+        <div class="spec-chips">
+          <label class="spec-chip" title="Not specified">
+            <input type="radio" name="spec_{{ f.key }}" value="" {% if not f.value %}checked{% endif %}>
+            <span style="color:#9CA3AF;font-weight:500;font-size:12px">—</span>
+          </label>
+          {% for opt in f.options %}
+          <label class="spec-chip">
+            <input type="radio" name="spec_{{ f.key }}" value="{{ opt }}" {% if f.value == opt %}checked{% endif %}>
+            <span>{{ opt }}</span>
+          </label>
+          {% endfor %}
         </div>
-        <div>
-          <label class="spec-label" style="font-size:10.5px;margin-bottom:6px">Memory Type</label>
-          <select name="spec_gpu_memory_type" class="spec-text">
-            <option value="">— Select type —</option>
-            {% for val, lbl in spec_choices_by_key.gpu_memory_type %}
-            <option value="{{ val }}" {% if value.memory_type == val %}selected{% endif %}>{{ lbl }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div>
-          <label class="spec-label" style="font-size:10.5px;margin-bottom:6px">Capacity</label>
-          <select name="spec_gpu_capacity" class="spec-text">
-            <option value="">— Select capacity —</option>
-            {% for val, lbl in spec_choices_by_key.gpu_capacity %}
-            <option value="{{ val }}" {% if value.capacity == val %}selected{% endif %}>{{ lbl }}</option>
-            {% endfor %}
-          </select>
-        </div>
-      </div>
-    </div>
 
-    {% else %}
-    <!-- ── Standard field ── -->
-    <div>
-      <label class="spec-label">{{ key|title }}</label>
-      <input type="text" name="spec_{{ key }}"
-             value="{{ value }}"
-             class="spec-text"
-             placeholder="Enter {{ key|lower }}…">
+      {% else %}
+        <input type="text" name="spec_{{ f.key }}" value="{{ f.value }}" class="spec-text" placeholder="Enter {{ f.label|lower }}…">
+      {% endif %}
     </div>
-    {% endif %}
-
     {% endfor %}
   </div>
 </div>

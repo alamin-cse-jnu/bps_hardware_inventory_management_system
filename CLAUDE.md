@@ -28,6 +28,7 @@ Django 5.x · PostgreSQL (JSONField for specs) · Django templates + HTMX · `qr
 | App | Responsibility |
 |-----|----------------|
 | `assets` | Asset catalog: categories, types, spec schemas, items, components |
+| `catalogue` | Centrally-managed master data: 4-level cascade (Main=AssetCategory → Sub=AssetType → CatalogBrand → CatalogModel) + per-Sub `SubAssetSpecField` schema; JSON dropdown API + single Master Data admin page |
 | `assignees` | Cached Employee/MP/Office records + unified Assignee layer |
 | `assignments` | Assignment records, holder snapshots, TransferBatch for bulk moves |
 | `lifecycle` | Events: maintenance, lost, damaged, disposed, component swaps |
@@ -119,9 +120,19 @@ The assign-panel search (`assignees:search`) queries `Assignee` directly. Missin
 
 ---
 
+## Catalogue App — Cascading Master Data (Phase 9)
+
+Centrally-managed catalogue replacing the old 3 admin pages (Asset Catalog / Dropdowns / Spec Options) with one **Master Data** page (`/catalogue/manage/`, Admin only).
+
+- **Hierarchy** — Main Asset (`AssetCategory`) → Sub Asset (`AssetType`) → `CatalogBrand` (FK Sub) → `CatalogModel` (FK Brand). Levels 1–2 reuse existing models; `AssetItem` schema is untouched (still `asset_type` FK + `brand`/`model_name` CharFields).
+- **Spec schema** — `SubAssetSpecField` per Sub Asset: `widget` ∈ {text, number, units, select, toggle} + `options`/`unit`. Master-data-driven replacement for the old hardcoded spec widgets + `SpecChoice`. Helpers in `catalogue/specs.py` (`collect_values`, `form_values`, `display_rows`).
+- **Dependent dropdown JSON API** (honours `is_active=True`) — `/catalogue/sub-assets/?main=`, `/brands/?sub=`, `/models/?brand=`, `/spec/?model=`. Consumed by the Add/Edit/Bulk asset forms via `templates/catalogue/partials/cascade_script.html`; spec widgets load through the existing `assets:spec_fields` HTMX endpoint (re-pointed to `SubAssetSpecField`).
+- **Seed** — `python manage.py seed_catalogue` (idempotent) loads `docs/Asset_Master_Data_Polished.xlsx` → 6 Main / 18 Sub / 51 Brand / 137 Model / 73 spec fields.
+- **Legacy** — old `assets` catalog/dropdowns/spec-choices routes/views remain (unlinked from nav) so legacy `Brand`/`AssetModelName`/`SpecChoice` data isn't orphaned. Vendors are managed from a section on the Master Data page.
+
 ## Current State
 
-**Phases 1–8: ✅ All complete · 247 tests passing**
+**Phases 1–8: ✅ All complete · 247 tests passing · Phase 9 (catalogue): +15 tests**
 
 | Phase | Scope | Status |
 |-------|-------|--------|

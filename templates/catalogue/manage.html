@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+{% block title %}Master Data{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:dashboard' %}">IT Inventory</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>Master Data</strong>
+{% endblock %}
+
+{% block content %}
+<style>
+.md-board{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.md-col{background:#fff;border:1px solid #E5E7EB;border-radius:10px;display:flex;flex-direction:column;min-height:260px}
+.md-col-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid #EEF2F5}
+.md-col-head .t{font-size:12px;font-weight:700;color:#0F3547;letter-spacing:.03em;text-transform:uppercase}
+.md-col-head .c{font-size:11px;color:#9CA3AF;font-weight:600}
+.md-list{flex:1;overflow-y:auto;max-height:360px;padding:6px}
+.md-row{display:flex;align-items:center;gap:6px;padding:7px 8px;border-radius:6px}
+.md-row+.md-row{margin-top:2px}
+.md-row:hover{background:#F6FAFC}
+.md-row.is-sel{background:#E8F3F8}
+.md-row-name{flex:1;font-size:13px;color:#1F2937;font-weight:600;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.md-row.is-sel .md-row-name{color:#0076A7}
+.md-row.off .md-row-name{color:#9CA3AF;font-weight:500}
+.md-dot{font-size:11px;color:#9CA3AF}
+.md-edit{position:relative}
+.md-edit>summary{list-style:none;cursor:pointer;color:#9CA3AF;font-size:15px;line-height:1;padding:0 4px;border-radius:4px}
+.md-edit>summary::-webkit-details-marker{display:none}
+.md-edit>summary:hover{color:#0076A7;background:#EEF4F8}
+.md-pop{position:absolute;right:0;top:22px;z-index:20;background:#fff;border:1px solid #E5E7EB;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:10px;width:220px}
+.md-pop input[type=text]{width:100%;height:32px;border:1px solid #CBD5E1;border-radius:6px;padding:0 9px;font-size:13px;margin-bottom:7px}
+.md-pop label.ck{display:flex;align-items:center;gap:6px;font-size:12px;color:#4B5563;margin-bottom:7px}
+.md-pop-actions{display:flex;gap:6px;flex-wrap:wrap}
+.md-add{border-top:1px solid #EEF2F5;padding:8px}
+.md-add>summary{list-style:none;cursor:pointer;font-size:12px;font-weight:700;color:#0076A7;padding:4px}
+.md-add>summary::-webkit-details-marker{display:none}
+.md-add-form{padding:8px 4px 2px}
+.md-add-form input[type=text]{width:100%;height:34px;border:1px solid #CBD5E1;border-radius:6px;padding:0 10px;font-size:13px;margin-bottom:8px}
+.md-empty{padding:22px 14px;text-align:center;color:#B6C0C9;font-size:12px}
+.btn-xs{height:28px;padding:0 10px;font-size:11.5px;border-radius:6px}
+.md-spec-wrap{background:#fff;border:1px solid #E5E7EB;border-radius:10px;padding:0;margin-bottom:20px}
+.md-spec-head{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid #EEF2F5}
+.md-spec-table{width:100%;border-collapse:collapse}
+.md-spec-table th{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:#94A3B8;text-align:left;padding:8px 14px;border-bottom:1px solid #EEF2F5}
+.md-spec-table td{padding:9px 14px;border-bottom:1px solid #F4F7F9;font-size:13px;color:#374151;vertical-align:middle}
+.chip{display:inline-block;background:#EEF4F8;color:#0076A7;border-radius:5px;padding:2px 7px;font-size:11px;font-weight:600;margin:1px}
+.tag-widget{font-size:11px;font-weight:700;color:#475569;background:#F1F5F9;border-radius:5px;padding:2px 8px}
+@media(max-width:1100px){.md-board{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:640px){.md-board{grid-template-columns:1fr}}
+</style>
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Master Data</div>
+    <div class="text-muted text-small" style="margin-top:2px">Manage the cascading catalogue — Main Asset → Sub Asset → Brand → Model — and each Sub Asset's specification fields.</div>
+  </div>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div class="callout {% if msg.tags == 'error' %}callout-red{% else %}callout-blue{% endif %}" style="margin-bottom:14px">{{ msg }}</div>
+{% endfor %}
+{% endif %}
+
+<div class="md-board">
+
+  {# ── Column 1 · Main Asset ─────────────────────────────────────────── #}
+  <div class="md-col">
+    <div class="md-col-head"><span class="t">Main Asset</span><span class="c">{{ mains|length }}</span></div>
+    <div class="md-list">
+      {% for m in mains %}
+      <div class="md-row {% if sel_main and sel_main.pk == m.pk %}is-sel{% endif %} {% if not m.is_active %}off{% endif %}">
+        <a class="md-row-name" href="{% url 'catalogue:manage' %}?main={{ m.pk }}">{{ m.name }}</a>
+        <span class="md-dot">{{ m.sub_count }}</span>
+        <details class="md-edit">
+          <summary>⋯</summary>
+          <div class="md-pop">
+            <form method="post" action="{% url 'catalogue:main_save' %}">{% csrf_token %}
+              <input type="hidden" name="pk" value="{{ m.pk }}">
+              <input type="text" name="name" value="{{ m.name }}">
+              <div class="md-pop-actions"><button class="btn btn-primary btn-xs">Save</button></div>
+            </form>
+            <div class="md-pop-actions" style="margin-top:8px">
+              <form method="post" action="{% url 'catalogue:main_toggle' m.pk %}">{% csrf_token %}<button class="btn btn-outline btn-xs">{% if m.is_active %}Deactivate{% else %}Activate{% endif %}</button></form>
+              {% if m.sub_count == 0 %}<form method="post" action="{% url 'catalogue:main_delete' m.pk %}" onsubmit="return confirm('Delete {{ m.name }}?')">{% csrf_token %}<button class="btn btn-danger-soft btn-xs">Delete</button></form>{% endif %}
+            </div>
+          </div>
+        </details>
+      </div>
+      {% empty %}
+      <div class="md-empty">No Main Assets yet.</div>
+      {% endfor %}
+    </div>
+    <details class="md-add">
+      <summary>+ Add Main Asset</summary>
+      <form class="md-add-form" method="post" action="{% url 'catalogue:main_save' %}">{% csrf_token %}
+        <input type="text" name="name" placeholder="e.g. Computing Equipment" required>
+        <button class="btn btn-primary btn-sm" style="width:100%">Add</button>
+      </form>
+    </details>
+  </div>
+
+  {# ── Column 2 · Sub Asset ──────────────────────────────────────────── #}
+  <div class="md-col">
+    <div class="md-col-head"><span class="t">Sub Asset</span><span class="c">{{ subs|length }}</span></div>
+    <div class="md-list">
+      {% if not sel_main %}
+        <div class="md-empty">Select a Main Asset</div>
+      {% else %}
+        {% for s in subs %}
+        <div class="md-row {% if sel_sub and sel_sub.pk == s.pk %}is-sel{% endif %} {% if not s.is_active %}off{% endif %}">
+          <a class="md-row-name" href="{% url 'catalogue:manage' %}?main={{ sel_main.pk }}&sub={{ s.pk }}">{{ s.name }}</a>
+          <span class="md-dot">{{ s.brand_count }}</span>
+          <details class="md-edit">
+            <summary>⋯</summary>
+            <div class="md-pop">
+              <form method="post" action="{% url 'catalogue:sub_save' %}">{% csrf_token %}
+                <input type="hidden" name="pk" value="{{ s.pk }}">
+                <input type="hidden" name="main" value="{{ sel_main.pk }}">
+                <input type="text" name="name" value="{{ s.name }}">
+                <label class="ck"><input type="checkbox" name="has_components" {% if s.has_components %}checked{% endif %}> Has components (PC Set)</label>
+                <div class="md-pop-actions"><button class="btn btn-primary btn-xs">Save</button></div>
+              </form>
+              <div class="md-pop-actions" style="margin-top:8px">
+                <form method="post" action="{% url 'catalogue:sub_toggle' s.pk %}">{% csrf_token %}<button class="btn btn-outline btn-xs">{% if s.is_active %}Deactivate{% else %}Activate{% endif %}</button></form>
+                <form method="post" action="{% url 'catalogue:sub_delete' s.pk %}" onsubmit="return confirm('Delete {{ s.name }}?')">{% csrf_token %}<button class="btn btn-danger-soft btn-xs">Delete</button></form>
+              </div>
+            </div>
+          </details>
+        </div>
+        {% empty %}
+        <div class="md-empty">No Sub Assets yet.</div>
+        {% endfor %}
+      {% endif %}
+    </div>
+    {% if sel_main %}
+    <details class="md-add">
+      <summary>+ Add Sub Asset</summary>
+      <form class="md-add-form" method="post" action="{% url 'catalogue:sub_save' %}">{% csrf_token %}
+        <input type="hidden" name="main" value="{{ sel_main.pk }}">
+        <input type="text" name="name" placeholder="e.g. Laptop" required>
+        <button class="btn btn-primary btn-sm" style="width:100%">Add</button>
+      </form>
+    </details>
+    {% endif %}
+  </div>
+
+  {# ── Column 3 · Brand ──────────────────────────────────────────────── #}
+  <div class="md-col">
+    <div class="md-col-head"><span class="t">Brand</span><span class="c">{{ brands|length }}</span></div>
+    <div class="md-list">
+      {% if not sel_sub %}
+        <div class="md-empty">Select a Sub Asset</div>
+      {% else %}
+        {% for b in brands %}
+        <div class="md-row {% if sel_brand and sel_brand.pk == b.pk %}is-sel{% endif %} {% if not b.is_active %}off{% endif %}">
+          <a class="md-row-name" href="{% url 'catalogue:manage' %}?main={{ sel_main.pk }}&sub={{ sel_sub.pk }}&brand={{ b.pk }}">{{ b.name }}</a>
+          <span class="md-dot">{{ b.model_count }}</span>
+          <details class="md-edit">
+            <summary>⋯</summary>
+            <div class="md-pop">
+              <form method="post" action="{% url 'catalogue:brand_save' %}">{% csrf_token %}
+                <input type="hidden" name="pk" value="{{ b.pk }}">
+                <input type="hidden" name="main" value="{{ sel_main.pk }}">
+                <input type="hidden" name="sub" value="{{ sel_sub.pk }}">
+                <input type="text" name="name" value="{{ b.name }}">
+                <div class="md-pop-actions"><button class="btn btn-primary btn-xs">Save</button></div>
+              </form>
+              <div class="md-pop-actions" style="margin-top:8px">
+                <form method="post" action="{% url 'catalogue:brand_toggle' b.pk %}">{% csrf_token %}<button class="btn btn-outline btn-xs">{% if b.is_active %}Deactivate{% else %}Activate{% endif %}</button></form>
+                {% if b.model_count == 0 %}<form method="post" action="{% url 'catalogue:brand_delete' b.pk %}" onsubmit="return confirm('Delete {{ b.name }}?')">{% csrf_token %}<button class="btn btn-danger-soft btn-xs">Delete</button></form>{% endif %}
+              </div>
+            </div>
+          </details>
+        </div>
+        {% empty %}
+        <div class="md-empty">No Brands yet.</div>
+        {% endfor %}
+      {% endif %}
+    </div>
+    {% if sel_sub %}
+    <details class="md-add">
+      <summary>+ Add Brand</summary>
+      <form class="md-add-form" method="post" action="{% url 'catalogue:brand_save' %}">{% csrf_token %}
+        <input type="hidden" name="main" value="{{ sel_main.pk }}">
+        <input type="hidden" name="sub" value="{{ sel_sub.pk }}">
+        <input type="text" name="name" placeholder="e.g. Dell" required>
+        <button class="btn btn-primary btn-sm" style="width:100%">Add</button>
+      </form>
+    </details>
+    {% endif %}
+  </div>
+
+  {# ── Column 4 · Model ──────────────────────────────────────────────── #}
+  <div class="md-col">
+    <div class="md-col-head"><span class="t">Model</span><span class="c">{{ models|length }}</span></div>
+    <div class="md-list">
+      {% if not sel_brand %}
+        <div class="md-empty">Select a Brand</div>
+      {% else %}
+        {% for mo in models %}
+        <div class="md-row {% if not mo.is_active %}off{% endif %}">
+          <span class="md-row-name">{{ mo.name }}</span>
+          <details class="md-edit">
+            <summary>⋯</summary>
+            <div class="md-pop">
+              <form method="post" action="{% url 'catalogue:model_save' %}">{% csrf_token %}
+                <input type="hidden" name="pk" value="{{ mo.pk }}">
+                <input type="hidden" name="main" value="{{ sel_main.pk }}">
+                <input type="hidden" name="sub" value="{{ sel_sub.pk }}">
+                <input type="hidden" name="brand" value="{{ sel_brand.pk }}">
+                <input type="text" name="name" value="{{ mo.name }}">
+                <div class="md-pop-actions"><button class="btn btn-primary btn-xs">Save</button></div>
+              </form>
+              <div class="md-pop-actions" style="margin-top:8px">
+                <form method="post" action="{% url 'catalogue:model_toggle' mo.pk %}">{% csrf_token %}<button class="btn btn-outline btn-xs">{% if mo.is_active %}Deactivate{% else %}Activate{% endif %}</button></form>
+                <form method="post" action="{% url 'catalogue:model_delete' mo.pk %}" onsubmit="return confirm('Delete {{ mo.name }}?')">{% csrf_token %}<button class="btn btn-danger-soft btn-xs">Delete</button></form>
+              </div>
+            </div>
+          </details>
+        </div>
+        {% empty %}
+        <div class="md-empty">No Models yet.</div>
+        {% endfor %}
+      {% endif %}
+    </div>
+    {% if sel_brand %}
+    <details class="md-add">
+      <summary>+ Add Model</summary>
+      <form class="md-add-form" method="post" action="{% url 'catalogue:model_save' %}">{% csrf_token %}
+        <input type="hidden" name="main" value="{{ sel_main.pk }}">
+        <input type="hidden" name="sub" value="{{ sel_sub.pk }}">
+        <input type="hidden" name="brand" value="{{ sel_brand.pk }}">
+        <input type="text" name="name" placeholder="e.g. ProBook 440 G10" required>
+        <button class="btn btn-primary btn-sm" style="width:100%">Add</button>
+      </form>
+    </details>
+    {% endif %}
+  </div>
+
+</div>
+
+{# ── Spec fields for the selected Sub Asset ──────────────────────────── #}
+{% if sel_sub %}
+<div class="md-spec-wrap">
+  <div class="md-spec-head">
+    <div class="spec-icon-wrap" style="width:30px;height:30px;border-radius:7px;background:#0076A7;display:flex;align-items:center;justify-content:center">
+      <svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2.2" viewBox="0 0 24 24"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:13.5px;font-weight:700;color:#0F3547">Specification fields — {{ sel_sub.name }}</div>
+      <div style="font-size:11.5px;color:#6C8A95;margin-top:1px">These fields drive the widgets shown on the Add Asset form.</div>
+    </div>
+    <details class="md-edit" style="position:relative">
+      <summary class="btn btn-primary btn-sm" style="list-style:none">+ Add Field</summary>
+      <div class="md-pop" style="width:280px;right:0">
+        <form method="post" action="{% url 'catalogue:specfield_save' %}">{% csrf_token %}
+          <input type="hidden" name="main" value="{{ sel_main.pk }}">
+          <input type="hidden" name="sub" value="{{ sel_sub.pk }}">
+          <input type="text" name="label" placeholder="Label, e.g. RAM" required>
+          <select name="widget" class="form-input" style="width:100%;height:34px;margin-bottom:7px;font-size:13px">
+            {% for val, lbl in widget_choices %}<option value="{{ val }}">{{ lbl }}</option>{% endfor %}
+          </select>
+          <input type="text" name="unit" placeholder="Unit (for Number), e.g. GB">
+          <input type="text" name="options" placeholder="Options, comma-separated">
+          <label class="ck"><input type="checkbox" name="required"> Required</label>
+          <button class="btn btn-primary btn-xs" style="width:100%">Add Field</button>
+        </form>
+      </div>
+    </details>
+  </div>
+  <table class="md-spec-table">
+    <thead><tr><th style="width:1px"></th><th>Label</th><th>Widget</th><th>Unit / Options</th><th>Req</th><th style="width:1px">Status</th><th style="width:1px"></th></tr></thead>
+    <tbody>
+      {% for f in spec_fields %}
+      <tr style="{% if not f.is_active %}opacity:.5{% endif %}">
+        <td style="white-space:nowrap;color:#94A3B8">
+          <form method="post" action="{% url 'catalogue:specfield_move' f.pk %}" style="display:inline">{% csrf_token %}<input type="hidden" name="dir" value="up"><button class="btn-link" style="background:none;border:none;cursor:pointer;color:#94A3B8" title="Move up">▲</button></form>
+          <form method="post" action="{% url 'catalogue:specfield_move' f.pk %}" style="display:inline">{% csrf_token %}<input type="hidden" name="dir" value="down"><button class="btn-link" style="background:none;border:none;cursor:pointer;color:#94A3B8" title="Move down">▼</button></form>
+        </td>
+        <td style="font-weight:600;color:#1F2937">{{ f.label }} <span style="color:#B6C0C9;font-weight:400;font-size:11px">{{ f.key }}</span></td>
+        <td><span class="tag-widget">{{ f.get_widget_display }}</span></td>
+        <td>
+          {% if f.unit %}<span class="chip">{{ f.unit }}</span>{% endif %}
+          {% for o in f.options %}<span class="chip">{{ o }}</span>{% endfor %}
+        </td>
+        <td>{% if f.required %}✓{% endif %}</td>
+        <td>{% if f.is_active %}<span class="badge" style="background:#ECFDF5;color:#059669">On</span>{% else %}<span class="badge" style="background:#F3F4F6;color:#9CA3AF">Off</span>{% endif %}</td>
+        <td>
+          <details class="md-edit" style="position:relative">
+            <summary>⋯</summary>
+            <div class="md-pop" style="width:280px;right:0">
+              <form method="post" action="{% url 'catalogue:specfield_save' %}">{% csrf_token %}
+                <input type="hidden" name="pk" value="{{ f.pk }}">
+                <input type="hidden" name="main" value="{{ sel_main.pk }}">
+                <input type="hidden" name="sub" value="{{ sel_sub.pk }}">
+                <input type="text" name="label" value="{{ f.label }}">
+                <select name="widget" class="form-input" style="width:100%;height:34px;margin-bottom:7px;font-size:13px">
+                  {% for val, lbl in widget_choices %}<option value="{{ val }}" {% if f.widget == val %}selected{% endif %}>{{ lbl }}</option>{% endfor %}
+                </select>
+                <input type="text" name="unit" value="{{ f.unit }}" placeholder="Unit">
+                <input type="text" name="options" value="{{ f.options|join:', ' }}" placeholder="Options, comma-separated">
+                <label class="ck"><input type="checkbox" name="required" {% if f.required %}checked{% endif %}> Required</label>
+                <div class="md-pop-actions"><button class="btn btn-primary btn-xs">Save</button></div>
+              </form>
+              <div class="md-pop-actions" style="margin-top:8px">
+                <form method="post" action="{% url 'catalogue:specfield_toggle' f.pk %}">{% csrf_token %}<button class="btn btn-outline btn-xs">{% if f.is_active %}Deactivate{% else %}Activate{% endif %}</button></form>
+                <form method="post" action="{% url 'catalogue:specfield_delete' f.pk %}" onsubmit="return confirm('Delete field {{ f.label }}?')">{% csrf_token %}<button class="btn btn-danger-soft btn-xs">Delete</button></form>
+              </div>
+            </div>
+          </details>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="md-empty">No spec fields yet. Add one to control this Sub Asset's specification widgets.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{# ── Vendors / Suppliers (kept here so nothing is lost) ──────────────── #}
+<div class="card" style="margin-bottom:20px">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid #EEF2F5">
+    <h3 style="font-size:13px;font-weight:700;color:#1F2937;margin:0">Vendors / Suppliers <span style="font-weight:400;color:#9CA3AF">({{ vendors|length }})</span></h3>
+    <a href="{% url 'assets:vendor_create' %}" class="btn btn-outline btn-sm">+ Add Vendor</a>
+  </div>
+  {% if vendors %}
+  <div class="table-wrap" style="border:none">
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr><th>Vendor</th><th>Contact</th><th style="text-align:center">Status</th><th style="width:1px"></th></tr></thead>
+      <tbody>
+        {% for v in vendors %}
+        <tr style="{% if not v.is_active %}opacity:.55{% endif %}">
+          <td style="font-weight:600;color:#374151">{{ v.name }}</td>
+          <td style="color:#6B7280;font-size:13px">{{ v.contact_info|default:"—" }}</td>
+          <td style="text-align:center">{% if v.is_active %}<span class="badge" style="background:#ECFDF5;color:#059669">Active</span>{% else %}<span class="badge" style="background:#F3F4F6;color:#9CA3AF">Inactive</span>{% endif %}</td>
+          <td><a href="{% url 'assets:vendor_edit' v.pk %}" class="btn btn-outline btn-sm">Edit</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="padding:20px;text-align:center;color:#9CA3AF;font-size:13px">No vendors yet.</div>
+  {% endif %}
+</div>
+{% endblock %}
