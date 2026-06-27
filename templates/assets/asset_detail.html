@@ -183,12 +183,21 @@
             <dd style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;margin-top:2px">{{ asset.serial_number }}</dd>
           </div>
           {% endif %}
+          {% if spec_rows %}
+          {% for label, val in spec_rows %}
+          <div>
+            <dt class="text-muted text-small" style="font-weight:600">{{ label }}</dt>
+            <dd style="font-size:13px;font-weight:600;margin-top:2px">{{ val }}</dd>
+          </div>
+          {% endfor %}
+          {% else %}
           {% for key, val in asset.specifications.items %}
           <div>
             <dt class="text-muted text-small" style="font-weight:600;text-transform:capitalize">{{ key|spec_key_label }}</dt>
             <dd style="font-size:13px;font-weight:600;margin-top:2px">{{ val|format_spec_val:key }}</dd>
           </div>
           {% endfor %}
+          {% endif %}
         </dl>
       </div>
     </div>

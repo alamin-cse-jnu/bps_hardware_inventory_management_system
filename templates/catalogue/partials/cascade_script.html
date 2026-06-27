@@ -1,0 +1,82 @@
+{# Cascading catalogue loader (Main → Sub → Brand → Model). #}
+{# Requires selects with ids: cat-main, cat-sub (name=asset_type), cat-brand (name=brand), cat-model (name=model_name). #}
+{# Context: sel_category_id, sel_sub_id, cur_brand, cur_model (for edit / re-render restore). #}
+<script>
+(function () {
+  const URLS = {
+    subs:   "{% url 'catalogue:api_sub_assets' %}",
+    brands: "{% url 'catalogue:api_brands' %}",
+    models: "{% url 'catalogue:api_models' %}",
+  };
+  const INIT = {
+    main:  "{{ sel_category_id|default:'' }}",
+    sub:   "{{ sel_sub_id|default:'' }}",
+    brand: "{{ cur_brand|escapejs }}",
+    model: "{{ cur_model|escapejs }}",
+  };
+  const elMain  = document.getElementById("cat-main");
+  const elSub   = document.getElementById("cat-sub");
+  const elBrand = document.getElementById("cat-brand");
+  const elModel = document.getElementById("cat-model");
+  if (!elMain || !elSub || !elBrand || !elModel) return;
+
+  function reset(sel, placeholder) {
+    sel.innerHTML = '<option value="">' + placeholder + "</option>";
+  }
+  function fill(sel, items, useNameValue, selected) {
+    items.forEach(function (it) {
+      const o = document.createElement("option");
+      o.value = useNameValue ? it.name : it.id;
+      o.textContent = it.name;
+      o.dataset.id = it.id;
+      if (selected != null && String(useNameValue ? it.name : it.id) === String(selected)) {
+        o.selected = true;
+      }
+      sel.appendChild(o);
+    });
+  }
+  function getJSON(url, params) {
+    const q = new URLSearchParams(params).toString();
+    return fetch(url + "?" + q, { headers: { "X-Requested-With": "XMLHttpRequest" } })
+      .then(function (r) { return r.json(); });
+  }
+
+  function loadSubs(mainId, selSub) {
+    reset(elSub, "— Select Sub Asset —");
+    reset(elBrand, "— Select Brand —");
+    reset(elModel, "— Select Model —");
+    if (!mainId) return;
+    getJSON(URLS.subs, { main: mainId }).then(function (d) {
+      fill(elSub, d.results, false, selSub);
+      if (selSub) loadBrands(selSub, INIT.brand);
+    });
+  }
+  function loadBrands(subId, selBrandName) {
+    reset(elBrand, "— Select Brand —");
+    reset(elModel, "— Select Model —");
+    if (!subId) return;
+    getJSON(URLS.brands, { sub: subId }).then(function (d) {
+      fill(elBrand, d.results, true, selBrandName);
+      const opt = elBrand.selectedOptions[0];
+      if (opt && opt.dataset.id) loadModels(opt.dataset.id, INIT.model);
+    });
+  }
+  function loadModels(brandId, selModelName) {
+    reset(elModel, "— Select Model —");
+    if (!brandId) return;
+    getJSON(URLS.models, { brand: brandId }).then(function (d) {
+      fill(elModel, d.results, true, selModelName);
+    });
+  }
+
+  elMain.addEventListener("change", function () { loadSubs(elMain.value, null); });
+  elSub.addEventListener("change", function () { loadBrands(elSub.value, null); });
+  elBrand.addEventListener("change", function () {
+    const opt = elBrand.selectedOptions[0];
+    loadModels(opt && opt.dataset.id ? opt.dataset.id : null, null);
+  });
+
+  // Restore the cascade on edit / validation re-render.
+  if (INIT.main) { elMain.value = INIT.main; loadSubs(INIT.main, INIT.sub); }
+})();
+</script>

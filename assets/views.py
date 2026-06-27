@@ -12,6 +12,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from assignments.models import Assignment, AlertStatus, InactiveHolderAlert
+from catalogue import specs as catalogue_specs
 from config.permissions import it_officer_required, viewer_required
 from locations.models import Location
 
@@ -116,6 +117,17 @@ def _catalog_context():
         "model_names": AssetModelName.objects.filter(is_active=True),
         "vendors": Vendor.objects.filter(is_active=True),
         "spec_choices_by_key": choices,
+    }
+
+
+def _cascade_ctx(selected_type, form_data) -> dict:
+    """Pre-selection for the Main → Sub → Brand → Model cascade on the asset form."""
+    fd = form_data or {}
+    return {
+        "sel_category_id": selected_type.category_id if selected_type else None,
+        "sel_sub_id": selected_type.pk if selected_type else None,
+        "cur_brand": (fd.get("brand") or "") if hasattr(fd, "get") else "",
+        "cur_model": (fd.get("model_name") or "") if hasattr(fd, "get") else "",
     }
 
 
@@ -469,6 +481,8 @@ def asset_detail(request, pk):
         "asset": asset,
         "history": history,
         "active_assignment": active_assignment,
+        # Master-data-driven spec rows; empty for legacy assets (template falls back).
+        "spec_rows": catalogue_specs.display_rows(asset.asset_type, asset.specifications),
         "components": asset.components.filter(is_active=True),
         "lifecycle_events": lifecycle_events,
         "warranty_info": warranty_info,
@@ -505,7 +519,7 @@ def asset_create(request):
         errors = _validate_asset_form(request.POST, spec_schema)
 
         if not errors and selected_type:
-            specs = _collect_specs(spec_schema, request.POST)
+            specs = catalogue_specs.collect_values(selected_type, request.POST)
             tag = request.POST.get("asset_tag", "").strip() or _generate_asset_tag(selected_type)
             work_order = _save_work_order(request)
             asset = AssetItem(
@@ -532,22 +546,24 @@ def asset_create(request):
             return redirect("assets:detail", pk=asset.pk)
 
     if request.method == "POST":
-        spec_fields = [(key, _spec_display_value(key, form_data)) for key in spec_schema]
+        spec_fields = catalogue_specs.form_values(
+            selected_type, catalogue_specs.collect_values(selected_type, request.POST)
+        )
     else:
-        spec_fields = [(key, {}) for key in spec_schema]
+        spec_fields = catalogue_specs.form_values(selected_type, {})
 
     return render(request, "assets/asset_form.html", {
         "categories": categories,
         "types": types,
         "locations": locations,
         "selected_type": selected_type,
-        "spec_schema": spec_schema,
         "spec_fields": spec_fields,
         "form_data": form_data,
         "errors": errors,
         "form_title": "Add New Asset",
         "is_edit": False,
         **_catalog_context(),
+        **_cascade_ctx(selected_type, form_data),
     })
 
 
@@ -571,7 +587,7 @@ def asset_edit(request, pk):
         errors = _validate_asset_form(request.POST, spec_schema, exclude_pk=pk)
 
         if not errors:
-            specs = _collect_specs(spec_schema, request.POST)
+            specs = catalogue_specs.collect_values(selected_type, request.POST)
             asset.asset_tag = request.POST.get("asset_tag", "").strip() or asset.asset_tag
             asset.asset_type = selected_type
             asset.brand = request.POST["brand"].strip()
@@ -615,9 +631,11 @@ def asset_edit(request, pk):
         }
 
     if request.method == "POST":
-        spec_fields = [(key, _spec_display_value(key, form_data)) for key in spec_schema]
+        spec_fields = catalogue_specs.form_values(
+            selected_type, catalogue_specs.collect_values(selected_type, request.POST)
+        )
     else:
-        spec_fields = [(key, asset.specifications.get(key, "")) for key in spec_schema]
+        spec_fields = catalogue_specs.form_values(selected_type, asset.specifications)
 
     return render(request, "assets/asset_form.html", {
         "asset": asset,
@@ -625,13 +643,13 @@ def asset_edit(request, pk):
         "types": types,
         "locations": locations,
         "selected_type": selected_type,
-        "spec_schema": spec_schema,
         "spec_fields": spec_fields,
         "form_data": form_data,
         "errors": errors,
         "form_title": f"Edit {asset.asset_tag}",
         "is_edit": True,
         **_catalog_context(),
+        **_cascade_ctx(selected_type, form_data),
     })
 
 
@@ -694,7 +712,7 @@ def asset_bulk_create(request):
                 )
 
         if not errors and selected_type:
-            specs = _collect_specs(spec_schema, request.POST)
+            specs = catalogue_specs.collect_values(selected_type, request.POST)
             # One work order shared by all assets in this batch
             shared_work_order = _save_work_order(request)
             created_tags = []
@@ -726,42 +744,35 @@ def asset_bulk_create(request):
             return redirect("assets:list")
 
     if request.method == "POST":
-        spec_fields = [(key, _spec_display_value(key, form_data)) for key in spec_schema]
+        spec_fields = catalogue_specs.form_values(
+            selected_type, catalogue_specs.collect_values(selected_type, request.POST)
+        )
     else:
-        spec_fields = [(key, {}) for key in spec_schema]
+        spec_fields = catalogue_specs.form_values(selected_type, {})
 
     return render(request, "assets/bulk_add.html", {
         "categories": categories,
         "types": types,
         "locations": locations,
         "selected_type": selected_type,
-        "spec_schema": spec_schema,
         "spec_fields": spec_fields,
         "form_data": form_data,
         "errors": errors,
         "serial_numbers_raw": request.POST.get("serial_numbers", "") if request.method == "POST" else "",
         **_catalog_context(),
+        **_cascade_ctx(selected_type, form_data),
     })
 
 
 @viewer_required
 def asset_spec_fields(request):
-    """HTMX endpoint: returns spec fields partial when asset type changes."""
+    """HTMX endpoint: returns the spec-fields partial when the Sub Asset changes."""
     type_id = request.GET.get("asset_type") or request.GET.get("type_id")
-    spec_schema = []
+    asset_type = None
     if type_id:
-        try:
-            asset_type = AssetType.objects.get(pk=type_id)
-            spec_schema = asset_type.spec_schema or []
-        except AssetType.DoesNotExist:
-            pass
-    spec_fields = [(key, {}) for key in spec_schema]
-    choices = {}
-    for sc in SpecChoice.objects.filter(is_active=True).order_by("spec_key", "order", "label"):
-        choices.setdefault(sc.spec_key, []).append((sc.value, sc.display_label()))
+        asset_type = AssetType.objects.filter(pk=type_id).first()
     return render(request, "assets/partials/spec_fields.html", {
-        "spec_fields": spec_fields,
-        "spec_choices_by_key": choices,
+        "spec_fields": catalogue_specs.form_values(asset_type, {}),
     })
 
 

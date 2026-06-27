@@ -45,6 +45,7 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     "assets",
+    "catalogue",
     "assignees",
     "assignments",
     "lifecycle",
