@@ -11,9 +11,11 @@ Two concerns live here:
 """
 
 import re
+from collections import Counter
 
 from django.contrib import messages
-from django.db.models import Count
+from django.db import transaction
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -22,7 +24,7 @@ from django.views.decorators.http import require_POST
 
 from config.permissions import admin_required, viewer_required
 
-from assets.models import AssetCategory, AssetType, Vendor
+from assets.models import AssetCategory, AssetItem, AssetType, Vendor
 
 from .models import CatalogBrand, CatalogModel, SubAssetSpecField
 from .specs import field_dicts, slugify_key
@@ -125,12 +127,39 @@ def _selected(request):
     return _int("main"), _int("sub"), _int("brand")
 
 
+# ── Asset-usage guard ─────────────────────────────────────────────────────────
+# A master-data node may be deleted only when no live (non-deleted) asset uses it.
+# Sub Asset is a real FK (asset_type); Brand/Model are matched by free-text name,
+# the same convention the asset form stores them under.
+
+def _assets_using(*, main=None, sub=None, brand=None, model=None):
+    qs = AssetItem.objects.filter(is_deleted=False)
+    if main is not None:
+        return qs.filter(asset_type__category=main)
+    if sub is not None:
+        return qs.filter(asset_type=sub)
+    if brand is not None:
+        return qs.filter(asset_type=brand.sub_asset, brand__iexact=brand.name)
+    if model is not None:
+        return qs.filter(
+            asset_type=model.brand.sub_asset,
+            brand__iexact=model.brand.name,
+            model_name__iexact=model.name,
+        )
+    return qs.none()
+
+
 @admin_required
 def manage(request):
     main_id, sub_id, brand_id = _selected(request)
 
+    # Live-asset usage drives the "in use" badge and whether Delete is allowed.
+    # Main/Sub are FK-counted; Brand/Model are matched by free-text name.
     mains = list(
-        AssetCategory.objects.annotate(sub_count=Count("asset_types")).order_by("name")
+        AssetCategory.objects.annotate(
+            sub_count=Count("asset_types", distinct=True),
+            asset_count=Count("asset_types__items", filter=Q(asset_types__items__is_deleted=False), distinct=True),
+        ).order_by("name")
     )
     main = next((m for m in mains if m.pk == main_id), None)
 
@@ -138,7 +167,10 @@ def manage(request):
     if main:
         subs = list(
             AssetType.objects.filter(category=main)
-            .annotate(brand_count=Count("catalog_brands", distinct=True))
+            .annotate(
+                brand_count=Count("catalog_brands", distinct=True),
+                asset_count=Count("items", filter=Q(items__is_deleted=False), distinct=True),
+            )
             .order_by("name")
         )
         sub = next((s for s in subs if s.pk == sub_id), None)
@@ -151,12 +183,28 @@ def manage(request):
             .annotate(model_count=Count("catalog_models", distinct=True))
             .order_by("name")
         )
+        # Name-based usage: count live assets of this Sub grouped by brand name.
+        brand_usage = Counter(
+            (n or "").strip().lower()
+            for n in AssetItem.objects.filter(asset_type=sub, is_deleted=False).values_list("brand", flat=True)
+        )
+        for b in brands:
+            b.asset_count = brand_usage.get(b.name.strip().lower(), 0)
         brand = next((b for b in brands if b.pk == brand_id), None)
         spec_fields = list(sub.spec_fields.order_by("order", "id"))
 
     models = []
     if brand:
         models = list(CatalogModel.objects.filter(brand=brand).order_by("name"))
+        # Name-based usage: live assets of this Sub with this brand, grouped by model name.
+        model_usage = Counter(
+            (n or "").strip().lower()
+            for n in AssetItem.objects.filter(
+                asset_type=sub, brand__iexact=brand.name, is_deleted=False
+            ).values_list("model_name", flat=True)
+        )
+        for mo in models:
+            mo.asset_count = model_usage.get(mo.name.strip().lower(), 0)
 
     return render(request, "catalogue/manage.html", {
         "mains": mains,
@@ -206,11 +254,18 @@ def main_toggle(request, pk):
 @require_POST
 def main_delete(request, pk):
     obj = get_object_or_404(AssetCategory, pk=pk)
-    if obj.asset_types.exists():
-        messages.error(request, f"Cannot delete '{obj.name}' — it still has Sub Assets.")
+    used = _assets_using(main=obj).count()
+    if used:
+        messages.error(request, f"Cannot delete '{obj.name}' — {used} asset(s) still use it. Reassign or remove them first.")
         return redirect(_manage_url(main=obj.pk))
-    obj.delete()
-    messages.success(request, "Main Asset deleted.")
+    name = obj.name
+    with transaction.atomic():
+        subs = AssetType.objects.filter(category=obj)
+        CatalogModel.objects.filter(brand__sub_asset__in=subs).delete()
+        CatalogBrand.objects.filter(sub_asset__in=subs).delete()
+        subs.delete()  # cascades each Sub's spec fields
+        obj.delete()
+    messages.success(request, f"Deleted '{name}' and its sub-assets, brands and models.")
     return redirect(_manage_url())
 
 
@@ -257,14 +312,16 @@ def sub_toggle(request, pk):
 def sub_delete(request, pk):
     obj = get_object_or_404(AssetType, pk=pk)
     main_id = obj.category_id
-    if obj.items.exists():
-        messages.error(request, f"Cannot delete '{obj.name}' — assets of this type exist.")
+    used = _assets_using(sub=obj).count()
+    if used:
+        messages.error(request, f"Cannot delete '{obj.name}' — {used} asset(s) of this type exist. Reassign or remove them first.")
         return redirect(_manage_url(main=main_id, sub=obj.pk))
-    if obj.catalog_brands.exists():
-        messages.error(request, f"Cannot delete '{obj.name}' — remove its Brands first.")
-        return redirect(_manage_url(main=main_id, sub=obj.pk))
-    obj.delete()
-    messages.success(request, "Sub Asset deleted.")
+    name = obj.name
+    with transaction.atomic():
+        CatalogModel.objects.filter(brand__sub_asset=obj).delete()
+        CatalogBrand.objects.filter(sub_asset=obj).delete()
+        obj.delete()  # cascades spec fields
+    messages.success(request, f"Deleted '{name}' and its brands, models and spec fields.")
     return redirect(_manage_url(main=main_id))
 
 
@@ -308,13 +365,17 @@ def brand_toggle(request, pk):
 @admin_required
 @require_POST
 def brand_delete(request, pk):
-    obj = get_object_or_404(CatalogBrand, pk=pk)
+    obj = get_object_or_404(CatalogBrand.objects.select_related("sub_asset"), pk=pk)
     main_id, sub_id = obj.sub_asset.category_id, obj.sub_asset_id
-    if obj.catalog_models.exists():
-        messages.error(request, f"Cannot delete '{obj.name}' — remove its Models first.")
+    used = _assets_using(brand=obj).count()
+    if used:
+        messages.error(request, f"Cannot delete '{obj.name}' — {used} asset(s) use this brand. Reassign or remove them first.")
         return redirect(_manage_url(main=main_id, sub=sub_id, brand=obj.pk))
-    obj.delete()
-    messages.success(request, "Brand deleted.")
+    name = obj.name
+    with transaction.atomic():
+        CatalogModel.objects.filter(brand=obj).delete()
+        obj.delete()
+    messages.success(request, f"Deleted '{name}' and its models.")
     return redirect(_manage_url(main=main_id, sub=sub_id))
 
 
@@ -362,6 +423,10 @@ def model_delete(request, pk):
     obj = get_object_or_404(CatalogModel.objects.select_related("brand__sub_asset"), pk=pk)
     b = obj.brand
     main_id, sub_id, brand_id = b.sub_asset.category_id, b.sub_asset_id, b.pk
+    used = _assets_using(model=obj).count()
+    if used:
+        messages.error(request, f"Cannot delete '{obj.name}' — {used} asset(s) use this model. Reassign or remove them first.")
+        return redirect(_manage_url(main=main_id, sub=sub_id, brand=brand_id))
     obj.delete()
     messages.success(request, "Model deleted.")
     return redirect(_manage_url(main=main_id, sub=sub_id, brand=brand_id))

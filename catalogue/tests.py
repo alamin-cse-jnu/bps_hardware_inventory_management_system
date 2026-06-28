@@ -140,10 +140,84 @@ class ManagePageTests(CatalogueSetupMixin, TestCase):
         field = SubAssetSpecField.objects.get(sub_asset=self.sub, key="storage_type")
         self.assertEqual(field.options, ["SSD", "HDD"])
 
-    def test_brand_delete_blocked_when_models_exist(self):
+    def test_manage_page_shows_in_use_badge_and_disables_delete(self):
+        from assets.models import AssetItem
+        AssetItem.objects.create(
+            asset_tag="PT-9001", asset_type=self.sub, brand="HP", model_name="ProBook 440 G10",
+        )
+        resp = self.client.get(reverse("catalogue:manage"), {
+            "main": self.main.pk, "sub": self.sub.pk, "brand": self.brand.pk,
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "in use")        # usage badge rendered
+        self.assertContains(resp, "btn-del-off")   # delete disabled for in-use node
+
+    # ── Delete rule: allowed when no asset uses the node; cascades children ──
+
+    def _make_asset(self, *, brand="HP", model_name="ProBook 440 G10", asset_type=None):
+        from assets.models import AssetItem
+        return AssetItem.objects.create(
+            asset_tag=f"PT-{AssetItem.objects.count() + 1:04d}",
+            asset_type=asset_type or self.sub,
+            brand=brand,
+            model_name=model_name,
+        )
+
+    def test_brand_delete_cascades_models_when_no_assets(self):
         resp = self.client.post(reverse("catalogue:brand_delete", args=[self.brand.pk]))
         self.assertEqual(resp.status_code, 302)
-        self.assertTrue(CatalogBrand.objects.filter(pk=self.brand.pk).exists())  # protected
+        self.assertFalse(CatalogBrand.objects.filter(pk=self.brand.pk).exists())
+        self.assertFalse(CatalogModel.objects.filter(pk=self.model.pk).exists())  # cascaded
+
+    def test_brand_delete_blocked_when_asset_uses_brand_name(self):
+        self._make_asset(brand="HP")
+        resp = self.client.post(reverse("catalogue:brand_delete", args=[self.brand.pk]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(CatalogBrand.objects.filter(pk=self.brand.pk).exists())
+
+    def test_model_delete_blocked_when_asset_uses_model_name(self):
+        self._make_asset(brand="HP", model_name="ProBook 440 G10")
+        resp = self.client.post(reverse("catalogue:model_delete", args=[self.model.pk]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(CatalogModel.objects.filter(pk=self.model.pk).exists())
+
+    def test_model_delete_allowed_when_no_asset_uses_it(self):
+        resp = self.client.post(reverse("catalogue:model_delete", args=[self.model.pk]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(CatalogModel.objects.filter(pk=self.model.pk).exists())
+
+    def test_sub_delete_cascades_brands_models_specs_when_no_assets(self):
+        resp = self.client.post(reverse("catalogue:sub_delete", args=[self.sub.pk]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(AssetType.objects.filter(pk=self.sub.pk).exists())
+        self.assertFalse(CatalogBrand.objects.filter(sub_asset_id=self.sub.pk).exists())
+        self.assertFalse(SubAssetSpecField.objects.filter(sub_asset_id=self.sub.pk).exists())
+
+    def test_sub_delete_blocked_when_asset_of_type_exists(self):
+        self._make_asset(asset_type=self.sub)
+        resp = self.client.post(reverse("catalogue:sub_delete", args=[self.sub.pk]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(AssetType.objects.filter(pk=self.sub.pk).exists())
+
+    def test_main_delete_cascades_whole_subtree_when_no_assets(self):
+        resp = self.client.post(reverse("catalogue:main_delete", args=[self.main.pk]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(AssetCategory.objects.filter(pk=self.main.pk).exists())
+        self.assertFalse(AssetType.objects.filter(category_id=self.main.pk).exists())
+
+    def test_main_delete_blocked_when_asset_uses_a_sub(self):
+        self._make_asset(asset_type=self.sub)
+        resp = self.client.post(reverse("catalogue:main_delete", args=[self.main.pk]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(AssetCategory.objects.filter(pk=self.main.pk).exists())
+
+    def test_deleted_asset_does_not_block_delete(self):
+        a = self._make_asset(brand="HP")
+        a.is_deleted = True
+        a.save(update_fields=["is_deleted"])
+        resp = self.client.post(reverse("catalogue:brand_delete", args=[self.brand.pk]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(CatalogBrand.objects.filter(pk=self.brand.pk).exists())
 
 
 class AssetFormIntegrationTests(CatalogueSetupMixin, TestCase):

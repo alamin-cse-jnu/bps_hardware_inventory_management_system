@@ -23,6 +23,9 @@
 .md-row.is-sel .md-row-name{color:#0076A7}
 .md-row.off .md-row-name{color:#9CA3AF;font-weight:500}
 .md-dot{font-size:11px;color:#9CA3AF}
+.md-use{font-size:10px;font-weight:700;color:#B45309;background:#FEF3C7;border-radius:999px;padding:1px 7px;white-space:nowrap}
+.md-pop-note{font-size:11px;color:#B45309;background:#FEF3C7;border-radius:6px;padding:6px 8px;margin-top:8px;line-height:1.35}
+.btn-del-off{height:28px;padding:0 10px;font-size:11.5px;border-radius:6px;opacity:.55;cursor:not-allowed;background:#F3F4F6;color:#9CA3AF;border:1px solid #E5E7EB}
 .md-edit{position:relative}
 .md-edit>summary{list-style:none;cursor:pointer;color:#9CA3AF;font-size:15px;line-height:1;padding:0 4px;border-radius:4px}
 .md-edit>summary::-webkit-details-marker{display:none}
@@ -71,7 +74,8 @@
       {% for m in mains %}
       <div class="md-row {% if sel_main and sel_main.pk == m.pk %}is-sel{% endif %} {% if not m.is_active %}off{% endif %}">
         <a class="md-row-name" href="{% url 'catalogue:manage' %}?main={{ m.pk }}">{{ m.name }}</a>
-        <span class="md-dot">{{ m.sub_count }}</span>
+        {% if m.asset_count %}<span class="md-use" title="{{ m.asset_count }} asset(s) use this">{{ m.asset_count }} in use</span>{% endif %}
+        <span class="md-dot" title="{{ m.sub_count }} sub-asset(s)">{{ m.sub_count }}</span>
         <details class="md-edit">
           <summary>⋯</summary>
           <div class="md-pop">
@@ -82,7 +86,12 @@
             </form>
             <div class="md-pop-actions" style="margin-top:8px">
               <form method="post" action="{% url 'catalogue:main_toggle' m.pk %}">{% csrf_token %}<button class="btn btn-outline btn-xs">{% if m.is_active %}Deactivate{% else %}Activate{% endif %}</button></form>
-              {% if m.sub_count == 0 %}<form method="post" action="{% url 'catalogue:main_delete' m.pk %}" onsubmit="return confirm('Delete {{ m.name }}?')">{% csrf_token %}<button class="btn btn-danger-soft btn-xs">Delete</button></form>{% endif %}
+              {% if m.asset_count %}
+                <button type="button" class="btn-del-off" disabled title="{{ m.asset_count }} asset(s) use this — cannot delete">Delete</button>
+              {% else %}
+                <form method="post" action="{% url 'catalogue:main_delete' m.pk %}" onsubmit="return confirm('Delete {{ m.name }}{% if m.sub_count %} and its {{ m.sub_count }} sub-asset(s) plus their brands & models{% endif %}?')">{% csrf_token %}<button class="btn btn-danger-soft btn-xs">Delete</button></form>
+              {% endif %}
+              {% if m.asset_count %}<div class="md-pop-note">In use by {{ m.asset_count }} asset(s). Reassign or remove them to enable delete.</div>{% endif %}
             </div>
           </div>
         </details>
@@ -110,7 +119,8 @@
         {% for s in subs %}
         <div class="md-row {% if sel_sub and sel_sub.pk == s.pk %}is-sel{% endif %} {% if not s.is_active %}off{% endif %}">
           <a class="md-row-name" href="{% url 'catalogue:manage' %}?main={{ sel_main.pk }}&sub={{ s.pk }}">{{ s.name }}</a>
-          <span class="md-dot">{{ s.brand_count }}</span>
+          {% if s.asset_count %}<span class="md-use" title="{{ s.asset_count }} asset(s) of this type">{{ s.asset_count }} in use</span>{% endif %}
+          <span class="md-dot" title="{{ s.brand_count }} brand(s)">{{ s.brand_count }}</span>
           <details class="md-edit">
             <summary>⋯</summary>
             <div class="md-pop">
@@ -123,8 +133,13 @@
               </form>
               <div class="md-pop-actions" style="margin-top:8px">
                 <form method="post" action="{% url 'catalogue:sub_toggle' s.pk %}">{% csrf_token %}<button class="btn btn-outline btn-xs">{% if s.is_active %}Deactivate{% else %}Activate{% endif %}</button></form>
-                <form method="post" action="{% url 'catalogue:sub_delete' s.pk %}" onsubmit="return confirm('Delete {{ s.name }}?')">{% csrf_token %}<button class="btn btn-danger-soft btn-xs">Delete</button></form>
+                {% if s.asset_count %}
+                  <button type="button" class="btn-del-off" disabled title="{{ s.asset_count }} asset(s) of this type — cannot delete">Delete</button>
+                {% else %}
+                  <form method="post" action="{% url 'catalogue:sub_delete' s.pk %}" onsubmit="return confirm('Delete {{ s.name }}{% if s.brand_count %} and its {{ s.brand_count }} brand(s) plus their models{% endif %}?')">{% csrf_token %}<button class="btn btn-danger-soft btn-xs">Delete</button></form>
+                {% endif %}
               </div>
+              {% if s.asset_count %}<div class="md-pop-note">In use by {{ s.asset_count }} asset(s). Reassign or remove them to enable delete.</div>{% endif %}
             </div>
           </details>
         </div>
@@ -155,7 +170,8 @@
         {% for b in brands %}
         <div class="md-row {% if sel_brand and sel_brand.pk == b.pk %}is-sel{% endif %} {% if not b.is_active %}off{% endif %}">
           <a class="md-row-name" href="{% url 'catalogue:manage' %}?main={{ sel_main.pk }}&sub={{ sel_sub.pk }}&brand={{ b.pk }}">{{ b.name }}</a>
-          <span class="md-dot">{{ b.model_count }}</span>
+          {% if b.asset_count %}<span class="md-use" title="{{ b.asset_count }} asset(s) use this brand">{{ b.asset_count }} in use</span>{% endif %}
+          <span class="md-dot" title="{{ b.model_count }} model(s)">{{ b.model_count }}</span>
           <details class="md-edit">
             <summary>⋯</summary>
             <div class="md-pop">
@@ -168,8 +184,13 @@
               </form>
               <div class="md-pop-actions" style="margin-top:8px">
                 <form method="post" action="{% url 'catalogue:brand_toggle' b.pk %}">{% csrf_token %}<button class="btn btn-outline btn-xs">{% if b.is_active %}Deactivate{% else %}Activate{% endif %}</button></form>
-                {% if b.model_count == 0 %}<form method="post" action="{% url 'catalogue:brand_delete' b.pk %}" onsubmit="return confirm('Delete {{ b.name }}?')">{% csrf_token %}<button class="btn btn-danger-soft btn-xs">Delete</button></form>{% endif %}
+                {% if b.asset_count %}
+                  <button type="button" class="btn-del-off" disabled title="{{ b.asset_count }} asset(s) use this brand — cannot delete">Delete</button>
+                {% else %}
+                  <form method="post" action="{% url 'catalogue:brand_delete' b.pk %}" onsubmit="return confirm('Delete {{ b.name }}{% if b.model_count %} and its {{ b.model_count }} model(s){% endif %}?')">{% csrf_token %}<button class="btn btn-danger-soft btn-xs">Delete</button></form>
+                {% endif %}
               </div>
+              {% if b.asset_count %}<div class="md-pop-note">In use by {{ b.asset_count }} asset(s). Reassign or remove them to enable delete.</div>{% endif %}
             </div>
           </details>
         </div>
@@ -201,6 +222,7 @@
         {% for mo in models %}
         <div class="md-row {% if not mo.is_active %}off{% endif %}">
           <span class="md-row-name">{{ mo.name }}</span>
+          {% if mo.asset_count %}<span class="md-use" title="{{ mo.asset_count }} asset(s) use this model">{{ mo.asset_count }} in use</span>{% endif %}
           <details class="md-edit">
             <summary>⋯</summary>
             <div class="md-pop">
@@ -214,8 +236,13 @@
               </form>
               <div class="md-pop-actions" style="margin-top:8px">
                 <form method="post" action="{% url 'catalogue:model_toggle' mo.pk %}">{% csrf_token %}<button class="btn btn-outline btn-xs">{% if mo.is_active %}Deactivate{% else %}Activate{% endif %}</button></form>
-                <form method="post" action="{% url 'catalogue:model_delete' mo.pk %}" onsubmit="return confirm('Delete {{ mo.name }}?')">{% csrf_token %}<button class="btn btn-danger-soft btn-xs">Delete</button></form>
+                {% if mo.asset_count %}
+                  <button type="button" class="btn-del-off" disabled title="{{ mo.asset_count }} asset(s) use this model — cannot delete">Delete</button>
+                {% else %}
+                  <form method="post" action="{% url 'catalogue:model_delete' mo.pk %}" onsubmit="return confirm('Delete {{ mo.name }}?')">{% csrf_token %}<button class="btn btn-danger-soft btn-xs">Delete</button></form>
+                {% endif %}
               </div>
+              {% if mo.asset_count %}<div class="md-pop-note">In use by {{ mo.asset_count }} asset(s). Reassign or remove them to enable delete.</div>{% endif %}
             </div>
           </details>
         </div>
