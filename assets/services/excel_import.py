@@ -85,7 +85,7 @@ def _normalize_location_path(raw: str) -> str:
 def _build_location_lookup() -> dict[str, int]:
     """Return {normalised_full_path: location_pk} for all active locations."""
     lookup: dict[str, int] = {}
-    for loc in Location.objects.filter(is_active=True).select_related("parent__parent"):
+    for loc in Location.objects.filter(is_active=True).select_related("building", "block", "level"):
         key = _normalize_location_path(loc.full_path)
         lookup[key] = loc.pk
     return lookup
@@ -190,10 +190,10 @@ class ExcelTemplateGenerator:
         # Pick the first active location path as an example if available
         first_loc = (
             Location.objects.filter(is_active=True)
-            .select_related("parent__parent")
+            .select_related("building", "block", "level")
             .first()
         )
-        loc_path = first_loc.full_path if first_loc else "Parliament Bhaban → 3rd Floor → NOC Room"
+        loc_path = first_loc.full_path if first_loc else "Server Room — Main Building · Level-2"
 
         row: dict[str, str] = {
             "asset_tag": "",
@@ -263,8 +263,8 @@ class ExcelTemplateGenerator:
 
         locations = (
             Location.objects.filter(is_active=True)
-            .select_related("parent__parent")
-            .order_by("level_type", "name")
+            .select_related("building", "block", "level")
+            .order_by("name")
         )
         for row_idx, loc in enumerate(locations, start=2):
             ws.cell(row_idx, 1, loc.full_path).font = _INSTR_FONT

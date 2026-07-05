@@ -48,6 +48,14 @@
 .md-spec-table td{padding:9px 14px;border-bottom:1px solid #F4F7F9;font-size:13px;color:#374151;vertical-align:middle}
 .chip{display:inline-block;background:#EEF4F8;color:#0076A7;border-radius:5px;padding:2px 7px;font-size:11px;font-weight:600;margin:1px}
 .tag-widget{font-size:11px;font-weight:700;color:#475569;background:#F1F5F9;border-radius:5px;padding:2px 8px}
+/* ── Centered modal variant (spec-field add/edit) ─────────────────────── */
+.md-modal[open]>.md-pop{
+  position:fixed;top:50%;left:50%;right:auto;transform:translate(-50%,-50%);
+  width:380px;max-width:92vw;max-height:85vh;overflow-y:auto;
+  padding:18px;z-index:1001;box-shadow:0 18px 50px rgba(0,0,0,.28);
+}
+.md-modal[open]>.md-pop .md-modal-title{font-size:13.5px;font-weight:700;color:#0F3547;margin-bottom:12px}
+.md-modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1000}
 @media(max-width:1100px){.md-board{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:640px){.md-board{grid-template-columns:1fr}}
 </style>
@@ -278,9 +286,10 @@
       <div style="font-size:13.5px;font-weight:700;color:#0F3547">Specification fields — {{ sel_sub.name }}</div>
       <div style="font-size:11.5px;color:#6C8A95;margin-top:1px">These fields drive the widgets shown on the Add Asset form.</div>
     </div>
-    <details class="md-edit" style="position:relative">
+    <details class="md-edit md-modal" style="position:relative">
       <summary class="btn btn-primary btn-sm" style="list-style:none">+ Add Field</summary>
-      <div class="md-pop" style="width:280px;right:0">
+      <div class="md-pop">
+        <div class="md-modal-title">Add specification field — {{ sel_sub.name }}</div>
         <form method="post" action="{% url 'catalogue:specfield_save' %}">{% csrf_token %}
           <input type="hidden" name="main" value="{{ sel_main.pk }}">
           <input type="hidden" name="sub" value="{{ sel_sub.pk }}">
@@ -296,14 +305,17 @@
       </div>
     </details>
   </div>
-  <table class="md-spec-table">
+  <table class="md-spec-table" data-reorder-url="{% url 'catalogue:specfield_reorder' %}">
     <thead><tr><th style="width:1px"></th><th>Label</th><th>Widget</th><th>Unit / Options</th><th>Req</th><th style="width:1px">Status</th><th style="width:1px"></th></tr></thead>
-    <tbody>
+    <tbody id="spec-tbody">
       {% for f in spec_fields %}
-      <tr style="{% if not f.is_active %}opacity:.5{% endif %}">
+      <tr data-pk="{{ f.pk }}" style="{% if not f.is_active %}opacity:.5{% endif %}">
         <td style="white-space:nowrap;color:#94A3B8">
-          <form method="post" action="{% url 'catalogue:specfield_move' f.pk %}" style="display:inline">{% csrf_token %}<input type="hidden" name="dir" value="up"><button class="btn-link" style="background:none;border:none;cursor:pointer;color:#94A3B8" title="Move up">▲</button></form>
-          <form method="post" action="{% url 'catalogue:specfield_move' f.pk %}" style="display:inline">{% csrf_token %}<input type="hidden" name="dir" value="down"><button class="btn-link" style="background:none;border:none;cursor:pointer;color:#94A3B8" title="Move down">▼</button></form>
+          <span class="md-drag-handle" title="Drag to reorder" style="display:none;cursor:grab;font-size:14px;color:#94A3B8;padding:0 4px">⠿</span>
+          <span class="md-move-arrows">
+            <form method="post" action="{% url 'catalogue:specfield_move' f.pk %}" style="display:inline">{% csrf_token %}<input type="hidden" name="dir" value="up"><button class="btn-link" style="background:none;border:none;cursor:pointer;color:#94A3B8" title="Move up">▲</button></form>
+            <form method="post" action="{% url 'catalogue:specfield_move' f.pk %}" style="display:inline">{% csrf_token %}<input type="hidden" name="dir" value="down"><button class="btn-link" style="background:none;border:none;cursor:pointer;color:#94A3B8" title="Move down">▼</button></form>
+          </span>
         </td>
         <td style="font-weight:600;color:#1F2937">{{ f.label }} <span style="color:#B6C0C9;font-weight:400;font-size:11px">{{ f.key }}</span></td>
         <td><span class="tag-widget">{{ f.get_widget_display }}</span></td>
@@ -314,9 +326,10 @@
         <td>{% if f.required %}✓{% endif %}</td>
         <td>{% if f.is_active %}<span class="badge" style="background:#ECFDF5;color:#059669">On</span>{% else %}<span class="badge" style="background:#F3F4F6;color:#9CA3AF">Off</span>{% endif %}</td>
         <td>
-          <details class="md-edit" style="position:relative">
+          <details class="md-edit md-modal" style="position:relative">
             <summary>⋯</summary>
-            <div class="md-pop" style="width:280px;right:0">
+            <div class="md-pop">
+              <div class="md-modal-title">Edit field — {{ f.label }}</div>
               <form method="post" action="{% url 'catalogue:specfield_save' %}">{% csrf_token %}
                 <input type="hidden" name="pk" value="{{ f.pk }}">
                 <input type="hidden" name="main" value="{{ sel_main.pk }}">
@@ -346,6 +359,57 @@
 </div>
 {% endif %}
 
+{# ── Location master data — 3 independent dimensions ─────────────────── #}
+<div id="location-master" style="margin-bottom:20px">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px">
+    <h3 style="font-size:13px;font-weight:700;color:#1F2937;margin:0">Location</h3>
+    <span class="text-muted text-small">Building, Block and Level are independent lists — a Location on the Locations page is tagged with any combination.</span>
+  </div>
+  <div class="md-board" style="grid-template-columns:repeat(3,1fr)">
+    {% for dim in location_dims %}
+    <div class="md-col">
+      <div class="md-col-head"><span class="t">{{ dim.label }}</span><span class="c">{{ dim.items|length }}</span></div>
+      <div class="md-list">
+        {% for it in dim.items %}
+        <div class="md-row {% if not it.is_active %}off{% endif %}">
+          <span class="md-row-name">{{ it.name }}</span>
+          {% if it.use_count %}<span class="md-use" title="{{ it.use_count }} location(s) use this">{{ it.use_count }} in use</span>{% endif %}
+          <details class="md-edit">
+            <summary>⋯</summary>
+            <div class="md-pop">
+              <form method="post" action="{% url 'catalogue:dimension_save' dim.kind %}">{% csrf_token %}
+                <input type="hidden" name="pk" value="{{ it.pk }}">
+                <input type="text" name="name" value="{{ it.name }}">
+                <div class="md-pop-actions"><button class="btn btn-primary btn-xs">Save</button></div>
+              </form>
+              <div class="md-pop-actions" style="margin-top:8px">
+                <form method="post" action="{% url 'catalogue:dimension_toggle' dim.kind it.pk %}">{% csrf_token %}<button class="btn btn-outline btn-xs">{% if it.is_active %}Deactivate{% else %}Activate{% endif %}</button></form>
+                {% if it.use_count %}
+                  <button type="button" class="btn-del-off" disabled title="{{ it.use_count }} location(s) use this — cannot delete">Delete</button>
+                {% else %}
+                  <form method="post" action="{% url 'catalogue:dimension_delete' dim.kind it.pk %}" onsubmit="return confirm('Delete {{ dim.label|lower }} “{{ it.name }}”?')">{% csrf_token %}<button class="btn btn-danger-soft btn-xs">Delete</button></form>
+                {% endif %}
+                {% if it.use_count %}<div class="md-pop-note">In use by {{ it.use_count }} location(s). Remove them to enable delete.</div>{% endif %}
+              </div>
+            </div>
+          </details>
+        </div>
+        {% empty %}
+        <div class="md-empty">No {{ dim.label|lower }}s yet.</div>
+        {% endfor %}
+      </div>
+      <details class="md-add">
+        <summary>+ Add {{ dim.label }}</summary>
+        <form class="md-add-form" method="post" action="{% url 'catalogue:dimension_save' dim.kind %}">{% csrf_token %}
+          <input type="text" name="name" placeholder="e.g. {{ dim.placeholder }}" required>
+          <button class="btn btn-primary btn-sm" style="width:100%">Add</button>
+        </form>
+      </details>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
 {# ── Vendors / Suppliers (kept here so nothing is lost) ──────────────── #}
 <div class="card" style="margin-bottom:20px">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid #EEF2F5">
@@ -372,4 +436,110 @@
   <div style="padding:20px;text-align:center;color:#9CA3AF;font-size:13px">No vendors yet.</div>
   {% endif %}
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+<script>
+(function () {
+  // ── CSRF helper ────────────────────────────────────────────────────────────
+  function getCookie(name) {
+    const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return m ? decodeURIComponent(m.pop()) : '';
+  }
+
+  // ── Popover (faux-modal) close behaviour ────────────────────────────────────
+  // The Master Data popovers are <details> elements. Native <details> won't close
+  // on outside-click or Esc and has no cancel affordance — which made them feel
+  // "stuck". Add: single-open, outside-click close, Esc close, and an × button.
+  const POPS = 'details.md-edit, details.md-add';
+
+  function closeAll(except) {
+    document.querySelectorAll(POPS).forEach(function (d) {
+      if (d !== except && d.open) d.removeAttribute('open');
+    });
+  }
+
+  // A shared dimmed backdrop behind centered modals (the spec-field add/edit).
+  let _backdrop = null;
+  function syncModalBackdrop() {
+    const open = document.querySelector('details.md-modal[open]');
+    if (open) {
+      if (!_backdrop) {
+        _backdrop = document.createElement('div');
+        _backdrop.className = 'md-modal-backdrop';
+        _backdrop.addEventListener('click', function () { closeAll(null); });
+        document.body.appendChild(_backdrop);
+      }
+      _backdrop.style.display = 'block';
+    } else if (_backdrop) {
+      _backdrop.style.display = 'none';
+    }
+  }
+
+  document.querySelectorAll(POPS).forEach(function (d) {
+    // Close siblings when this one opens; keep the modal backdrop in sync.
+    d.addEventListener('toggle', function () { if (d.open) closeAll(d); syncModalBackdrop(); });
+    // Inject an × cancel button into the popover body (closes without saving).
+    const pop = d.querySelector('.md-pop, .md-add-form');
+    if (pop && !pop.querySelector('.md-pop-close')) {
+      const x = document.createElement('button');
+      x.type = 'button';
+      x.className = 'md-pop-close';
+      x.setAttribute('aria-label', 'Close');
+      x.textContent = '×';
+      x.style.cssText = 'position:absolute;top:6px;right:8px;background:none;border:none;'
+        + 'font-size:18px;line-height:1;color:#9CA3AF;cursor:pointer;padding:0;z-index:1';
+      x.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        d.removeAttribute('open');
+      });
+      if (getComputedStyle(pop).position === 'static') pop.style.position = 'relative';
+      pop.appendChild(x);
+    }
+  });
+
+  // Outside click closes any open popover (clicks inside a <details> are ignored).
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest(POPS)) closeAll(null);
+  });
+  // Esc closes all popovers.
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeAll(null);
+  });
+
+  // ── Drag-and-drop spec-field ordering ───────────────────────────────────────
+  const table = document.querySelector('.md-spec-table');
+  const tbody = document.getElementById('spec-tbody');
+  if (table && tbody && window.Sortable && tbody.querySelector('tr[data-pk]')) {
+    // Switch the UI from ▲▼ arrows to drag handles now that JS is available.
+    tbody.querySelectorAll('.md-move-arrows').forEach(function (el) { el.style.display = 'none'; });
+    tbody.querySelectorAll('.md-drag-handle').forEach(function (el) { el.style.display = 'inline-block'; });
+
+    const url = table.getAttribute('data-reorder-url');
+
+    Sortable.create(tbody, {
+      handle: '.md-drag-handle',
+      animation: 150,
+      ghostClass: 'md-row-ghost',
+      onEnd: function () {
+        const order = Array.from(tbody.querySelectorAll('tr[data-pk]'))
+          .map(function (tr) { return parseInt(tr.getAttribute('data-pk'), 10); });
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+          },
+          body: JSON.stringify({ order: order }),
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (!data.ok) { alert('Could not save order: ' + (data.error || 'unknown error')); }
+          })
+          .catch(function () { alert('Could not save order — please retry.'); });
+      },
+    });
+  }
+})();
+</script>
 {% endblock %}

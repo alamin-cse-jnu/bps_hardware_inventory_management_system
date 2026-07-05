@@ -286,16 +286,11 @@ tbody td{padding:7px 10px;border-bottom:1px solid #F3F4F6;vertical-align:top;col
     <div class="efield">
       <dt>Location Name</dt>
       <dd>{{ location.name }}</dd>
-      {% if location.name_bn %}<dd class="sub">{{ location.name_bn }}</dd>{% endif %}
     </div>
-    <div class="efield">
-      <dt>Level</dt>
-      <dd>{{ location.get_level_type_display }}</dd>
-    </div>
-    {% if location.full_path %}
+    {% if location.descriptor %}
     <div class="efield" style="grid-column:1/-1">
-      <dt>Full Path</dt>
-      <dd>{{ location.full_path }}</dd>
+      <dt>Building / Block / Level</dt>
+      <dd>{{ location.descriptor }}</dd>
     </div>
     {% endif %}
     <div class="efield">

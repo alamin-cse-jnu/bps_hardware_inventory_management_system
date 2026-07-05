@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}Master Data Verification{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:dashboard' %}">IT Inventory</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <a href="{% url 'catalogue:manage' %}">Master Data</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>Verification</strong>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  .vr-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+  .vr-totals{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:#475569}
+  .vr-totals b{color:#0F3547}
+  .vr-main{border:1px solid #E5E7EB;border-radius:10px;margin-bottom:18px;overflow:hidden;page-break-inside:avoid}
+  .vr-main-head{display:flex;align-items:center;gap:10px;background:#0076A7;color:#fff;padding:10px 14px}
+  .vr-main-head .vr-title{font-size:14px;font-weight:700}
+  .vr-main-head .vr-count{font-size:11px;opacity:.85;font-weight:600}
+  .vr-sub{border-top:1px solid #EEF2F5;padding:12px 14px;page-break-inside:avoid}
+  .vr-sub:first-child{border-top:none}
+  .vr-sub-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .vr-sub-name{font-size:13px;font-weight:700;color:#0F3547}
+  .vr-sub-meta{font-size:11px;color:#94A3B8;font-weight:600}
+  .vr-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .vr-panel h4{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#94A3B8;margin:0 0 6px}
+  .vr-brand{margin-bottom:6px}
+  .vr-brand-name{font-size:12.5px;font-weight:600;color:#1F2937;display:flex;align-items:center;gap:7px}
+  .vr-models{list-style:none;margin:3px 0 0 26px;padding:0}
+  .vr-models li{font-size:12px;color:#374151;display:flex;align-items:center;gap:7px;padding:1px 0}
+  .vr-spec-table{width:100%;border-collapse:collapse}
+  .vr-spec-table th{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#94A3B8;text-align:left;padding:4px 8px;border-bottom:1px solid #EEF2F5}
+  .vr-spec-table td{padding:4px 8px;border-bottom:1px solid #F4F7F9;font-size:11.5px;color:#374151;vertical-align:top}
+  .vr-chip{display:inline-block;background:#EEF4F8;color:#0076A7;border-radius:4px;padding:1px 6px;font-size:10.5px;font-weight:600;margin:1px}
+  .vr-off{color:#9CA3AF;font-style:italic}
+  .vr-empty{font-size:12px;color:#B6C0C9;font-style:italic}
+  .vr-ck{width:14px;height:14px;flex-shrink:0;accent-color:#0076A7}
+  @media print{
+    .vr-noprint{display:none!important}
+    .breadcrumb,.sidebar,.topbar,.sidebar-backdrop{display:none!important}
+    .content,.main{margin:0!important;padding:0!important}
+    .vr-main{box-shadow:none}
+    body{background:#fff}
+    a[href]:after{content:none!important}
+  }
+  @media(max-width:760px){.vr-cols{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Master Data Verification</div>
+    <div class="text-muted text-small" style="margin-top:2px">Review the full catalogue before sign-off. Tick rows as you check them. This page makes no changes.</div>
+  </div>
+</div>
+
+<div class="vr-toolbar">
+  <div class="vr-totals">
+    <span><b>{{ totals.mains }}</b> Main</span>
+    <span><b>{{ totals.subs }}</b> Sub</span>
+    <span><b>{{ totals.brands }}</b> Brand</span>
+    <span><b>{{ totals.models }}</b> Model</span>
+    <span><b>{{ totals.specs }}</b> Spec fields</span>
+    <span style="color:#94A3B8">· Generated {{ generated_at|date:"d M Y, H:i" }}</span>
+  </div>
+  <div class="vr-noprint" style="display:flex;gap:8px">
+    <a href="{% url 'catalogue:manage' %}" class="btn btn-outline btn-sm">← Back to Master Data</a>
+    <button type="button" class="btn btn-primary btn-sm" onclick="window.print()">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="vertical-align:-2px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Print
+    </button>
+  </div>
+</div>
+
+{% for main in mains %}
+<div class="vr-main">
+  <div class="vr-main-head">
+    <input type="checkbox" class="vr-ck" title="Mark Main Asset reviewed">
+    <span class="vr-title">{{ main.name }}</span>
+    {% if not main.is_active %}<span class="vr-count">(inactive)</span>{% endif %}
+    <span class="vr-count" style="margin-left:auto">{{ main.asset_types.all|length }} sub-asset{{ main.asset_types.all|length|pluralize }}</span>
+  </div>
+
+  {% for sub in main.asset_types.all %}
+  <div class="vr-sub">
+    <div class="vr-sub-head">
+      <input type="checkbox" class="vr-ck" title="Mark Sub Asset reviewed">
+      <span class="vr-sub-name {% if not sub.is_active %}vr-off{% endif %}">{{ sub.name }}</span>
+      {% if sub.has_components %}<span class="vr-sub-meta">· PC Set (has components)</span>{% endif %}
+      {% if not sub.is_active %}<span class="vr-sub-meta">· inactive</span>{% endif %}
+    </div>
+
+    <div class="vr-cols">
+      <!-- Brands & Models -->
+      <div class="vr-panel">
+        <h4>Brands &amp; Models ({{ sub.catalog_brands.all|length }})</h4>
+        {% for brand in sub.catalog_brands.all %}
+        <div class="vr-brand">
+          <div class="vr-brand-name {% if not brand.is_active %}vr-off{% endif %}">
+            <input type="checkbox" class="vr-ck" title="Mark Brand reviewed">
+            {{ brand.name }}
+            {% if not brand.is_active %}<span class="vr-sub-meta">inactive</span>{% endif %}
+          </div>
+          <ul class="vr-models">
+            {% for model in brand.catalog_models.all %}
+            <li class="{% if not model.is_active %}vr-off{% endif %}">
+              <input type="checkbox" class="vr-ck" title="Mark Model reviewed">
+              {{ model.name }}{% if not model.is_active %} <span class="vr-sub-meta">inactive</span>{% endif %}
+            </li>
+            {% empty %}
+            <li class="vr-empty">No models</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% empty %}
+        <div class="vr-empty">No brands defined.</div>
+        {% endfor %}
+      </div>
+
+      <!-- Spec fields -->
+      <div class="vr-panel">
+        <h4>Specification Fields ({{ sub.spec_fields.all|length }})</h4>
+        {% if sub.spec_fields.all %}
+        <table class="vr-spec-table">
+          <thead><tr><th style="width:1px"></th><th>Label</th><th>Widget</th><th>Unit / Options</th><th style="width:1px">Req</th></tr></thead>
+          <tbody>
+            {% for f in sub.spec_fields.all %}
+            <tr class="{% if not f.is_active %}vr-off{% endif %}">
+              <td><input type="checkbox" class="vr-ck" title="Mark field reviewed"></td>
+              <td style="font-weight:600;color:#1F2937">{{ f.label }} <span style="color:#B6C0C9;font-weight:400;font-size:10px">{{ f.key }}</span></td>
+              <td>{{ f.get_widget_display }}</td>
+              <td>
+                {% if f.unit %}<span class="vr-chip">{{ f.unit }}</span>{% endif %}
+                {% for o in f.options %}<span class="vr-chip">{{ o }}</span>{% endfor %}
+                {% if not f.unit and not f.options %}—{% endif %}
+              </td>
+              <td style="text-align:center">{% if f.required %}✓{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="vr-empty">No specification fields defined.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="vr-sub"><div class="vr-empty">No sub-assets under this main asset.</div></div>
+  {% endfor %}
+</div>
+{% empty %}
+<div style="padding:48px;text-align:center;color:#9CA3AF">No master data has been defined yet.</div>
+{% endfor %}
+{% endblock %}

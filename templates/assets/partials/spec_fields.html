@@ -114,7 +114,7 @@ select.spec-text{
 
   <div class="spec-grid">
     {% for f in spec_fields %}
-    <div {% if f.widget == 'units' or f.widget == 'select' and f.options|length > 4 %}style="grid-column:1 / -1"{% endif %}>
+    <div {% if f.widget == 'units' or f.widget == 'number_toggle' or f.widget == 'select' and f.options|length > 4 %}style="grid-column:1 / -1"{% endif %}>
       <label class="spec-label">{{ f.label }}{% if f.required %}<span class="spec-req">*</span>{% endif %}</label>
 
       {% if f.widget == 'number' %}
@@ -133,6 +133,23 @@ select.spec-text{
             <label class="spec-chip">
               <input type="radio" name="spec_{{ f.key }}_unit" value="{{ opt }}"
                      {% if f.unit == opt or not f.unit and forloop.first %}checked{% endif %}>
+              <span>{{ opt }}</span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+
+      {% elif f.widget == 'number_toggle' %}
+        {# Number value + a toggle/segmented chip selection (chips from options). #}
+        <div class="spec-compound">
+          <div class="spec-ig">
+            <input type="number" name="spec_{{ f.key }}" value="{{ f.qty }}" placeholder="0" step="any">
+          </div>
+          <div class="spec-chips">
+            {% for opt in f.options %}
+            <label class="spec-chip">
+              <input type="radio" name="spec_{{ f.key }}_unit" value="{{ opt }}"
+                     {% if f.unit == opt %}checked{% endif %}>
               <span>{{ opt }}</span>
             </label>
             {% endfor %}

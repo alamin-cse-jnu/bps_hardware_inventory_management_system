@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.utils import timezone
 
-from locations.models import Location
+from locations.models import Building, Level, Location
 
 from .models import AssetCategory, AssetComponent, AssetItem, AssetType
 from .services.excel_import import (
@@ -337,9 +337,12 @@ def make_import_type(spec_schema=None) -> AssetType:
 
 
 def make_location_hierarchy():
-    building = Location.objects.create(name="Parliament Bhaban", level_type=Location.LevelType.BUILDING)
-    floor = Location.objects.create(name="3rd Floor", level_type=Location.LevelType.FLOOR, parent=building)
-    room = Location.objects.create(name="NOC Room", level_type=Location.LevelType.ROOM, parent=floor)
+    """Three distinct flat locations (each with a unique full_path)."""
+    b = Building.objects.create(name="Parliament Bhaban")
+    lvl = Level.objects.create(name="Level-3")
+    building = Location.objects.create(name="Reception", building=b)
+    floor = Location.objects.create(name="Corridor", building=b, level=lvl)
+    room = Location.objects.create(name="NOC Room", building=b, level=lvl, room="301")
     return building, floor, room
 
 

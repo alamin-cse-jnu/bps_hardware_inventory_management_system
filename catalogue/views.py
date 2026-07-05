@@ -15,16 +15,18 @@ from collections import Counter
 
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Count, Q
-from django.http import JsonResponse
+from django.db.models import Count, Prefetch, Q
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.http import urlencode
 from django.views.decorators.http import require_POST
 
 from config.permissions import admin_required, viewer_required
 
 from assets.models import AssetCategory, AssetItem, AssetType, Vendor
+from locations.models import Block, Building, Level
 
 from .models import CatalogBrand, CatalogModel, SubAssetSpecField
 from .specs import field_dicts, slugify_key
@@ -217,7 +219,80 @@ def manage(request):
         "sel_brand": brand,
         "vendors": Vendor.objects.order_by("name"),
         "widget_choices": SubAssetSpecField.Widget.choices,
+        "location_dims": [
+            {"kind": "building", "label": "Building", "placeholder": "Main Building",
+             "items": list(Building.objects.annotate(use_count=Count("locations")).order_by("name"))},
+            {"kind": "block", "label": "Block", "placeholder": "South Block",
+             "items": list(Block.objects.annotate(use_count=Count("locations")).order_by("name"))},
+            {"kind": "level", "label": "Level", "placeholder": "Level-2",
+             "items": list(Level.objects.annotate(use_count=Count("locations")).order_by("name"))},
+        ],
     })
+
+
+# ── Location dimensions (Building / Block / Level) ─────────────────────────────
+# Three independent flat master lists managed from a section on this page. They
+# are the building blocks a Location is tagged with; there is no cascade.
+
+_DIMENSIONS = {"building": Building, "block": Block, "level": Level}
+
+
+def _dimension(kind):
+    model = _DIMENSIONS.get(kind)
+    if model is None:
+        raise Http404("Unknown location dimension")
+    return model, kind.capitalize()
+
+
+def _back_to_location(request):
+    """Return to the Master Data page, landing on the Location section."""
+    ref = request.META.get("HTTP_REFERER")
+    base = ref.split("#")[0] if ref else reverse("catalogue:manage")
+    return redirect(f"{base}#location-master")
+
+
+@admin_required
+@require_POST
+def dimension_save(request, kind):
+    Model, label = _dimension(kind)
+    pk = request.POST.get("pk")
+    name = request.POST.get("name", "").strip()
+    if not name:
+        messages.error(request, f"{label} name is required.")
+        return _back_to_location(request)
+    if Model.objects.filter(name__iexact=name).exclude(pk=pk or 0).exists():
+        messages.error(request, f"A {label} named '{name}' already exists.")
+        return _back_to_location(request)
+    obj = get_object_or_404(Model, pk=pk) if pk else Model(created_by=request.user)
+    obj.name = name
+    obj.save()
+    messages.success(request, f"{label} saved.")
+    return _back_to_location(request)
+
+
+@admin_required
+@require_POST
+def dimension_toggle(request, kind, pk):
+    Model, _ = _dimension(kind)
+    obj = get_object_or_404(Model, pk=pk)
+    obj.is_active = not obj.is_active
+    obj.save(update_fields=["is_active", "updated_at"])
+    return _back_to_location(request)
+
+
+@admin_required
+@require_POST
+def dimension_delete(request, kind, pk):
+    Model, label = _dimension(kind)
+    obj = get_object_or_404(Model, pk=pk)
+    used = obj.locations.count()
+    if used:
+        messages.error(request, f"Cannot delete '{obj.name}' — used by {used} location(s).")
+    else:
+        name = obj.name
+        obj.delete()
+        messages.success(request, f"Deleted {label.lower()} '{name}'.")
+    return _back_to_location(request)
 
 
 # ── Main Asset (AssetCategory) ────────────────────────────────────────────────
@@ -506,7 +581,10 @@ def specfield_delete(request, pk):
 @admin_required
 @require_POST
 def specfield_move(request, pk):  # noqa: C901
-    """Reorder a spec field up or down within its Sub Asset."""
+    """Reorder a spec field up or down within its Sub Asset.
+
+    Kept as the no-JS fallback for the drag-and-drop reorder below.
+    """
     obj = get_object_or_404(SubAssetSpecField, pk=pk)
     direction = request.POST.get("dir")
     siblings = list(obj.sub_asset.spec_fields.order_by("order", "id"))
@@ -519,3 +597,82 @@ def specfield_move(request, pk):  # noqa: C901
                 if s.order != i:
                     SubAssetSpecField.objects.filter(pk=s.pk).update(order=i)
     return redirect(_manage_url(main=obj.sub_asset.category_id, sub=obj.sub_asset_id))
+
+
+@admin_required
+@require_POST
+def specfield_reorder(request):
+    """Bulk reorder spec fields from a drag-and-drop gesture (JSON in/out).
+
+    Body: {"order": [pk, pk, ...]}. All pks must belong to the same Sub Asset.
+    Writes only the new ``order`` index; no page reload.
+    """
+    import json as _json
+    try:
+        payload = _json.loads(request.body.decode() or "{}")
+        ids = [int(x) for x in payload.get("order", [])]
+    except (ValueError, TypeError, _json.JSONDecodeError):
+        return JsonResponse({"ok": False, "error": "Malformed payload."}, status=400)
+    if not ids:
+        return JsonResponse({"ok": False, "error": "Empty order."}, status=400)
+
+    fields = list(SubAssetSpecField.objects.filter(pk__in=ids))
+    if len({f.sub_asset_id for f in fields}) != 1 or len(fields) != len(ids):
+        return JsonResponse({"ok": False, "error": "Invalid field set."}, status=400)
+
+    pos = {pk: i for i, pk in enumerate(ids)}
+    with transaction.atomic():
+        for f in fields:
+            new_order = pos[f.pk]
+            if f.order != new_order:
+                SubAssetSpecField.objects.filter(pk=f.pk).update(order=new_order)
+    return JsonResponse({"ok": True})
+
+
+# ── Verification report (read-only, printable) ────────────────────────────────
+
+@admin_required
+def verification(request):
+    """
+    Printable audit view of the whole catalogue tree:
+    Main Asset → Sub Asset → Brand → Model + each Sub Asset's spec fields.
+
+    Read-only — issues no writes. Checkboxes on the page are client-side only,
+    for ticking off rows while reviewing/printing.
+    """
+    mains = (
+        AssetCategory.objects.order_by("name").prefetch_related(
+            Prefetch(
+                "asset_types",
+                queryset=AssetType.objects.order_by("name").prefetch_related(
+                    Prefetch(
+                        "catalog_brands",
+                        queryset=CatalogBrand.objects.order_by("name").prefetch_related(
+                            Prefetch(
+                                "catalog_models",
+                                queryset=CatalogModel.objects.order_by("name"),
+                            )
+                        ),
+                    ),
+                    Prefetch(
+                        "spec_fields",
+                        queryset=SubAssetSpecField.objects.order_by("order", "id"),
+                    ),
+                ),
+            )
+        )
+    )
+
+    totals = {
+        "mains": AssetCategory.objects.count(),
+        "subs": AssetType.objects.count(),
+        "brands": CatalogBrand.objects.count(),
+        "models": CatalogModel.objects.count(),
+        "specs": SubAssetSpecField.objects.count(),
+    }
+
+    return render(request, "catalogue/verification.html", {
+        "mains": mains,
+        "totals": totals,
+        "generated_at": timezone.now(),
+    })

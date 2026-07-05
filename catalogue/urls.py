@@ -13,6 +13,7 @@ urlpatterns = [
 
     # ── Master Data management (Admin only) ───────────────────────────────────
     path("manage/", views.manage, name="manage"),
+    path("manage/verification/", views.verification, name="verification"),
 
     path("manage/main/save/",            views.main_save,   name="main_save"),
     path("manage/main/<int:pk>/toggle/", views.main_toggle, name="main_toggle"),
@@ -30,8 +31,14 @@ urlpatterns = [
     path("manage/model/<int:pk>/toggle/", views.model_toggle, name="model_toggle"),
     path("manage/model/<int:pk>/delete/", views.model_delete, name="model_delete"),
 
+    # Location dimensions (Building / Block / Level)
+    path("manage/dimension/<str:kind>/save/",            views.dimension_save,   name="dimension_save"),
+    path("manage/dimension/<str:kind>/<int:pk>/toggle/", views.dimension_toggle, name="dimension_toggle"),
+    path("manage/dimension/<str:kind>/<int:pk>/delete/", views.dimension_delete, name="dimension_delete"),
+
     path("manage/spec-field/save/",            views.specfield_save,   name="specfield_save"),
     path("manage/spec-field/<int:pk>/toggle/", views.specfield_toggle, name="specfield_toggle"),
     path("manage/spec-field/<int:pk>/delete/", views.specfield_delete, name="specfield_delete"),
     path("manage/spec-field/<int:pk>/move/",   views.specfield_move,   name="specfield_move"),
+    path("manage/spec-field/reorder/",          views.specfield_reorder, name="specfield_reorder"),
 ]

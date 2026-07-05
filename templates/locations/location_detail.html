@@ -27,8 +27,7 @@
     <div style="flex:1">
       <div style="font-size:17px;font-weight:700;color:#212529">{{ location.name }}</div>
       <div class="text-muted text-small" style="margin-top:2px">
-        {{ location.get_level_type_display }}
-        {% if location.parent %} &rsaquo; {{ location.full_path }}{% endif %}
+        {{ location.descriptor|default:"—" }}
       </div>
     </div>
     <div style="text-align:right">

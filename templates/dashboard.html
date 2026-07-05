@@ -22,6 +22,12 @@
   .kpi-value{font-size:36px;font-weight:800;line-height:1;margin-bottom:6px}
   .kpi-sub{font-size:12px;opacity:.75}
   .kpi-icon{position:absolute;right:18px;top:50%;transform:translateY(-50%);opacity:.25}
+  .kpi-link{text-decoration:none;color:inherit;cursor:pointer;transition:transform 120ms ease,box-shadow 120ms ease}
+  .kpi-link:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.18)}
+  .bd-cat-link{text-decoration:none;cursor:pointer}
+  .bd-cat-link:hover .bd-cat-name{text-decoration:underline}
+  .bd-type-link{text-decoration:none;color:inherit;cursor:pointer}
+  .bd-type-link:hover .bd-type-name{color:#0076A7}
 
   /* ── Charts row ── */
   .charts-row{display:grid;grid-template-columns:280px 1fr;gap:16px;margin-bottom:24px}
@@ -98,41 +104,41 @@
 <!-- ── KPI Row ────────────────────────────────────────────────────────────── -->
 <div class="kpi-grid">
 
-  <div class="kpi-card violet">
+  <a href="{% url 'assets:list' %}" class="kpi-card violet kpi-link">
     <div class="kpi-label">Total Assets</div>
     <div class="kpi-value">{{ total }}</div>
     <div class="kpi-sub">All tracked items</div>
     <div class="kpi-icon">
       <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
     </div>
-  </div>
+  </a>
 
-  <div class="kpi-card blue">
+  <a href="{% url 'assets:list' %}?status=ASSIGNED" class="kpi-card blue kpi-link">
     <div class="kpi-label">Assigned</div>
     <div class="kpi-value">{{ assigned_count }}</div>
     <div class="kpi-sub">Currently with holders</div>
     <div class="kpi-icon">
       <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
     </div>
-  </div>
+  </a>
 
-  <div class="kpi-card teal">
+  <a href="{% url 'assets:list' %}?status=IN_STOCK" class="kpi-card teal kpi-link">
     <div class="kpi-label">In Stock</div>
     <div class="kpi-value">{{ in_stock_count }}</div>
     <div class="kpi-sub">Available to assign</div>
     <div class="kpi-icon">
       <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
     </div>
-  </div>
+  </a>
 
-  <div class="kpi-card orange">
+  <a href="{% url 'assets:list' %}?status=MAINTENANCE,LOST,DAMAGED" class="kpi-card orange kpi-link">
     <div class="kpi-label">Issues</div>
     <div class="kpi-value">{{ issues_count }}</div>
     <div class="kpi-sub">Maintenance / Lost / Damaged</div>
     <div class="kpi-icon">
       <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
     </div>
-  </div>
+  </a>
 
 </div>
 
@@ -248,19 +254,19 @@
       {% for cat in category_breakdown %}
       <div style="margin-bottom:{% if not forloop.last %}16px{% else %}0{% endif %}">
         <!-- Category row -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <span style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.6px">{{ cat.name }}</span>
+        <a href="{% url 'assets:list' %}?category={{ cat.pk }}" class="bd-cat-link" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px" title="View all {{ cat.name }} assets">
+          <span class="bd-cat-name" style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.6px">{{ cat.name }}</span>
           <span style="font-size:12px;font-weight:700;color:#0076A7">{{ cat.total }}</span>
-        </div>
+        </a>
         <!-- Type rows -->
         {% for t in cat.types %}
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;padding-left:10px">
-          <span style="font-size:12.5px;color:#374151;white-space:nowrap;width:160px;overflow:hidden;text-overflow:ellipsis">{{ t.name }}</span>
+        <a href="{% url 'assets:list' %}?type={{ t.pk }}" class="bd-type-link" style="display:flex;align-items:center;gap:10px;margin-bottom:5px;padding-left:10px" title="View {{ t.name }} assets">
+          <span class="bd-type-name" style="font-size:12.5px;color:#374151;white-space:nowrap;width:160px;overflow:hidden;text-overflow:ellipsis">{{ t.name }}</span>
           <div style="flex:1;background:#EEF2F6;border-radius:99px;height:8px;overflow:hidden;min-width:60px">
             <div style="height:100%;background:#0076A7;border-radius:99px;width:{% widthratio t.count breakdown_max 100 %}%"></div>
           </div>
           <span style="font-size:12px;font-weight:600;color:#374151;min-width:24px;text-align:right">{{ t.count }}</span>
-        </div>
+        </a>
         {% endfor %}
       </div>
       {% empty %}

@@ -63,12 +63,14 @@
 
     <!-- ── Employees ── -->
     {% if tab == 'employees' %}
-    <div style="display:grid;grid-template-columns:1fr auto;padding:8px 16px;border-bottom:1px solid #E5E7EB;background:#FAFAFA">
+    <div style="display:grid;grid-template-columns:40px 1fr auto;padding:8px 16px;border-bottom:1px solid #E5E7EB;background:#FAFAFA">
+      <span style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em">SL</span>
       <span style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em">Employee · Designation</span>
       <span style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em">Assets</span>
     </div>
-    {% for h in holders %}
-    <div class="holder-row" style="grid-template-columns:1fr auto">
+    {% for sl, h in holders %}
+    <div class="holder-row" style="grid-template-columns:40px 1fr auto">
+      <div style="color:#9CA3AF;font-weight:600;font-variant-numeric:tabular-nums">{{ sl }}</div>
       <div>
         <a href="{% url 'assignees:employee_detail' h.employee.pk %}" class="holder-name">{{ h.employee.name_en }}</a>
         <div class="holder-sub">
@@ -86,12 +88,14 @@
 
     <!-- ── MPs ── -->
     {% if tab == 'mps' %}
-    <div style="display:grid;grid-template-columns:1fr auto;padding:8px 16px;border-bottom:1px solid #E5E7EB;background:#FAFAFA">
+    <div style="display:grid;grid-template-columns:40px 1fr auto;padding:8px 16px;border-bottom:1px solid #E5E7EB;background:#FAFAFA">
+      <span style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em">SL</span>
       <span style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em">MP · Constituency</span>
       <span style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em">Assets</span>
     </div>
-    {% for h in holders %}
-    <div class="holder-row" style="grid-template-columns:1fr auto">
+    {% for sl, h in holders %}
+    <div class="holder-row" style="grid-template-columns:40px 1fr auto">
+      <div style="color:#9CA3AF;font-weight:600;font-variant-numeric:tabular-nums">{{ sl }}</div>
       <div>
         <a href="{% url 'assignees:mp_detail' h.mp.pk %}" class="holder-name">{{ h.mp.name_en }}</a>
         <div class="holder-sub">
@@ -109,12 +113,14 @@
 
     <!-- ── Offices ── -->
     {% if tab == 'offices' %}
-    <div style="display:grid;grid-template-columns:1fr auto;padding:8px 16px;border-bottom:1px solid #E5E7EB;background:#FAFAFA">
+    <div style="display:grid;grid-template-columns:40px 1fr auto;padding:8px 16px;border-bottom:1px solid #E5E7EB;background:#FAFAFA">
+      <span style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em">SL</span>
       <span style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em">Office / Department</span>
       <span style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em">Assets</span>
     </div>
-    {% for h in holders %}
-    <div class="holder-row" style="grid-template-columns:1fr auto">
+    {% for sl, h in holders %}
+    <div class="holder-row" style="grid-template-columns:40px 1fr auto">
+      <div style="color:#9CA3AF;font-weight:600;font-variant-numeric:tabular-nums">{{ sl }}</div>
       <div>
         <a href="{% url 'assignees:office_detail' h.office.pk %}" class="holder-name">{{ h.office.name_en }}</a>
       </div>
@@ -128,12 +134,14 @@
 
     <!-- ── Locations ── -->
     {% if tab == 'locations' %}
-    <div style="display:grid;grid-template-columns:1fr auto;padding:8px 16px;border-bottom:1px solid #E5E7EB;background:#FAFAFA">
+    <div style="display:grid;grid-template-columns:40px 1fr auto;padding:8px 16px;border-bottom:1px solid #E5E7EB;background:#FAFAFA">
+      <span style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em">SL</span>
       <span style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em">Location</span>
       <span style="font-size:11px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em">Assets</span>
     </div>
-    {% for h in holders %}
-    <div class="holder-row" style="grid-template-columns:1fr auto">
+    {% for sl, h in holders %}
+    <div class="holder-row" style="grid-template-columns:40px 1fr auto">
+      <div style="color:#9CA3AF;font-weight:600;font-variant-numeric:tabular-nums">{{ sl }}</div>
       <div>
         <a href="{% url 'locations:detail' h.location.pk %}" class="holder-name">{{ h.location.full_path }}</a>
       </div>

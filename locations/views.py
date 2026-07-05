@@ -1,27 +1,51 @@
 from django.contrib import messages
 from django.core.exceptions import ValidationError
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from assignees.models import Assignee, AssigneeType
 from config.permissions import it_officer_required, viewer_required
 
-from .models import Location
+from .models import Block, Building, Level, Location
 
 
 @viewer_required
 def location_list(request):
-    buildings = Location.objects.filter(
-        level_type=Location.LevelType.BUILDING
-    ).order_by("name")
-    tree = []
-    for building in buildings:
-        floors = Location.objects.filter(parent=building).order_by("name")
-        floor_data = []
-        for floor in floors:
-            rooms = list(Location.objects.filter(parent=floor).order_by("name"))
-            floor_data.append({"location": floor, "rooms": rooms})
-        tree.append({"location": building, "floors": floor_data})
-    return render(request, "locations/location_list.html", {"tree": tree})
+    q = request.GET.get("q", "").strip()
+    building_id = request.GET.get("building", "")
+    block_id = request.GET.get("block", "")
+    level_id = request.GET.get("level", "")
+
+    locations = (
+        Location.objects.select_related("building", "block", "level")
+        .annotate(asset_count=Count("stored_assets", filter=Q(stored_assets__is_deleted=False)))
+        .order_by("name")
+    )
+    if q:
+        locations = locations.filter(
+            Q(name__icontains=q)
+            | Q(room__icontains=q)
+            | Q(building__name__icontains=q)
+            | Q(block__name__icontains=q)
+            | Q(level__name__icontains=q)
+        )
+    if building_id:
+        locations = locations.filter(building_id=building_id)
+    if block_id:
+        locations = locations.filter(block_id=block_id)
+    if level_id:
+        locations = locations.filter(level_id=level_id)
+
+    return render(request, "locations/location_list.html", {
+        "locations": locations,
+        "buildings": Building.objects.filter(is_active=True).order_by("name"),
+        "blocks": Block.objects.filter(is_active=True).order_by("name"),
+        "levels": Level.objects.filter(is_active=True).order_by("name"),
+        "q": q,
+        "sel_building": building_id,
+        "sel_block": block_id,
+        "sel_level": level_id,
+    })
 
 
 @viewer_required
@@ -43,11 +67,7 @@ def location_detail(request, pk):
 def location_create(request):
     if request.method == "POST":
         return _save_location(request, None)
-    return render(request, "locations/location_form.html", {
-        "action": "Add",
-        "parents": Location.objects.none(),
-        "level_types": Location.LevelType.choices,
-    })
+    return render(request, "locations/location_form.html", _form_context("Add"))
 
 
 @it_officer_required
@@ -55,31 +75,21 @@ def location_edit(request, pk):
     location = get_object_or_404(Location, pk=pk)
     if request.method == "POST":
         return _save_location(request, location)
-    parents = _parents_for(location.level_type)
-    return render(request, "locations/location_form.html", {
-        "action": "Edit",
-        "location": location,
-        "parents": parents,
-        "level_types": Location.LevelType.choices,
-    })
+    return render(request, "locations/location_form.html", _form_context("Edit", location=location))
 
 
 @it_officer_required
 def location_delete(request, pk):
     location = get_object_or_404(Location, pk=pk)
+    asset_count = location.stored_assets.filter(is_deleted=False).count()
     if request.method == "GET":
-        asset_count = location.stored_assets.filter(is_deleted=False).count()
-        child_count = location.children.filter(is_active=True).count()
         return render(request, "locations/location_delete_confirm.html", {
             "location": location,
             "asset_count": asset_count,
-            "child_count": child_count,
         })
     # POST — deactivate if safe
-    asset_count = location.stored_assets.filter(is_deleted=False).count()
-    child_count = location.children.filter(is_active=True).count()
-    if asset_count or child_count:
-        messages.error(request, "Cannot deactivate: move assets or deactivate sub-locations first.")
+    if asset_count:
+        messages.error(request, "Cannot deactivate: move the stored assets first.")
         return redirect("locations:list")
     location.is_active = False
     location.save(update_fields=["is_active", "updated_at"])
@@ -112,55 +122,44 @@ def location_history_print(request, pk):
     })
 
 
-@viewer_required
-def location_parent_options(request):
-    """HTMX endpoint — returns parent <option> elements for the chosen level_type."""
-    level_type = request.GET.get("level_type", "")
-    selected_pk = request.GET.get("parent", "")
-    parents = _parents_for(level_type)
-    return render(request, "locations/partials/parent_options.html", {
-        "parents": parents,
-        "selected_pk": selected_pk,
-        "level_type": level_type,
-    })
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _parents_for(level_type):
-    if level_type == Location.LevelType.FLOOR:
-        return Location.objects.filter(
-            level_type=Location.LevelType.BUILDING, is_active=True
-        ).order_by("name")
-    if level_type == Location.LevelType.ROOM:
-        return Location.objects.filter(
-            level_type=Location.LevelType.FLOOR, is_active=True
-        ).order_by("name")
-    return Location.objects.none()
+def _form_context(action, *, location=None, errors=None, form_data=None):
+    return {
+        "action": action,
+        "location": location,
+        "buildings": Building.objects.filter(is_active=True).order_by("name"),
+        "blocks": Block.objects.filter(is_active=True).order_by("name"),
+        "levels": Level.objects.filter(is_active=True).order_by("name"),
+        "errors": errors or {},
+        "form_data": form_data,
+    }
 
 
 def _save_location(request, instance):
     data = request.POST
     name = data.get("name", "").strip()
-    name_bn = data.get("name_bn", "").strip()
-    level_type = data.get("level_type", "")
-    parent_id = data.get("parent") or None
+    room = data.get("room", "").strip()
+    building_id = data.get("building") or None
+    block_id = data.get("block") or None
+    level_id = data.get("level") or None
     is_active = data.get("is_active") == "on"
 
     errors = {}
     if not name:
         errors["name"] = "Name is required."
-    if not level_type:
-        errors["level_type"] = "Level type is required."
+    if not (building_id or block_id or level_id):
+        errors["dimension"] = "Select at least one of Building, Block or Level."
 
     if not errors:
         loc = instance if instance else Location(created_by=request.user)
         loc.name = name
-        loc.name_bn = name_bn
-        loc.level_type = level_type
-        loc.parent_id = parent_id
+        loc.room = room
+        loc.building_id = building_id
+        loc.block_id = block_id
+        loc.level_id = level_id
         if instance:
             loc.is_active = is_active
         try:
@@ -176,14 +175,10 @@ def _save_location(request, instance):
             return redirect("locations:list")
         except ValidationError as ve:
             for field, msgs in ve.message_dict.items():
-                errors[field] = " ".join(msgs)
+                key = field if field != "__all__" else "dimension"
+                errors[key] = " ".join(msgs)
 
-    parents = _parents_for(level_type)
-    return render(request, "locations/location_form.html", {
-        "action": "Edit" if instance else "Add",
-        "location": instance,
-        "parents": parents,
-        "level_types": Location.LevelType.choices,
-        "errors": errors,
-        "form_data": data,
-    })
+    return render(
+        request, "locations/location_form.html",
+        _form_context("Edit" if instance else "Add", location=instance, errors=errors, form_data=data),
+    )

@@ -20,70 +20,88 @@ from catalogue.specs import slugify_key
 
 # Structured spec schema per Sub Asset name. Each field: (label, widget, unit, options).
 # Widgets: text | number | units | select | toggle
+#
+# STANDARDIZATION RULE (one field = one atomic attribute):
+#   Never pack brand + generation + series/model + capacity into a single field.
+#   Name each field "<Component> <Attribute>" (e.g. Processor Brand / Processor
+#   Series / Processor Generation). Use toggle/select for controlled vocabularies,
+#   units for quantity+unit, number for a value with one fixed unit, text only for
+#   genuinely free-form values. Order attributes of a component contiguously, most-
+#   to least-significant. Applies to every category below.
 SPEC_SCHEMA: dict[str, list[tuple]] = {
     "_computing": [
-        ("Processor", "toggle", "", ["Intel", "AMD"]),
-        ("Processor Model", "select", "", ["i5", "i7", "i9", "Ryzen 5", "Ryzen 7"]),
-        ("Cores", "select", "", ["8", "12", "16"]),
-        ("RAM", "units", "", ["GB", "TB"]),
-        ("Storage", "units", "", ["GB", "TB"]),
-        ("Storage Type", "select", "", ["SSD", "HDD", "NVMe"]),
-        ("Display", "number", "inches", []),
+        # Processor split into three atomic attributes (was "Intel / 3rd / i3").
+        ("Processor Brand", "toggle", "", ["Intel", "AMD"]),
+        ("Processor Series", "select", "", [
+            "Core i3", "Core i5", "Core i7", "Core i9",
+            "Ryzen 3", "Ryzen 5", "Ryzen 7", "Ryzen 9", "Xeon", "Other",
+        ]),
+        ("Processor Generation", "select", "", [
+            "1st Gen", "2nd Gen", "3rd Gen", "4th Gen", "5th Gen", "6th Gen",
+            "7th Gen", "8th Gen", "9th Gen", "10th Gen", "11th Gen", "12th Gen",
+            "13th Gen", "14th Gen",
+        ]),
+        ("Cores", "number", "cores", []),
+        ("RAM Size", "units", "", ["GB", "TB"]),
+        ("RAM Type", "select", "", ["DDR3", "DDR4", "DDR5"]),
+        ("Storage Size", "units", "", ["GB", "TB"]),
+        ("Storage Type", "select", "", ["SSD", "HDD", "NVMe SSD"]),
+        ("Display Size", "number", "inches", []),
         ("Operating System", "text", "", []),
-        ("Licensed", "toggle", "", ["Yes", "No"]),
+        ("OS Licensed", "toggle", "", ["Yes", "No"]),
     ],
     "Monitor": [
-        ("Size", "number", "inch", []),
-        ("Type", "toggle", "", ["LED", "LCD"]),
+        ("Screen Size", "number", "inch", []),
+        ("Panel Type", "toggle", "", ["LED", "LCD"]),
         ("Resolution", "select", "", ["HD", "FHD", "QHD", "4K UHD", "5K", "8K UHD"]),
         ("Connectivity", "select", "", ["HDMI", "VGA", "DP", "HDMI+DP"]),
     ],
     "Printer": [
-        ("Type", "select", "", ["Laser Printer", "InkJet"]),
-        ("Print", "select", "", ["BW", "BW+Color"]),
-        ("Speed", "number", "PPM", []),
-        ("Resolution", "select", "", ["300dpi", "600dpi", "1200dpi", "2400dpi"]),
+        ("Printer Type", "select", "", ["Laser", "InkJet"]),
+        ("Colour Output", "select", "", ["BW", "BW+Color"]),
+        ("Print Speed", "number", "PPM", []),
+        ("Print Resolution", "select", "", ["300dpi", "600dpi", "1200dpi", "2400dpi"]),
         ("Duplex", "toggle", "", ["Yes", "No"]),
         ("Paper Size", "select", "", ["A4+Letter+Legal", "A3+A4+Letter+Legal"]),
         ("Connectivity", "select", "", ["USB", "USB+Ethernet", "USB+Ethernet+Wireless"]),
     ],
     "Scanner": [
         ("Scanner Type", "select", "", ["Flatbed", "Sheet-fed", "Duplex Scanner"]),
-        ("Resolution", "select", "", ["300dpi", "600dpi", "1200dpi", "2400dpi"]),
-        ("Speed", "number", "ppm", []),
+        ("Scan Resolution", "select", "", ["300dpi", "600dpi", "1200dpi", "2400dpi"]),
+        ("Scan Speed", "number", "ppm", []),
         ("Paper Size", "select", "", ["A4+legal", "A3+A4+legal"]),
     ],
     "_copier": [
-        ("Type", "select", "", ["Digital", "Analog"]),
-        ("Print", "select", "", ["BW", "Color", "Color+BW"]),
-        ("Speed", "number", "PPM", []),
+        ("Copier Type", "select", "", ["Digital", "Analog"]),
+        ("Colour Output", "select", "", ["BW", "Color", "Color+BW"]),
+        ("Copy Speed", "number", "PPM", []),
         ("Resolution", "select", "", ["300dpi", "600dpi", "1200dpi", "2400dpi"]),
         ("Duplex", "toggle", "", ["Yes", "No"]),
         ("Paper Size", "select", "", ["A4+Letter+Legal", "A3+A4+Letter+Legal"]),
         ("Connectivity", "select", "", ["USB", "USB+Ethernet", "USB+Ethernet+Wireless"]),
     ],
     "Access Point": [
-        ("Bands", "toggle", "", ["Dual", "Single"]),
+        ("Frequency Bands", "toggle", "", ["Dual", "Single"]),
         ("Controller Based", "toggle", "", ["Yes", "No"]),
     ],
     "Switch": [
-        ("Ports", "select", "", ["8", "24", "48"]),
-        ("Managable", "toggle", "", ["Yes", "No"]),
+        ("Port Count", "select", "", ["8", "24", "48"]),
+        ("Managed", "toggle", "", ["Yes", "No"]),
         ("VLAN Support", "toggle", "", ["Yes", "No"]),
     ],
     "UPS": [
-        ("Type", "toggle", "", ["Online", "Offline"]),
+        ("UPS Type", "toggle", "", ["Online", "Offline"]),
         ("Capacity", "units", "", ["VA", "KVA"]),
-        ("Rack Mount", "toggle", "", ["Yes", "No"]),
+        ("Rack Mountable", "toggle", "", ["Yes", "No"]),
     ],
     "UTP Cable": [
         ("Category", "select", "", ["Cat5e", "Cat6", "Cat6A"]),
         ("Bandwidth", "number", "MHz", []),
-        ("Speed", "select", "", ["1 Gbps", "10 Gbps"]),
+        ("Max Speed", "select", "", ["1 Gbps", "10 Gbps"]),
     ],
     "IDF Rack": [
-        ("Type", "toggle", "", ["Floor Standing", "Wall Mount"]),
-        ("Size", "select", "", ["12U", "18U", "22U", "42U"]),
+        ("Mount Type", "toggle", "", ["Floor Standing", "Wall Mount"]),
+        ("Rack Size", "select", "", ["12U", "18U", "22U", "42U"]),
     ],
 }
 

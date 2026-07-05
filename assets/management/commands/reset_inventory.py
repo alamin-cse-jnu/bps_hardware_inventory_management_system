@@ -28,7 +28,7 @@ from assignments.models import Assignment, TransferBatch, InactiveHolderAlert
 from qrcodes.models import AuditSession, AuditScan
 from lifecycle.models import LifecycleEvent
 from assignees.models import Assignee, CachedEmployee, CachedMP, CachedOffice
-from locations.models import Location
+from locations.models import Block, Building, Level, Location
 
 
 class Command(BaseCommand):
@@ -57,10 +57,11 @@ class Command(BaseCommand):
             ("Cached employees",       CachedEmployee.objects.all()),
             ("Cached MPs",             CachedMP.objects.all()),
             ("Cached offices",         CachedOffice.objects.all()),
-            # Locations deleted children-first because Location.parent is PROTECT.
-            ("Locations — rooms",      Location.objects.filter(level_type=Location.LevelType.ROOM)),
-            ("Locations — floors",     Location.objects.filter(level_type=Location.LevelType.FLOOR)),
-            ("Locations — buildings",  Location.objects.filter(level_type=Location.LevelType.BUILDING)),
+            # Locations first — they PROTECT-reference the dimension lookups.
+            ("Locations",              Location.objects.all()),
+            ("Buildings",              Building.objects.all()),
+            ("Blocks",                 Block.objects.all()),
+            ("Levels",                 Level.objects.all()),
         ]
 
         counts = [(label, qs.count()) for label, qs in steps]

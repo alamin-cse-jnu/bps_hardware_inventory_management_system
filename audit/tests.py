@@ -72,7 +72,7 @@ class SignalCaptureTests(TestCase):
         self.assertEqual(log.actor_label, "System")
 
     def test_hard_delete_logged(self):
-        loc = Location.objects.create(name="Room 1", level_type="ROOM")
+        loc = Location.objects.create(name="Room 1")
         AuditLog.objects.all().delete()
         loc.delete()
         self.assertTrue(AuditLog.objects.filter(action="DELETE", target_model="locations.Location").exists())

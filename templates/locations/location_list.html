@@ -16,17 +16,39 @@
 <div class="page-header">
   <div>
     <div class="page-title">Locations</div>
-    <div class="text-muted text-small" style="margin-top:2px">Building → Floor → Room hierarchy for asset storage tracking</div>
+    <div class="text-muted text-small" style="margin-top:2px">Places where assets are stored — tagged by Building, Block and Level.</div>
   </div>
 </div>
 
-{% if not tree %}
+{# ── Search + filters ── #}
+<form method="get" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center">
+  <input type="text" name="q" value="{{ q }}" placeholder="Search name, room, building, block or level…"
+         class="form-input" style="flex:1;min-width:240px;max-width:420px;height:36px">
+  <select name="building" class="form-input" style="width:auto;height:36px">
+    <option value="">All buildings</option>
+    {% for b in buildings %}<option value="{{ b.pk }}" {% if sel_building == b.pk|stringformat:"s" %}selected{% endif %}>{{ b.name }}</option>{% endfor %}
+  </select>
+  <select name="block" class="form-input" style="width:auto;height:36px">
+    <option value="">All blocks</option>
+    {% for b in blocks %}<option value="{{ b.pk }}" {% if sel_block == b.pk|stringformat:"s" %}selected{% endif %}>{{ b.name }}</option>{% endfor %}
+  </select>
+  <select name="level" class="form-input" style="width:auto;height:36px">
+    <option value="">All levels</option>
+    {% for l in levels %}<option value="{{ l.pk }}" {% if sel_level == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}
+  </select>
+  <button type="submit" class="btn btn-outline btn-sm" style="height:36px">Filter</button>
+  {% if q or sel_building or sel_block or sel_level %}
+  <a href="{% url 'locations:list' %}" class="btn btn-outline btn-sm" style="height:36px">Clear</a>
+  {% endif %}
+</form>
+
+{% if not locations %}
 <div style="background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:56px 24px;text-align:center">
   <svg width="40" height="40" fill="none" stroke="#D1D5DB" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:12px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-  <div style="font-size:14px;font-weight:600;color:#6C757D;margin-bottom:4px">No locations yet</div>
-  <div class="text-muted text-small" style="margin-bottom:16px">Start by adding a building, then floors and rooms under it.</div>
+  <div style="font-size:14px;font-weight:600;color:#6C757D;margin-bottom:4px">No locations found</div>
+  <div class="text-muted text-small" style="margin-bottom:16px">Add Building/Block/Level values in <a href="{% url 'catalogue:manage' %}#location-master">Master Data</a>, then create a location here.</div>
   {% if user_is_it_officer %}
-  <a href="{% url 'locations:create' %}" class="btn btn-primary btn-sm">Add First Location</a>
+  <a href="{% url 'locations:create' %}" class="btn btn-primary btn-sm">Add Location</a>
   {% endif %}
 </div>
 
@@ -35,25 +57,29 @@
   <table>
     <thead>
       <tr>
-        <th>Location Name</th>
-        <th style="width:100px">Level</th>
-        <th style="width:90px">Status</th>
+        <th>Name</th>
+        <th style="width:160px">Building</th>
+        <th style="width:130px">Block</th>
+        <th style="width:130px">Level</th>
+        <th style="width:100px">Room</th>
+        <th style="width:70px;text-align:center">Assets</th>
+        <th style="width:80px">Status</th>
         <th style="width:120px">Actions</th>
       </tr>
     </thead>
     <tbody>
-      {% for b in tree %}
-
-      {# ── Building row ── #}
-      <tr style="background:#EBF4FA">
-        <td style="font-weight:700;font-size:13.5px">
-          <svg width="14" height="14" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24" style="margin-right:6px;vertical-align:-2px;flex-shrink:0"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          {{ b.location.name }}
-          {% if b.location.name_bn %}<span class="text-muted" style="font-weight:400;font-size:12px;margin-left:6px">{{ b.location.name_bn }}</span>{% endif %}
+      {% for loc in locations %}
+      <tr style="{% if not loc.is_active %}opacity:.55{% endif %}">
+        <td style="font-weight:600;font-size:13px">
+          <a href="{% url 'locations:detail' loc.pk %}" style="color:#0F3547;text-decoration:none">{{ loc.name }}</a>
         </td>
-        <td><span style="background:#E8F3F8;color:#0076A7;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px">Building</span></td>
+        <td class="text-small">{{ loc.building.name|default:"—" }}</td>
+        <td class="text-small">{{ loc.block.name|default:"—" }}</td>
+        <td class="text-small">{{ loc.level.name|default:"—" }}</td>
+        <td class="text-small">{{ loc.room|default:"—" }}</td>
+        <td style="text-align:center;font-weight:600;color:{% if loc.asset_count %}#0076A7{% else %}#9CA3AF{% endif %}">{{ loc.asset_count }}</td>
         <td>
-          {% if b.location.is_active %}
+          {% if loc.is_active %}
           <span style="background:#ECFDF5;color:#10B981;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px">Active</span>
           {% else %}
           <span style="background:#F3F4F6;color:#9CA3AF;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px">Inactive</span>
@@ -61,109 +87,18 @@
         </td>
         <td>
           <div style="display:flex;gap:4px">
-            <a href="{% url 'locations:history_print' b.location.pk %}" class="btn btn-outline btn-sm" target="_blank" title="View History" style="padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center">
-              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-            </a>
-            {% if user_is_it_officer %}
-            {% if b.location.is_active %}
-            <a href="{% url 'assignments:assign_to_holder' 'location' b.location.pk %}" class="btn btn-primary btn-sm" style="padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center" title="Assign Asset">
+            {% if user_is_it_officer and loc.is_active %}
+            <a href="{% url 'assignments:assign_to_holder' 'location' loc.pk %}" class="btn btn-primary btn-sm" style="padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center" title="Assign Asset">
               <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
             </a>
             {% endif %}
-            <a href="{% url 'locations:edit' b.location.pk %}" class="btn btn-outline btn-sm" style="padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center" title="Edit">
-              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            </a>
-            {% if b.location.is_active %}
-            <button type="button"
-                    hx-get="{% url 'locations:delete' b.location.pk %}"
-                    hx-target="#panel-container"
-                    hx-swap="innerHTML"
-                    class="btn btn-danger-soft btn-sm" style="padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center" title="Deactivate">
-              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-            </button>
-            {% endif %}
-            {% endif %}
-          </div>
-        </td>
-      </tr>
-
-      {# ── Floors under this building ── #}
-      {% for f in b.floors %}
-      <tr>
-        <td style="font-size:13px">
-          <span style="display:inline-block;width:28px;text-align:center;color:#D1D5DB">↳</span>
-          {{ f.location.name }}
-          {% if f.location.name_bn %}<span class="text-muted" style="font-size:12px;margin-left:6px">{{ f.location.name_bn }}</span>{% endif %}
-        </td>
-        <td><span style="background:#F3F4F6;color:#6C757D;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px">Floor</span></td>
-        <td>
-          {% if f.location.is_active %}
-          <span style="background:#ECFDF5;color:#10B981;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px">Active</span>
-          {% else %}
-          <span style="background:#F3F4F6;color:#9CA3AF;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px">Inactive</span>
-          {% endif %}
-        </td>
-        <td>
-          <div style="display:flex;gap:4px">
-            <a href="{% url 'locations:history_print' f.location.pk %}" class="btn btn-outline btn-sm" target="_blank" title="View History" style="padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center">
-              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-            </a>
             {% if user_is_it_officer %}
-            {% if f.location.is_active %}
-            <a href="{% url 'assignments:assign_to_holder' 'location' f.location.pk %}" class="btn btn-primary btn-sm" style="padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center" title="Assign Asset">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-            </a>
-            {% endif %}
-            <a href="{% url 'locations:edit' f.location.pk %}" class="btn btn-outline btn-sm" style="padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center" title="Edit">
+            <a href="{% url 'locations:edit' loc.pk %}" class="btn btn-outline btn-sm" style="padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center" title="Edit">
               <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </a>
-            {% if f.location.is_active %}
+            {% if loc.is_active %}
             <button type="button"
-                    hx-get="{% url 'locations:delete' f.location.pk %}"
-                    hx-target="#panel-container"
-                    hx-swap="innerHTML"
-                    class="btn btn-danger-soft btn-sm" style="padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center" title="Deactivate">
-              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-            </button>
-            {% endif %}
-            {% endif %}
-          </div>
-        </td>
-      </tr>
-
-      {# ── Rooms under this floor ── #}
-      {% for room in f.rooms %}
-      <tr>
-        <td style="font-size:13px">
-          <span style="display:inline-block;width:52px;text-align:right;padding-right:6px;color:#D1D5DB">↳</span>
-          {{ room.name }}
-          {% if room.name_bn %}<span class="text-muted" style="font-size:12px;margin-left:6px">{{ room.name_bn }}</span>{% endif %}
-        </td>
-        <td><span style="background:#F9FAFB;color:#9CA3AF;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px;border:1px solid #E5E7EB">Room</span></td>
-        <td>
-          {% if room.is_active %}
-          <span style="background:#ECFDF5;color:#10B981;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px">Active</span>
-          {% else %}
-          <span style="background:#F3F4F6;color:#9CA3AF;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px">Inactive</span>
-          {% endif %}
-        </td>
-        <td>
-          <div style="display:flex;gap:4px">
-            <a href="{% url 'locations:history_print' room.pk %}" class="btn btn-outline btn-sm" target="_blank" title="View History" style="padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center">
-              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-            </a>
-            {% if user_is_it_officer %}
-            {% if room.is_active %}
-            <a href="{% url 'assignments:assign_to_holder' 'location' room.pk %}" class="btn btn-primary btn-sm" style="padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center" title="Assign Asset">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-            </a>
-            {% endif %}
-            <a href="{% url 'locations:edit' room.pk %}" class="btn btn-outline btn-sm" style="padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center" title="Edit">
-              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            </a>
-            {% if room.is_active %}
-            <button type="button"
-                    hx-get="{% url 'locations:delete' room.pk %}"
+                    hx-get="{% url 'locations:delete' loc.pk %}"
                     hx-target="#panel-container"
                     hx-swap="innerHTML"
                     class="btn btn-danger-soft btn-sm" style="padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center" title="Deactivate">
@@ -175,19 +110,6 @@
         </td>
       </tr>
       {% endfor %}
-      {# ── End rooms ── #}
-
-      {% empty %}
-      <tr>
-        <td colspan="4" style="padding-left:44px;color:#9CA3AF;font-size:12px;font-style:italic;padding-top:8px;padding-bottom:8px">
-          No floors added under this building
-        </td>
-      </tr>
-      {% endfor %}
-      {# ── End floors ── #}
-
-      {% endfor %}
-      {# ── End buildings ── #}
     </tbody>
   </table>
 </div>

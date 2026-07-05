@@ -1,120 +1,98 @@
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
-from .models import Location
+from .models import Block, Building, Level, Location
 
 
-def make_building(name="Parliament Bhaban") -> Location:
-    loc = Location(name=name, level_type=Location.LevelType.BUILDING)
-    loc.full_clean()
-    loc.save()
-    return loc
+def make_dims():
+    return (
+        Building.objects.create(name="Main Building"),
+        Block.objects.create(name="South Block"),
+        Level.objects.create(name="Level-2"),
+    )
 
 
-def make_floor(building: Location, name="3rd Floor") -> Location:
-    loc = Location(name=name, level_type=Location.LevelType.FLOOR, parent=building)
-    loc.full_clean()
-    loc.save()
-    return loc
-
-
-def make_room(floor: Location, name="NOC Room") -> Location:
-    loc = Location(name=name, level_type=Location.LevelType.ROOM, parent=floor)
+def make_location(name="Server Room", **kwargs) -> Location:
+    loc = Location(name=name, **kwargs)
     loc.full_clean()
     loc.save()
     return loc
 
 
 class LocationValidCreationTests(TestCase):
-    def test_building_created_without_parent(self):
-        building = make_building()
-        self.assertEqual(building.level_type, Location.LevelType.BUILDING)
-        self.assertIsNone(building.parent)
+    def setUp(self):
+        self.building, self.block, self.level = make_dims()
 
-    def test_floor_created_under_building(self):
-        building = make_building()
-        floor = make_floor(building)
-        self.assertEqual(floor.parent, building)
+    def test_location_with_building_only(self):
+        loc = make_location(building=self.building)
+        self.assertEqual(loc.building, self.building)
+        self.assertIsNone(loc.block)
+        self.assertIsNone(loc.level)
 
-    def test_room_created_under_floor(self):
-        building = make_building()
-        floor = make_floor(building)
-        room = make_room(floor)
-        self.assertEqual(room.parent, floor)
+    def test_location_with_block_only(self):
+        loc = make_location(block=self.block)
+        self.assertEqual(loc.block, self.block)
 
-    def test_floor_without_room_is_valid(self):
-        """A floor-level location with no children rooms is perfectly valid."""
-        building = make_building()
-        floor = make_floor(building, name="Ground Floor")
-        self.assertIsNotNone(floor.pk)
-        self.assertEqual(floor.parent, building)
+    def test_location_with_level_only(self):
+        loc = make_location(level=self.level)
+        self.assertEqual(loc.level, self.level)
+
+    def test_location_with_all_dimensions_and_room(self):
+        loc = make_location(
+            building=self.building, block=self.block, level=self.level, room="101"
+        )
+        self.assertEqual(loc.room, "101")
 
 
 class LocationValidationErrorTests(TestCase):
-    def test_building_with_parent_is_invalid(self):
-        building = make_building("Main Building")
-        child_building = Location(
-            name="Annex",
-            level_type=Location.LevelType.BUILDING,
-            parent=building,
-        )
-        with self.assertRaises(ValidationError) as ctx:
-            child_building.full_clean()
-        self.assertIn("parent", ctx.exception.message_dict)
-
-    def test_floor_without_parent_is_invalid(self):
-        floor = Location(name="1st Floor", level_type=Location.LevelType.FLOOR)
-        with self.assertRaises(ValidationError) as ctx:
-            floor.full_clean()
-        self.assertIn("parent", ctx.exception.message_dict)
-
-    def test_floor_under_floor_is_invalid(self):
-        building = make_building()
-        floor = make_floor(building)
-        nested = Location(
-            name="Sub-Floor",
-            level_type=Location.LevelType.FLOOR,
-            parent=floor,
-        )
-        with self.assertRaises(ValidationError) as ctx:
-            nested.full_clean()
-        self.assertIn("parent", ctx.exception.message_dict)
-
-    def test_room_without_parent_is_invalid(self):
-        room = Location(name="Server Room", level_type=Location.LevelType.ROOM)
-        with self.assertRaises(ValidationError) as ctx:
-            room.full_clean()
-        self.assertIn("parent", ctx.exception.message_dict)
-
-    def test_room_under_building_is_invalid(self):
-        building = make_building()
-        room = Location(
-            name="Lobby",
-            level_type=Location.LevelType.ROOM,
-            parent=building,
-        )
-        with self.assertRaises(ValidationError) as ctx:
-            room.full_clean()
-        self.assertIn("parent", ctx.exception.message_dict)
-
-
-class LocationFullPathTests(TestCase):
     def setUp(self):
-        self.building = make_building("Parliament Bhaban")
-        self.floor = make_floor(self.building, "3rd Floor")
-        self.room = make_room(self.floor, "NOC Room")
+        self.building, self.block, self.level = make_dims()
 
-    def test_building_full_path(self):
-        self.assertEqual(self.building.full_path, "Parliament Bhaban")
+    def test_no_dimension_is_invalid(self):
+        loc = Location(name="Nowhere")
+        with self.assertRaises(ValidationError):
+            loc.full_clean()
 
-    def test_floor_full_path(self):
-        self.assertEqual(self.floor.full_path, "Parliament Bhaban → 3rd Floor")
+    def test_blank_name_is_invalid(self):
+        loc = Location(name="  ", building=self.building)
+        with self.assertRaises(ValidationError) as ctx:
+            loc.full_clean()
+        self.assertIn("name", ctx.exception.message_dict)
 
-    def test_room_full_path(self):
+
+class LocationLabelTests(TestCase):
+    def setUp(self):
+        self.building = Building.objects.create(name="Main Building")
+        self.block = Block.objects.create(name="South Block")
+        self.level = Level.objects.create(name="Level-2")
+
+    def test_descriptor_orders_building_level_block_room(self):
+        loc = make_location(
+            name="NOC", building=self.building, block=self.block,
+            level=self.level, room="301",
+        )
         self.assertEqual(
-            self.room.full_path, "Parliament Bhaban → 3rd Floor → NOC Room"
+            loc.descriptor, "Main Building · Level-2 · South Block · Room 301"
         )
 
-    def test_floor_only_location_str(self):
-        """__str__ delegates to full_path; floor-only shows two parts."""
-        self.assertEqual(str(self.floor), "Parliament Bhaban → 3rd Floor")
+    def test_full_path_combines_name_and_descriptor(self):
+        loc = make_location(name="NOC", building=self.building)
+        self.assertEqual(loc.full_path, "NOC — Main Building")
+
+    def test_full_path_is_just_name_when_no_descriptor(self):
+        # Note: a location always has ≥1 dimension via clean(), but full_path
+        # must still degrade gracefully.
+        loc = Location(name="Bare")
+        self.assertEqual(loc.full_path, "Bare")
+
+    def test_str_delegates_to_full_path(self):
+        loc = make_location(name="NOC", level=self.level)
+        self.assertEqual(str(loc), "NOC — Level-2")
+
+
+class DimensionUniquenessTests(TestCase):
+    def test_building_name_unique(self):
+        Building.objects.create(name="Main Building")
+        dup = Building(name="Main Building")
+        with self.assertRaises(ValidationError):
+            dup.full_clean()

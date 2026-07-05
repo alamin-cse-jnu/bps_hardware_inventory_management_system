@@ -100,7 +100,7 @@ def _validate_asset_form(data, spec_schema, exclude_pk=None):
 
 
 def _locations_qs():
-    return Location.objects.filter(is_active=True).select_related("parent__parent")
+    return Location.objects.filter(is_active=True).select_related("building", "block", "level")
 
 
 def _types_qs():
@@ -351,8 +351,8 @@ def dashboard(request):
     for t in type_qs:
         cat = t.category
         if cat.pk not in _cat_map:
-            _cat_map[cat.pk] = {"name": cat.name, "types": [], "total": 0}
-        _cat_map[cat.pk]["types"].append({"name": t.name, "count": t.count})
+            _cat_map[cat.pk] = {"pk": cat.pk, "name": cat.name, "types": [], "total": 0}
+        _cat_map[cat.pk]["types"].append({"pk": t.pk, "name": t.name, "count": t.count})
         _cat_map[cat.pk]["total"] += t.count
     category_breakdown = sorted(_cat_map.values(), key=lambda x: -x["total"])
     breakdown_max = category_breakdown[0]["total"] if category_breakdown else 1
@@ -380,18 +380,29 @@ def dashboard(request):
 
 @viewer_required
 def asset_list(request):
+    # SL is a display sequence: newest asset shows the highest number, so the
+    # list is ordered newest-first by creation order (not stored on the model).
     qs = AssetItem.objects.filter(is_deleted=False).select_related(
         "asset_type__category", "storage_location"
-    ).order_by("asset_tag")
+    ).order_by("-created_at", "-id")
 
     status = request.GET.get("status", "").strip()
     type_id = request.GET.get("type", "").strip()
+    category_id = request.GET.get("category", "").strip()
     q = request.GET.get("q", "").strip()
 
-    if status:
-        qs = qs.filter(status=status)
+    # status may be a single value or a comma list (e.g. dashboard "Issues" tile
+    # links to ?status=MAINTENANCE,LOST,DAMAGED). Only known statuses are kept.
+    status_values = [
+        s for s in (v.strip() for v in status.split(","))
+        if s in AssetItem.Status.values
+    ]
+    if status_values:
+        qs = qs.filter(status__in=status_values)
     if type_id:
         qs = qs.filter(asset_type_id=type_id)
+    if category_id:
+        qs = qs.filter(asset_type__category_id=category_id)
     if q:
         qs = qs.filter(
             Q(asset_tag__icontains=q)
@@ -400,23 +411,39 @@ def asset_list(request):
             | Q(serial_number__icontains=q)
         )
 
-    asset_ids = list(qs.values_list("pk", flat=True))
+    assets = list(qs)
     active_map = {
         a.asset_id: a
         for a in Assignment.objects.filter(
-            asset_id__in=asset_ids,
+            asset_id__in=[a.pk for a in assets],
             returned_at__isnull=True,
         ).select_related("assignee__employee", "assignee__mp", "assignee__office", "assignee__location")
     }
 
-    asset_rows = [(asset, active_map.get(asset.pk)) for asset in qs]
+    # SL: highest number on the newest (first) row, counting down.
+    total = len(assets)
+    asset_rows = [
+        (total - i, asset, active_map.get(asset.pk))
+        for i, asset in enumerate(assets)
+    ]
+
+    # The status dropdown only reflects a single-value filter; the multi-value
+    # "Issues" entry-point leaves it on "All Statuses".
+    current_status = status_values[0] if len(status_values) == 1 else ""
+    category = None
+    if category_id:
+        category = AssetCategory.objects.filter(pk=category_id).first()
 
     return render(request, "assets/asset_list.html", {
         "asset_rows": asset_rows,
         "statuses": AssetItem.Status,
         "asset_types": _types_qs(),
-        "current_status": status,
+        "current_status": current_status,
         "current_type": type_id,
+        "current_category": category_id,
+        "current_category_obj": category,
+        "is_issues_filter": len(status_values) > 1,
+        "has_filters": bool(q or status_values or type_id or category_id),
         "q": q,
     })
 
