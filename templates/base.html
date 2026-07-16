@@ -240,6 +240,11 @@
       Assets
     </a>
 
+    <a href="{% url 'assets:batch_list' %}" class="nav-item {% if request.resolver_match.app_name == 'assets' and 'batch' in request.resolver_match.url_name or request.resolver_match.url_name == 'bulk_create' %}active{% endif %}">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="4" rx="1"/><rect x="2" y="10" width="20" height="4" rx="1"/><rect x="2" y="17" width="20" height="4" rx="1"/></svg>
+      Bulk Add History
+    </a>
+
     <div class="nav-label">Holders</div>
 
     <a href="{% url 'assignees:employees' %}" class="nav-item {% if request.resolver_match.namespace == 'assignees' and 'employee' in request.resolver_match.url_name %}active{% endif %}">

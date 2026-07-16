@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Delete {{ batch.reference }}{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:list' %}" style="color:#6C757D">Assets</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+  <a href="{% url 'assets:batch_list' %}" style="color:#6C757D">Bulk Add History</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+  <a href="{% url 'assets:batch_detail' batch.pk %}" style="color:#6C757D">{{ batch.reference }}</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong style="color:#EF4444">Delete</strong>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:560px">
+
+  <div class="callout callout-red" style="margin-bottom:20px">
+    <svg width="18" height="18" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <div>
+      <strong style="font-size:13px">Delete this bulk add batch and its assets?</strong>
+      <p class="text-muted text-small" style="margin-top:4px;line-height:1.5">This soft-deletes the batch along with its <strong>{{ live_count }}</strong> remaining asset{{ live_count|pluralize }}. The records are preserved for audit and history but will no longer appear in active lists. This cannot be undone from the UI.</p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-body">
+      <div class="text-muted text-small" style="margin-bottom:6px">Batch to be deleted</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:#0076A7">{{ batch.reference }}</div>
+      <div style="font-size:13px;font-weight:600;color:#212529;margin-top:4px">{{ batch.asset_type.name }} — {{ batch.brand }} {{ batch.model_name }}</div>
+      <div style="margin-top:8px" class="text-muted text-small">{{ live_count }} asset{{ live_count|pluralize }} will be soft-deleted.</div>
+    </div>
+  </div>
+
+  <form method="post" action="{% url 'assets:batch_delete' batch.pk %}" style="display:flex;gap:12px">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-lg" style="background:#EF4444;color:#fff;border:none">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+      Yes, Delete Batch &amp; {{ live_count }} Asset{{ live_count|pluralize }}
+    </button>
+    <a href="{% url 'assets:batch_detail' batch.pk %}" class="btn btn-outline btn-lg">Cancel</a>
+  </form>
+
+</div>
+{% endblock %}

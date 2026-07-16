@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}Edit {{ batch.reference }}{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:list' %}" style="color:#6C757D">Assets</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+  <a href="{% url 'assets:batch_list' %}" style="color:#6C757D">Bulk Add History</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+  <a href="{% url 'assets:batch_detail' batch.pk %}" style="color:#6C757D">{{ batch.reference }}</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>Edit</strong>
+{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'assets:batch_detail' batch.pk %}" class="btn btn-outline btn-sm">Cancel</a>
+{% endblock %}
+
+{% block content %}
+
+{% if errors %}
+<div class="callout callout-red" style="margin-bottom:20px">
+  <svg width="16" height="16" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  <div>
+    <strong>Please fix the following errors:</strong>
+    <ul style="margin:6px 0 0 16px;padding:0">
+      {% for field, msg in errors.items %}<li>{{ msg }}</li>{% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+
+<div class="callout callout-green" style="margin-bottom:20px">
+  <svg width="16" height="16" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+  <div style="font-size:13px">
+    Saving re-applies these shared details to all <strong>{{ live_count }}</strong> asset{{ live_count|pluralize }} in batch <strong>{{ batch.reference }}</strong> — including any already assigned or transferred. Each asset keeps its own serial number, asset tag, status, and assignment.
+  </div>
+</div>
+
+<form method="post" id="batch-form" style="max-width:960px" enctype="multipart/form-data">
+{% csrf_token %}
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+
+  <!-- Identity Card -->
+  <div class="card">
+    <div style="padding:14px 20px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:8px">
+      <svg width="15" height="15" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+      <h3 style="font-size:13px;font-weight:700;color:#212529;margin:0">Shared Identity</h3>
+    </div>
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">Main Asset <span style="color:#EF4444">*</span></label>
+        <select id="cat-main" class="form-input">
+          <option value="">— Select Main Asset —</option>
+          {% for c in categories %}
+          <option value="{{ c.pk }}" {% if sel_category_id == c.pk %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Sub Asset <span style="color:#EF4444">*</span></label>
+        <select name="asset_type" id="cat-sub" class="form-input"
+                hx-get="{% url 'assets:spec_fields' %}"
+                hx-trigger="change"
+                hx-target="#spec-fields-section"
+                hx-include="this">
+          <option value="">— Select Sub Asset —</option>
+        </select>
+        {% if errors.asset_type %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.asset_type }}</div>{% endif %}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Brand <span style="color:#EF4444">*</span></label>
+        <select name="brand" id="cat-brand" class="form-input">
+          <option value="">— Select Brand —</option>
+        </select>
+        {% if errors.brand %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.brand }}</div>{% endif %}
+      </div>
+
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Model <span style="color:#EF4444">*</span></label>
+        <select name="model_name" id="cat-model" class="form-input">
+          <option value="">— Select Model —</option>
+        </select>
+        {% if errors.model_name %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.model_name }}</div>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Location & Notes Card -->
+  <div class="card">
+    <div style="padding:14px 20px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:8px">
+      <svg width="15" height="15" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      <h3 style="font-size:13px;font-weight:700;color:#212529;margin:0">Location &amp; Notes</h3>
+    </div>
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">Storage Location</label>
+        <select name="storage_location" class="form-input">
+          <option value="">— None —</option>
+          {% for loc in locations %}
+            <option value="{{ loc.pk }}" {% if form_data.storage_location == loc.pk|stringformat:"s" %}selected{% endif %}>{{ loc.full_path }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Notes</label>
+        <textarea name="notes" rows="5" class="form-input" placeholder="Any additional notes shared by all assets…">{{ form_data.notes|default:'' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Spec fields: HTMX-swappable section -->
+<div id="spec-fields-section" style="margin-bottom:0">
+  {% include "assets/partials/spec_fields.html" %}
+</div>
+
+<!-- Procurement Card -->
+<div class="card" style="margin-bottom:20px;margin-top:20px">
+  <div style="padding:14px 20px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:8px">
+    <svg width="15" height="15" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+    <h3 style="font-size:13px;font-weight:700;color:#212529;margin:0">Procurement (shared by all)</h3>
+  </div>
+  <div class="card-body">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+      <div class="form-group">
+        <label class="form-label">Purchase Date</label>
+        <input type="date" name="purchase_date" value="{{ form_data.purchase_date|default:'' }}" class="form-input">
+        {% if errors.purchase_date %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.purchase_date }}</div>{% endif %}
+      </div>
+      <div class="form-group">
+        <label class="form-label">Purchase Order No.</label>
+        <input type="text" name="purchase_order" value="{{ form_data.purchase_order|default:'' }}" class="form-input" placeholder="PO/2024/001">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Supplier / Vendor</label>
+        <select name="supplier" class="form-input">
+          <option value="">— Select Vendor —</option>
+          {% for v in vendors %}
+          <option value="{{ v.name }}" {% if form_data.supplier == v.name %}selected{% endif %}>{{ v.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Purchase Cost (BDT)</label>
+        <input type="text" name="purchase_cost" value="{{ form_data.purchase_cost|default:'' }}" class="form-input" placeholder="45000.00">
+        {% if errors.purchase_cost %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.purchase_cost }}</div>{% endif %}
+      </div>
+      <div class="form-group">
+        <label class="form-label">Warranty Expiry</label>
+        <input type="date" name="warranty_expiry" value="{{ form_data.warranty_expiry|default:'' }}" class="form-input">
+        {% if errors.warranty_expiry %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.warranty_expiry }}</div>{% endif %}
+      </div>
+      <div class="form-group">
+        <label class="form-label">AMC Expiry</label>
+        <input type="date" name="amc_expiry" value="{{ form_data.amc_expiry|default:'' }}" class="form-input">
+        {% if errors.amc_expiry %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.amc_expiry }}</div>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Work Order Upload Card -->
+<div class="card" style="margin-bottom:20px">
+  <div style="padding:14px 20px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:8px">
+    <svg width="15" height="15" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    <h3 style="font-size:13px;font-weight:700;color:#212529;margin:0">Work Order Document</h3>
+    <span style="font-size:11px;color:#9CA3AF;margin-left:4px">optional — shared by all assets in this batch</span>
+  </div>
+  <div class="card-body">
+    {% if batch.work_order %}
+    <div style="margin-bottom:12px;padding:8px 12px;background:#F8F9FA;border:1px solid #E5E7EB;border-radius:4px;font-size:12px;display:flex;align-items:center;gap:10px">
+      <span class="text-muted">Current:</span>
+      <a href="{% url 'assets:work_order_serve' batch.work_order.pk %}" target="_blank">{{ batch.work_order.reference|default:batch.work_order.filename }}</a>
+      <label style="margin-left:auto;display:flex;align-items:center;gap:5px;color:#B91C1C;cursor:pointer">
+        <input type="checkbox" name="clear_work_order" value="1"> Remove
+      </label>
+    </div>
+    {% endif %}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Replace File <span style="color:#9CA3AF;font-weight:400">(PDF or JPG/PNG)</span></label>
+        <input type="file" name="work_order_file" accept=".pdf,.jpg,.jpeg,.png" class="form-input" style="padding:6px 12px;height:auto">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Work Order / Reference No.</label>
+        <input type="text" name="work_order_reference" value="{{ form_data.work_order_reference|default:'' }}" class="form-input" placeholder="e.g. WO/2026/001">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Submit row -->
+<div style="display:flex;align-items:center;gap:12px;padding-bottom:32px">
+  <button type="submit" class="btn btn-primary btn-lg">
+    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+    Save &amp; Re-apply to {{ live_count }} Asset{{ live_count|pluralize }}
+  </button>
+  <a href="{% url 'assets:batch_detail' batch.pk %}" class="btn btn-outline btn-lg">Cancel</a>
+</div>
+
+</form>
+
+{% include "catalogue/partials/cascade_script.html" %}
+{% endblock %}
