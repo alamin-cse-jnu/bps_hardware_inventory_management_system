@@ -511,6 +511,7 @@ def asset_detail(request, pk):
         # Master-data-driven spec rows; empty for legacy assets (template falls back).
         "spec_rows": catalogue_specs.display_rows(asset.asset_type, asset.specifications),
         "components": asset.components.filter(is_active=True),
+        "removed_components": asset.components.filter(is_active=False).order_by("-removed_at"),
         "lifecycle_events": lifecycle_events,
         "warranty_info": warranty_info,
         "amc_info": amc_info,

@@ -414,6 +414,10 @@ class AssetComponent(models.Model):
         CPU_UNIT = "CPU_UNIT", "CPU Unit"
         RAM = "RAM", "RAM"
         STORAGE_DRIVE = "STORAGE_DRIVE", "Storage Drive"
+        SFP = "SFP", "SFP Module"
+        NIC = "NIC", "Network Card"
+        PSU = "PSU", "Power Supply"
+        BATTERY = "BATTERY", "Battery"
         UPS = "UPS", "UPS"
         OTHER = "OTHER", "Other"
 

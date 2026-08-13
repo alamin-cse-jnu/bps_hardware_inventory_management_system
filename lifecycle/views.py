@@ -2,11 +2,14 @@ from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_http_methods
 
-from assets.models import AssetItem
+from assets.models import AssetComponent, AssetItem
 from config.permissions import it_officer_required
 
 from .models import EventType
-from .services import APPLICABLE_EVENTS, EVENT_HANDLERS
+from .services import (
+    APPLICABLE_EVENTS, EVENT_HANDLERS,
+    add_component, remove_component, swap_component,
+)
 
 _EVENT_LABELS = {
     EventType.MAINTENANCE_SENT:   "Send to Maintenance",
@@ -93,4 +96,65 @@ def event_panel(request, asset_pk):
         "event_descriptions": _EVENT_DESCRIPTIONS,
         "event_danger": _EVENT_DANGER,
         "selected_type": selected_type,
+    })
+
+
+@it_officer_required
+@require_http_methods(["GET", "POST"])
+def component_panel(request, asset_pk):
+    """
+    Manage the swappable parts of a has_components asset: add, replace, or
+    remove components. Each action logs a lifecycle event and leaves the host's
+    status and assignment untouched. Re-renders the panel after each action so
+    several parts can be handled in one session.
+    """
+    asset = get_object_or_404(AssetItem, pk=asset_pk, is_deleted=False)
+    if not asset.asset_type.has_components:
+        return render(request, "lifecycle/component_panel.html", {
+            "asset": asset,
+            "unsupported": True,
+        })
+
+    error = success = None
+
+    if request.method == "POST":
+        action = request.POST.get("action", "").strip()
+        note = request.POST.get("note", "").strip()
+        ctype = request.POST.get("component_type", "").strip()
+        brand = request.POST.get("brand", "").strip()
+        model = request.POST.get("model_name", "").strip()
+        serial = request.POST.get("serial_number", "").strip()
+        try:
+            if action == "add":
+                if not ctype:
+                    raise ValidationError("Choose a part type.")
+                add_component(asset, ctype, brand, model, serial, request.user, note=note)
+                success = f"Added {AssetComponent.ComponentType(ctype).label}."
+            elif action == "replace":
+                old = get_object_or_404(
+                    AssetComponent, pk=request.POST.get("old_component_id"),
+                    parent_asset=asset, is_active=True,
+                )
+                if not ctype:
+                    raise ValidationError("Choose a part type for the replacement.")
+                swap_component(asset, old, ctype, brand, model, serial, request.user, note=note)
+                success = f"Replaced {AssetComponent.ComponentType(old.component_type).label}."
+            elif action == "remove":
+                comp = get_object_or_404(
+                    AssetComponent, pk=request.POST.get("component_id"),
+                    parent_asset=asset, is_active=True,
+                )
+                remove_component(asset, comp, request.user, note=note)
+                success = f"Removed {AssetComponent.ComponentType(comp.component_type).label}."
+            else:
+                error = "Unknown action."
+        except ValidationError as exc:
+            error = " ".join(exc.messages)
+
+    return render(request, "lifecycle/component_panel.html", {
+        "asset": asset,
+        "active_components": asset.components.filter(is_active=True).order_by("component_type"),
+        "component_types": AssetComponent.ComponentType.choices,
+        "error": error,
+        "success": success,
     })
