@@ -35,6 +35,9 @@
 <form method="get" class="filter-bar">
   {# Preserve the category entry-point (from dashboard) across manual searches. #}
   {% if current_category %}<input type="hidden" name="category" value="{{ current_category }}">{% endif %}
+  {# Keep the chosen page size; omitting `page` deliberately resets to page 1. #}
+  <input type="hidden" name="per_page" value="{{ per_page }}">
+
   <div class="filter-group" style="flex:1;min-width:200px">
     <label class="filter-label">Search</label>
     <input name="q" value="{{ q }}" class="filter-input" placeholder="Tag, brand, model, serial…" autocomplete="off">
@@ -82,7 +85,12 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Assets</h1>
-    <p class="text-muted text-small" style="margin-top:4px">{{ asset_rows|length }} asset{{ asset_rows|length|pluralize }}</p>
+    <p class="text-muted text-small" style="margin-top:4px">
+      {{ total_count }} asset{{ total_count|pluralize }}
+      {% if page_obj.paginator.num_pages > 1 %}
+        · showing {{ page_obj.start_index }}–{{ page_obj.end_index }}
+      {% endif %}
+    </p>
   </div>
 </div>
 
@@ -188,4 +196,6 @@
   </div>
   {% endif %}
 </div>
+
+{% if asset_rows %}{% include "partials/pagination.html" %}{% endif %}
 {% endblock %}

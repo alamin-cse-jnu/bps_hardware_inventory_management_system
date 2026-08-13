@@ -22,16 +22,33 @@ GROUP_VIEWER = "Viewer"
 
 # ── Predicate helpers ─────────────────────────────────────────────────────────
 
+def _group_names(user) -> set[str]:
+    """
+    The user's group names, fetched once per user instance.
+
+    A single request hits these predicates repeatedly — the access decorator,
+    then `role_context` for the template flags — and each `.filter().exists()`
+    was its own round trip to Postgres. `request.user` is one object for the
+    life of the request, so memoising on it collapses all of them into one
+    query.
+    """
+    names = getattr(user, "_cached_group_names", None)
+    if names is None:
+        names = set(user.groups.values_list("name", flat=True))
+        user._cached_group_names = names
+    return names
+
+
 def is_admin(user) -> bool:
-    return user.is_superuser or user.groups.filter(name=GROUP_ADMIN).exists()
+    return user.is_superuser or GROUP_ADMIN in _group_names(user)
 
 
 def is_it_officer_or_above(user) -> bool:
-    return is_admin(user) or user.groups.filter(name=GROUP_IT_OFFICER).exists()
+    return is_admin(user) or GROUP_IT_OFFICER in _group_names(user)
 
 
 def is_viewer_or_above(user) -> bool:
-    return is_it_officer_or_above(user) or user.groups.filter(name=GROUP_VIEWER).exists()
+    return is_it_officer_or_above(user) or GROUP_VIEWER in _group_names(user)
 
 
 # ── Decorators ────────────────────────────────────────────────────────────────

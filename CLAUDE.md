@@ -96,6 +96,15 @@ Template flags: `user_is_admin` / `user_is_it_officer` / `user_is_viewer` from `
 
 ---
 
+## Performance
+
+**Full reference:** `docs/performance.md`
+- **Never reference a CDN from a template** — the intranet has no route out, so an external `<link>`/`<script>` hangs the page until it times out. Vendor into `static/vendor/`, reference with `{% static %}`.
+- Paginate every list view — `config/pagination.py` + `{% include "partials/pagination.html" %}`
+- Role checks go through `config.permissions._group_names` (memoised); aggregate counts, don't loop them
+
+---
+
 ## Assignee Layer — Important Notes
 
 `Assignee` is a unified wrapper over `CachedEmployee`, `CachedMP`, `CachedOffice`, `Location`. Must be kept in sync:
@@ -132,7 +141,7 @@ Centrally-managed catalogue replacing the old 3 admin pages (Asset Catalog / Dro
 
 ## Current State
 
-**Phases 1–8: ✅ All complete · 247 tests passing · Phase 9 (catalogue): +15 tests**
+**Phases 1–10: ✅ All complete · 311 tests**
 
 | Phase | Scope | Status |
 |-------|-------|--------|
@@ -140,5 +149,14 @@ Centrally-managed catalogue replacing the old 3 admin pages (Asset Catalog / Dro
 | 6 | Main UI — Asset CRUD, Location, Employee/MP/Office, Sync, Assign, Reports | ✅ Complete |
 | 7 | Employee/MP/Office UI overhaul — class tabs, photos, hierarchy browser | ✅ Complete |
 | 8 | Report tabular views — column picker, pagination, Excel + PDF download | ✅ Complete |
+| 9 | Catalogue — cascading Master Data page, spec schema, seed command | ✅ Complete |
+| 10 | Performance — vendored assets, pagination, caching, nginx gzip | ✅ Complete |
+
+**Known failing tests (pre-existing, unrelated to Phase 10):**
+`audit.tests.test_assignment_logs_assign` creates an `Assignment` without
+`holder_snapshot`, which is `NOT NULL` with no default — it cannot pass as
+written. `assets.tests.test_invalid_date_format_fails` and
+`test_template_fixed_columns_in_data_entry` expect Excel headers without the
+`(YYYY-MM-DD)` suffix the generator now emits.
 
 **Dev fixtures:** 5 categories · 12 asset types · 15 locations · RBAC groups

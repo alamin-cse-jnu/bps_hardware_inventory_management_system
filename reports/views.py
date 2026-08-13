@@ -5,7 +5,6 @@ Viewers and above can download all reports. PDF downloads also require
 viewer_required since they contain sensitive asset/holder data.
 """
 
-import urllib.parse
 from datetime import date, datetime, timedelta
 
 from django.core.paginator import Paginator
@@ -13,6 +12,8 @@ from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.utils import timezone
 
+from config.pagination import parse_per_page as _parse_per_page
+from config.pagination import strip_params as _strip_params
 from config.permissions import viewer_required
 from reports.columns import (
     ASSET_HISTORY_COLS,
@@ -73,20 +74,6 @@ def _pdf_response(data: bytes, filename: str) -> HttpResponse:
     resp = HttpResponse(data, content_type="application/pdf")
     resp["Content-Disposition"] = f'attachment; filename="{filename}"'
     return resp
-
-
-def _strip_params(request, *exclude_keys: str) -> str:
-    """Build a URL query string from current GET params, excluding given keys."""
-    params = [(k, v) for k, v in request.GET.items() if k not in exclude_keys]
-    return urllib.parse.urlencode(params)
-
-
-def _parse_per_page(request, default: int = 50) -> int:
-    try:
-        per_page = int(request.GET.get("per_page", default))
-        return per_page if per_page in (25, 50, 100) else default
-    except (ValueError, TypeError):
-        return default
 
 
 # ── Report index ───────────────────────────────────────────────────────────────

@@ -80,12 +80,25 @@ ROOT_URLCONF = "config.urls"
 # ---------------------------------------------------------------------------
 # Templates
 # ---------------------------------------------------------------------------
+_TEMPLATE_LOADERS = [
+    "django.template.loaders.filesystem.Loader",
+    "django.template.loaders.app_directories.Loader",
+]
+
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [BASE_DIR / "templates"],
-        "APP_DIRS": True,
+        # APP_DIRS and OPTIONS["loaders"] are mutually exclusive, so the app
+        # directories loader is listed explicitly above instead.
+        "APP_DIRS": False,
         "OPTIONS": {
+            # In production, parse each template once per worker and keep the
+            # compiled form in memory. Left uncached under DEBUG so template
+            # edits show up without a restart.
+            "loaders": _TEMPLATE_LOADERS if DEBUG else [
+                ("django.template.loaders.cached.Loader", _TEMPLATE_LOADERS),
+            ],
             "context_processors": [
                 "django.template.context_processors.debug",
                 "django.template.context_processors.request",
@@ -110,6 +123,12 @@ DATABASES = {
         "PASSWORD": env("POSTGRES_PASSWORD"),
         "HOST": env("POSTGRES_HOST", default="localhost"),
         "PORT": env("POSTGRES_PORT", default="5432"),
+        # Without this every request pays a fresh TCP connect + auth handshake
+        # to Postgres before it can run a single query. Persist the connection
+        # for the life of the worker instead; CONN_HEALTH_CHECKS makes Django
+        # discard a connection the DB has closed underneath us.
+        "CONN_MAX_AGE": env.int("DB_CONN_MAX_AGE", default=600),
+        "CONN_HEALTH_CHECKS": True,
         "OPTIONS": {
             "connect_timeout": 10,
         },
@@ -156,10 +175,41 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# nginx serves /static/ with "expires 30d, immutable", so filenames must change
+# when contents do — otherwise a deploy leaves browsers on month-old assets.
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage" if DEBUG
+        else "config.storage.ForgivingManifestStaticFilesStorage",
+    },
+}
+
+# ---------------------------------------------------------------------------
+# Cache & sessions
+# ---------------------------------------------------------------------------
+REDIS_URL = env("REDIS_URL", default="redis://redis:6379/0")
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        # DB 0 is the Celery broker; cache entries live in DB 1 so a broker
+        # purge never wipes sessions.
+        "LOCATION": env("CACHE_URL", default="redis://redis:6379/1"),
+        "KEY_PREFIX": "hdm",
+        "TIMEOUT": 300,
+    }
+}
+
+# Session reads happen on every authenticated request. cached_db answers them
+# from Redis while still persisting to Postgres, so a Redis restart does not
+# sign everybody out.
+SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
+
 # ---------------------------------------------------------------------------
 # Celery
 # ---------------------------------------------------------------------------
-CELERY_BROKER_URL = env("REDIS_URL", default="redis://redis:6379/0")
+CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = "django-db"
 CELERY_CACHE_BACKEND = "default"
 CELERY_ACCEPT_CONTENT = ["json"]

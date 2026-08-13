@@ -6,6 +6,7 @@ from decimal import Decimal, InvalidOperation
 from django.contrib import messages
 import json
 
+from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -13,6 +14,8 @@ from django.utils import timezone
 
 from assignments.models import Assignment, AlertStatus, InactiveHolderAlert
 from catalogue import specs as catalogue_specs
+from config.pagination import parse_per_page as _parse_per_page
+from config.pagination import strip_params as _strip_params
 from config.permissions import it_officer_required, viewer_required
 from locations.models import Location
 
@@ -299,13 +302,18 @@ def dashboard(request):
     from sync_prp.models import SyncLog
 
     qs = AssetItem.objects.filter(is_deleted=False)
-    total = qs.count()
-    assigned_count = qs.filter(status=AssetItem.Status.ASSIGNED).count()
-    in_stock_count = qs.filter(status=AssetItem.Status.IN_STOCK).count()
-    maintenance_count = qs.filter(status=AssetItem.Status.MAINTENANCE).count()
-    lost_count = qs.filter(status=AssetItem.Status.LOST).count()
-    damaged_count = qs.filter(status=AssetItem.Status.DAMAGED).count()
-    disposed_count = qs.filter(status=AssetItem.Status.DISPOSED).count()
+
+    # One GROUP BY instead of seven separate COUNT round trips.
+    by_status = dict(
+        qs.values_list("status").annotate(n=Count("pk")).values_list("status", "n")
+    )
+    total = sum(by_status.values())
+    assigned_count = by_status.get(AssetItem.Status.ASSIGNED, 0)
+    in_stock_count = by_status.get(AssetItem.Status.IN_STOCK, 0)
+    maintenance_count = by_status.get(AssetItem.Status.MAINTENANCE, 0)
+    lost_count = by_status.get(AssetItem.Status.LOST, 0)
+    damaged_count = by_status.get(AssetItem.Status.DAMAGED, 0)
+    disposed_count = by_status.get(AssetItem.Status.DISPOSED, 0)
     issues_count = maintenance_count + lost_count + damaged_count
 
     horizon = timezone.now().date() + timedelta(days=30)
@@ -411,7 +419,10 @@ def asset_list(request):
             | Q(serial_number__icontains=q)
         )
 
-    assets = list(qs)
+    paginator = Paginator(qs, _parse_per_page(request))
+    page_obj = paginator.get_page(request.GET.get("page", 1))
+    assets = list(page_obj)
+
     active_map = {
         a.asset_id: a
         for a in Assignment.objects.filter(
@@ -420,10 +431,12 @@ def asset_list(request):
         ).select_related("assignee__employee", "assignee__mp", "assignee__office", "assignee__location")
     }
 
-    # SL: highest number on the newest (first) row, counting down.
-    total = len(assets)
+    # SL: highest number on the newest (first) row, counting down. The sequence
+    # spans the whole result set, so page 2 continues where page 1 left off.
+    total = paginator.count
+    first_sl = total - page_obj.start_index() + 1
     asset_rows = [
-        (total - i, asset, active_map.get(asset.pk))
+        (first_sl - i, asset, active_map.get(asset.pk))
         for i, asset in enumerate(assets)
     ]
 
@@ -436,6 +449,11 @@ def asset_list(request):
 
     return render(request, "assets/asset_list.html", {
         "asset_rows": asset_rows,
+        "page_obj": page_obj,
+        "total_count": total,
+        "per_page": paginator.per_page,
+        "base_qs": _strip_params(request, "page"),
+        "base_qs_nopag": _strip_params(request, "page", "per_page"),
         "statuses": AssetItem.Status,
         "asset_types": _types_qs(),
         "current_status": current_status,

@@ -1,0 +1,48 @@
+{% comment %}
+Shared pager. Expects in context:
+  page_obj       — Django Page
+  per_page       — active page size (25 / 50 / 100)
+  base_qs        — current query string minus `page`
+  base_qs_nopag  — current query string minus `page` and `per_page`
+{% endcomment %}
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-top:16px">
+
+  <div style="display:flex;align-items:center;gap:6px">
+    {% if page_obj.has_previous %}
+    <a href="?{{ base_qs }}&page={{ page_obj.previous_page_number }}" class="btn btn-outline btn-sm">← Prev</a>
+    {% else %}
+    <span class="btn btn-outline btn-sm" style="opacity:.4;cursor:default">← Prev</span>
+    {% endif %}
+
+    <span style="font-size:13px;color:#495057;padding:0 8px">
+      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    </span>
+
+    {% if page_obj.has_next %}
+    <a href="?{{ base_qs }}&page={{ page_obj.next_page_number }}" class="btn btn-outline btn-sm">Next →</a>
+    {% else %}
+    <span class="btn btn-outline btn-sm" style="opacity:.4;cursor:default">Next →</span>
+    {% endif %}
+  </div>
+
+  <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#6C757D">
+    <span>Show:</span>
+    {% if per_page == 25 %}
+    <span style="background:#0076A7;color:#fff;padding:3px 10px;border-radius:4px;font-weight:600;font-size:12px">25</span>
+    {% else %}
+    <a href="?{{ base_qs_nopag }}&per_page=25" style="padding:3px 10px;border:1px solid #E5E7EB;border-radius:4px;color:#495057;text-decoration:none;font-size:12px">25</a>
+    {% endif %}
+    {% if per_page == 50 %}
+    <span style="background:#0076A7;color:#fff;padding:3px 10px;border-radius:4px;font-weight:600;font-size:12px">50</span>
+    {% else %}
+    <a href="?{{ base_qs_nopag }}&per_page=50" style="padding:3px 10px;border:1px solid #E5E7EB;border-radius:4px;color:#495057;text-decoration:none;font-size:12px">50</a>
+    {% endif %}
+    {% if per_page == 100 %}
+    <span style="background:#0076A7;color:#fff;padding:3px 10px;border-radius:4px;font-weight:600;font-size:12px">100</span>
+    {% else %}
+    <a href="?{{ base_qs_nopag }}&per_page=100" style="padding:3px 10px;border:1px solid #E5E7EB;border-radius:4px;color:#495057;text-decoration:none;font-size:12px">100</a>
+    {% endif %}
+    <span style="color:#9CA3AF">per page</span>
+  </div>
+
+</div>

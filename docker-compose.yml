@@ -58,7 +58,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: celery -A config worker -l info
+    # Prefork defaults to one child process per CPU core — 20 idle Django
+    # processes (~1 GB) on a 20-core box, to run two scheduled tasks a day.
+    command: celery -A config worker -l info --concurrency=2
 
   celery-beat:
     build: .

@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>{{ asset.asset_tag }} — Parliament IT</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
-  <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+  <link href="{% static 'vendor/fonts.css' %}" rel="stylesheet">
+  <script src="{% static 'vendor/htmx-2.0.4.min.js' %}" defer></script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Inter',sans-serif;font-size:14px;color:#212529;background:#F8F9FA;min-height:100vh}

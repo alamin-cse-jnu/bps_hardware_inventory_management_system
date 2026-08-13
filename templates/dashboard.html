@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Dashboard{% endblock %}
 
 {% block breadcrumb %}<strong>Dashboard</strong>{% endblock %}
@@ -6,7 +7,7 @@
 {% block topbar_actions %}{% endblock %}
 
 {% block extra_head %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{% static 'vendor/chart-4.4.0.umd.min.js' %}" defer></script>
 <style>
   /* ── KPI cards ── */
   .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
@@ -533,7 +534,8 @@
 })();
 
 // ── Status donut chart ─────────────────────────────────────────────────────
-(function() {
+// chart.js is deferred, so it is only defined once parsing finishes.
+document.addEventListener('DOMContentLoaded', function() {
   const d = {{ status_chart|safe }};
   const nonZero = d.data.some(v => v > 0);
   new Chart(document.getElementById('statusChart'), {
@@ -563,7 +565,7 @@
       }
     }
   });
-})();
+});
 
 
 </script>

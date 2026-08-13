@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Master Data{% endblock %}
 
 {% block breadcrumb %}
@@ -437,7 +438,8 @@
   {% endif %}
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+{# Loaded synchronously: the IIFE below reads window.Sortable immediately. #}
+<script src="{% static 'vendor/sortable-1.15.6.min.js' %}"></script>
 <script>
 (function () {
   // ── CSRF helper ────────────────────────────────────────────────────────────
