@@ -79,7 +79,7 @@ def main():
     for src_dir in ("templates", "static", "config"):
         run(ssh, f"docker cp {REMOTE_DIR}/{src_dir} {CONTAINER}:/app/{src_dir}")
     # Copy all app directories (Python files)
-    for app in ("assets", "assignees", "assignments", "lifecycle",
+    for app in ("assets", "assignees", "assignments", "catalogue", "lifecycle",
                 "locations", "qrcodes", "sync_prp", "reports"):
         run(ssh, f"docker cp {REMOTE_DIR}/{app} {CONTAINER}:/app/{app}")
     # Restart gunicorn to reload Python modules and clear template cache
