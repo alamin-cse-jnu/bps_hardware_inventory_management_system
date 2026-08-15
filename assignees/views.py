@@ -2,7 +2,7 @@ import json
 
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Case, Count, F, IntegerField, Q, Value, When
+from django.db.models import Case, Count, F, IntegerField, Max, Q, Value, When
 from django.db.models.functions import Cast
 from django.shortcuts import get_object_or_404, redirect, render
 
@@ -56,7 +56,10 @@ def search(request):
                 | Q(mp__constituency__icontains=q)
                 | Q(office__name_en__icontains=q)
                 | Q(location__name__icontains=q)
-                | Q(location__parent__name__icontains=q)
+                | Q(location__room__icontains=q)
+                | Q(location__building__name__icontains=q)
+                | Q(location__block__name__icontains=q)
+                | Q(location__level__name__icontains=q)
             )
             # Exact / prefix PRP-ID matches bubble to the top
             rank = Case(
@@ -77,7 +80,8 @@ def search(request):
             )
 
         qs = qs.select_related(
-            "employee", "mp", "office", "location__parent__parent"
+            "employee", "mp", "office",
+            "location__building", "location__block", "location__level",
         )[:25]
         results = list(qs)
 
@@ -799,32 +803,37 @@ def active_holders(request):
 
     active_filter = Q(assignments__returned_at__isnull=True, assignments__asset__is_deleted=False)
 
+    # SL is a display sequence: the holder with the most recent active assignment
+    # shows the highest number (ordered newest-first). Not stored on the model.
     base = (
         Assignee.objects
         .filter(active_filter)
-        .annotate(asset_count=Count("assignments", filter=active_filter))
+        .annotate(
+            asset_count=Count("assignments", filter=active_filter),
+            last_assigned=Max("assignments__assigned_at", filter=active_filter),
+        )
         .distinct()
     )
 
     employees = (
         base.filter(assignee_type=AssigneeType.EMPLOYEE)
         .select_related("employee")
-        .order_by("employee__name_en")
+        .order_by("-last_assigned", "employee__name_en")
     )
     mps = (
         base.filter(assignee_type=AssigneeType.MP)
         .select_related("mp")
-        .order_by("mp__name_en")
+        .order_by("-last_assigned", "mp__name_en")
     )
     offices = (
         base.filter(assignee_type=AssigneeType.OFFICE)
         .select_related("office")
-        .order_by("office__name_en")
+        .order_by("-last_assigned", "office__name_en")
     )
     locations = (
         base.filter(assignee_type=AssigneeType.LOCATION)
         .select_related("location")
-        .order_by("location__name")
+        .order_by("-last_assigned", "location__name")
     )
 
     counts = {
@@ -834,15 +843,18 @@ def active_holders(request):
         "locations": locations.count(),
     }
 
-    tab_qs = {
+    # Materialise the selected tab and attach SL (highest number = newest, first row).
+    holder_list = list({
         "employees": employees,
         "mps": mps,
         "offices": offices,
         "locations": locations,
-    }
+    }[tab])
+    total = len(holder_list)
+    holders = [(total - i, h) for i, h in enumerate(holder_list)]
 
     return render(request, "assignees/active_holders.html", {
         "tab": tab,
-        "holders": tab_qs[tab],
+        "holders": holders,
         "counts": counts,
     })

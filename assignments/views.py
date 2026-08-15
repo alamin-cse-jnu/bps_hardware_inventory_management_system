@@ -24,7 +24,8 @@ _BULK_ASSET = _BulkAsset()
 def _get_assignee_with_related(pk):
     try:
         return Assignee.objects.select_related(
-            "employee", "mp", "office", "location__parent__parent"
+            "employee", "mp", "office",
+        "location__building", "location__block", "location__level",
         ).get(pk=pk, is_active=True)
     except Assignee.DoesNotExist:
         return None
@@ -339,7 +340,8 @@ def assign_to_holder(request, holder_type, holder_pk):
         raise Http404
 
     assignee = Assignee.objects.select_related(
-        "employee", "mp", "office", "location__parent__parent"
+        "employee", "mp", "office",
+        "location__building", "location__block", "location__level",
     ).get(pk=assignee.pk)
 
     qs = (

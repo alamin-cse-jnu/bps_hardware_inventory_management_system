@@ -11,6 +11,10 @@ for display. The storage convention is:
 
 import re
 
+# Widgets that store a {"qty": ..., "unit": ...} pair: a number plus a chip
+# selection (unit chips, or toggle/segmented chips).
+_NUMBER_CHIP_WIDGETS = ("units", "number_toggle")
+
 
 def slugify_key(label: str) -> str:
     """Turn a human label into a safe storage key, e.g. 'RAM Type' -> 'ram_type'."""
@@ -34,7 +38,7 @@ def collect_values(asset_type, post_data) -> dict:
     specs: dict = {}
     for field in active_fields(asset_type):
         name = f"spec_{field.key}"
-        if field.widget == "units":
+        if field.widget in _NUMBER_CHIP_WIDGETS:
             qty = post_data.get(name, "").strip()
             unit = post_data.get(f"{name}_unit", "").strip()
             if qty or unit:
@@ -56,7 +60,7 @@ def form_values(asset_type, specifications) -> list[dict]:
     for field in active_fields(asset_type):
         d = field.as_dict()
         raw = specifications.get(field.key)
-        if field.widget == "units":
+        if field.widget in _NUMBER_CHIP_WIDGETS:
             raw = raw if isinstance(raw, dict) else {}
             # Chips come from options; fall back to the unit value as a single chip.
             d["options"] = d["options"] or ([field.unit] if field.unit else [])
@@ -79,7 +83,7 @@ def display_rows(asset_type, specifications) -> list[tuple[str, str]]:
         raw = specifications.get(field.key)
         if raw in (None, "", {}):
             continue
-        if field.widget == "units" and isinstance(raw, dict):
+        if field.widget in _NUMBER_CHIP_WIDGETS and isinstance(raw, dict):
             text = f"{raw.get('qty', '')} {raw.get('unit', '')}".strip()
         elif field.widget == "number" and field.unit:
             text = f"{raw} {field.unit}".strip()

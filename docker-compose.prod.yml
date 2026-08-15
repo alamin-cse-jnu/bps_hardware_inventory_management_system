@@ -13,11 +13,19 @@ services:
     volumes:
       - media_data:/app/media
       - static_data:/app/staticfiles
+    # gthread instead of the default sync worker: 3 sync workers meant only 3
+    # requests could ever be in flight, so one slow PDF/Excel export blocked a
+    # third of the site. 3 x 4 = 12 concurrent slots, and each thread keeps its
+    # own persistent Postgres connection (see CONN_MAX_AGE).
+    # NOTE: keep the gunicorn invocation on one line. This is a YAML folded
+    # scalar, and lines indented deeper than the first keep their newline —
+    # harmless after a trailing `&&`, but a line break mid-command would cut
+    # the argument list off silently.
     command: >
       sh -c "python manage.py migrate --noinput &&
              python manage.py collectstatic --noinput &&
              python manage.py create_groups &&
-             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120"
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --worker-class gthread --workers 3 --threads 4 --timeout 120 --max-requests 1000 --max-requests-jitter 100"
 
   celery:
     volumes:

@@ -5,35 +5,78 @@ from django.db import models
 User = get_user_model()
 
 
-class Location(models.Model):
-    class LevelType(models.TextChoices):
-        BUILDING = "BUILDING", "Building"
-        FLOOR = "FLOOR", "Floor"
-        ROOM = "ROOM", "Room"
+class _NamedLookup(models.Model):
+    """Shared base for the three independent location dimensions.
 
-    name = models.CharField(max_length=200)
-    name_bn = models.CharField(max_length=200, blank=True)
-    level_type = models.CharField(max_length=10, choices=LevelType.choices)
-    parent = models.ForeignKey(
-        "self",
-        null=True,
-        blank=True,
-        on_delete=models.PROTECT,
-        related_name="children",
-    )
+    Building / Block / Level are flat master-data lists with no relationship
+    to one another. A Location references any combination of them.
+    """
+
+    name = models.CharField(max_length=200, unique=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(
-        User,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
+        User, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="%(class)ss_created",
+    )
+
+    class Meta:
+        abstract = True
+        ordering = ["name"]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Building(_NamedLookup):
+    class Meta(_NamedLookup.Meta):
+        verbose_name = "Building"
+        verbose_name_plural = "Buildings"
+
+
+class Block(_NamedLookup):
+    class Meta(_NamedLookup.Meta):
+        verbose_name = "Block"
+        verbose_name_plural = "Blocks"
+
+
+class Level(_NamedLookup):
+    class Meta(_NamedLookup.Meta):
+        verbose_name = "Level"
+        verbose_name_plural = "Levels"
+
+
+class Location(models.Model):
+    """A physical location: a named place tagged with any combination of the
+    three independent dimensions (Building / Block / Level) plus an optional
+    room. At least one of building / block / level must be set."""
+
+    name = models.CharField(max_length=200)
+    building = models.ForeignKey(
+        Building, null=True, blank=True, on_delete=models.PROTECT,
+        related_name="locations",
+    )
+    block = models.ForeignKey(
+        Block, null=True, blank=True, on_delete=models.PROTECT,
+        related_name="locations",
+    )
+    level = models.ForeignKey(
+        Level, null=True, blank=True, on_delete=models.PROTECT,
+        related_name="locations",
+    )
+    room = models.CharField(max_length=100, blank=True)
+
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL,
         related_name="locations_created",
     )
 
     class Meta:
-        ordering = ["level_type", "name"]
+        ordering = ["name"]
         verbose_name = "Location"
         verbose_name_plural = "Locations"
 
@@ -41,37 +84,33 @@ class Location(models.Model):
         return self.full_path
 
     def clean(self) -> None:
-        if self.level_type == self.LevelType.BUILDING:
-            if self.parent_id is not None:
-                raise ValidationError(
-                    {"parent": "A building must not have a parent."}
-                )
-        elif self.level_type == self.LevelType.FLOOR:
-            if self.parent_id is None:
-                raise ValidationError(
-                    {"parent": "A floor must belong to a building."}
-                )
-            if self.parent.level_type != self.LevelType.BUILDING:
-                raise ValidationError(
-                    {"parent": "A floor's parent must be a building."}
-                )
-        elif self.level_type == self.LevelType.ROOM:
-            if self.parent_id is None:
-                raise ValidationError(
-                    {"parent": "A room must belong to a floor."}
-                )
-            if self.parent.level_type != self.LevelType.FLOOR:
-                raise ValidationError(
-                    {"parent": "A room's parent must be a floor."}
-                )
+        if not self.name or not self.name.strip():
+            raise ValidationError({"name": "Location name is required."})
+        if not (self.building_id or self.block_id or self.level_id):
+            raise ValidationError(
+                "Select at least one of Building, Block or Level."
+            )
+
+    # ── Display helpers ───────────────────────────────────────────────────────
+
+    @property
+    def descriptor(self) -> str:
+        """The set dimensions joined for display, e.g.
+        'Main Building · Level-2 · South Block · Room 101'."""
+        parts = []
+        if self.building_id:
+            parts.append(self.building.name)
+        if self.level_id:
+            parts.append(self.level.name)
+        if self.block_id:
+            parts.append(self.block.name)
+        if self.room:
+            parts.append(f"Room {self.room}")
+        return " · ".join(parts)
 
     @property
     def full_path(self) -> str:
-        """Walk the parent chain and return 'Building → Floor → Room'."""
-        parts = [self.name]
-        node = self
-        while node.parent_id is not None:
-            node = node.parent
-            parts.append(node.name)
-        parts.reverse()
-        return " → ".join(parts)
+        """Full human label — name with its dimensions. Kept under this name so
+        the assignee layer, reports and exports need no changes."""
+        desc = self.descriptor
+        return f"{self.name} — {desc}" if desc else self.name

@@ -20,10 +20,8 @@
 {# ── Styles ────────────────────────────────────────────────────────────── #}
 {% block extrahead %}
 {{ block.super }}
+<link href="{% static 'vendor/fonts.css' %}" rel="stylesheet">
 <style>
-/* ── Fonts ─────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-
 /* ── Force light mode ──────────────────────────────────── */
 :root { color-scheme: light; }
 

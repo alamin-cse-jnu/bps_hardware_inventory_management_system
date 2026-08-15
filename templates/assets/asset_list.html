@@ -18,6 +18,12 @@
     <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="4" rx="1"/><rect x="2" y="10" width="20" height="4" rx="1"/><rect x="2" y="17" width="20" height="4" rx="1"/></svg>
     Bulk Add
   </a>
+  {% endif %}
+  <a href="{% url 'assets:batch_list' %}" class="btn btn-outline btn-sm" title="View bulk add history">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    Bulk History
+  </a>
+  {% if user_is_it_officer %}
   <a href="{% url 'assets:create' %}" class="btn btn-primary btn-sm">
     <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     Add Asset
@@ -27,6 +33,11 @@
 
 {% block content %}
 <form method="get" class="filter-bar">
+  {# Preserve the category entry-point (from dashboard) across manual searches. #}
+  {% if current_category %}<input type="hidden" name="category" value="{{ current_category }}">{% endif %}
+  {# Keep the chosen page size; omitting `page` deliberately resets to page 1. #}
+  <input type="hidden" name="per_page" value="{{ per_page }}">
+
   <div class="filter-group" style="flex:1;min-width:200px">
     <label class="filter-label">Search</label>
     <input name="q" value="{{ q }}" class="filter-input" placeholder="Tag, brand, model, serial…" autocomplete="off">
@@ -53,15 +64,33 @@
     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     Search
   </button>
-  {% if q or current_status or current_type %}
+  {% if has_filters %}
     <a href="{% url 'assets:list' %}" class="btn btn-outline">Clear</a>
   {% endif %}
 </form>
 
+{% if current_category_obj or is_issues_filter %}
+<div style="display:flex;align-items:center;gap:8px;margin:-4px 0 14px">
+  <span style="font-size:12px;color:#6C757D">Filtered by:</span>
+  {% if current_category_obj %}
+    <span class="badge" style="background:#E8F3F8;color:#0076A7">Category · {{ current_category_obj.name }}</span>
+  {% endif %}
+  {% if is_issues_filter %}
+    <span class="badge" style="background:#FFF7ED;color:#C2410C">Issues · Maintenance / Lost / Damaged</span>
+  {% endif %}
+  <a href="{% url 'assets:list' %}" style="font-size:12px;color:#0076A7;font-weight:600;text-decoration:none">Clear</a>
+</div>
+{% endif %}
+
 <div class="page-header">
   <div>
     <h1 class="page-title">Assets</h1>
-    <p class="text-muted text-small" style="margin-top:4px">{{ asset_rows|length }} asset{{ asset_rows|length|pluralize }}</p>
+    <p class="text-muted text-small" style="margin-top:4px">
+      {{ total_count }} asset{{ total_count|pluralize }}
+      {% if page_obj.paginator.num_pages > 1 %}
+        · showing {{ page_obj.start_index }}–{{ page_obj.end_index }}
+      {% endif %}
+    </p>
   </div>
 </div>
 
@@ -70,6 +99,7 @@
   <table>
     <thead>
       <tr>
+        <th style="width:1px" title="Sequence — newest first">SL</th>
         <th>Asset Tag</th>
         <th>Type / Brand &amp; Model</th>
         <th>Status</th>
@@ -79,8 +109,9 @@
       </tr>
     </thead>
     <tbody>
-      {% for asset, asgn in asset_rows %}
+      {% for sl, asset, asgn in asset_rows %}
       <tr>
+        <td style="color:#9CA3AF;font-weight:600;font-variant-numeric:tabular-nums">{{ sl }}</td>
         <td>
           <div style="display:flex;align-items:center;gap:4px">
             <a href="{% url 'assets:detail' asset.pk %}">
@@ -165,4 +196,6 @@
   </div>
   {% endif %}
 </div>
+
+{% if asset_rows %}{% include "partials/pagination.html" %}{% endif %}
 {% endblock %}

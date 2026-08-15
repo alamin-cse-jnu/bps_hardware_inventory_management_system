@@ -18,10 +18,10 @@
       <div style="background:#F8F9FA;border:1px solid #E5E7EB;border-radius:8px;padding:16px;margin-bottom:16px">
         <div class="text-muted text-small" style="margin-bottom:6px">Location to deactivate</div>
         <div style="font-size:15px;font-weight:700;color:#212529">{{ location.name }}</div>
-        <div class="text-muted text-small" style="margin-top:4px">{{ location.get_level_type_display }} · {{ location.full_path }}</div>
+        <div class="text-muted text-small" style="margin-top:4px">{{ location.descriptor|default:"—" }}</div>
       </div>
 
-      {% if asset_count or child_count %}
+      {% if asset_count %}
       {# Blocked — cannot deactivate #}
       <div class="callout callout-red">
         <svg width="16" height="16" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -30,9 +30,6 @@
           <ul style="margin-top:6px;padding-left:16px;line-height:1.8">
             {% if asset_count %}
             <li>{{ asset_count }} active asset{{ asset_count|pluralize }} stored at this location</li>
-            {% endif %}
-            {% if child_count %}
-            <li>{{ child_count }} active sub-location{{ child_count|pluralize }} under this location</li>
             {% endif %}
           </ul>
         </div>
@@ -52,7 +49,7 @@
     </div>
 
     <div class="panel-footer">
-      {% if not asset_count and not child_count %}
+      {% if not asset_count %}
       <form method="post" action="{% url 'locations:delete' location.pk %}">
         {% csrf_token %}
         <button type="submit" class="btn" style="background:#F59E0B;color:#fff;border:none">
@@ -62,7 +59,7 @@
       </form>
       {% endif %}
       <button type="button" onclick="document.getElementById('panel-container').innerHTML=''" class="btn btn-outline">
-        {% if asset_count or child_count %}Close{% else %}Cancel{% endif %}
+        {% if asset_count %}Close{% else %}Cancel{% endif %}
       </button>
     </div>
 

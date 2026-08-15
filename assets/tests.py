@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.utils import timezone
 
-from locations.models import Location
+from locations.models import Building, Level, Location
 
 from .models import AssetCategory, AssetComponent, AssetItem, AssetType
 from .services.excel_import import (
@@ -337,9 +337,12 @@ def make_import_type(spec_schema=None) -> AssetType:
 
 
 def make_location_hierarchy():
-    building = Location.objects.create(name="Parliament Bhaban", level_type=Location.LevelType.BUILDING)
-    floor = Location.objects.create(name="3rd Floor", level_type=Location.LevelType.FLOOR, parent=building)
-    room = Location.objects.create(name="NOC Room", level_type=Location.LevelType.ROOM, parent=floor)
+    """Three distinct flat locations (each with a unique full_path)."""
+    b = Building.objects.create(name="Parliament Bhaban")
+    lvl = Level.objects.create(name="Level-3")
+    building = Location.objects.create(name="Reception", building=b)
+    floor = Location.objects.create(name="Corridor", building=b, level=lvl)
+    room = Location.objects.create(name="NOC Room", building=b, level=lvl, room="301")
     return building, floor, room
 
 
@@ -748,3 +751,149 @@ class CatalogCategoryViewTests(TestCase):
         resp = self.client.post(f"/catalog/categories/{cat.pk}/delete/", follow=True)
         self.assertTrue(AssetCategory.objects.filter(pk=cat.pk).exists())
         self.assertContains(resp, "Cannot delete")
+
+
+# ---------------------------------------------------------------------------
+# Bulk Add batches — history, re-apply on edit, cascade soft-delete
+# ---------------------------------------------------------------------------
+
+from catalogue.models import SubAssetSpecField  # noqa: E402
+
+from .models import AssetBatch  # noqa: E402
+
+
+class BulkBatchTests(TestCase):
+    def setUp(self):
+        self.officer = _role_user("officer", "IT Officer")
+        self.client.force_login(self.officer)
+        self.category = make_category("Computing")
+        self.atype = make_type(category=self.category, name="Laptop")
+        # A single text spec field so specs flow through collect_values.
+        SubAssetSpecField.objects.create(
+            sub_asset=self.atype, key="cpu", label="CPU", widget="text",
+        )
+
+    def _bulk_post(self, quantity=3, serials=None, **overrides):
+        serials = serials or [f"SN-{i:03d}" for i in range(1, quantity + 1)]
+        data = {
+            "asset_type": self.atype.pk,
+            "brand": "Dell",
+            "model_name": "Latitude 5540",
+            "quantity": str(quantity),
+            "serial_numbers": "\n".join(serials),
+            "spec_cpu": "i5",
+            "notes": "batch one",
+        }
+        data.update(overrides)
+        return self.client.post("/bulk-add/", data)
+
+    def test_bulk_add_creates_one_batch_linking_all_assets(self):
+        resp = self._bulk_post(quantity=3)
+        self.assertEqual(AssetBatch.objects.count(), 1)
+        batch = AssetBatch.objects.get()
+        self.assertRedirects(resp, f"/batches/{batch.pk}/")
+        self.assertEqual(batch.quantity, 3)
+        self.assertEqual(batch.assets.count(), 3)
+        self.assertEqual(batch.reference[:3], "BA-")
+        # Every created asset points back to the batch.
+        for a in batch.assets.all():
+            self.assertEqual(a.batch_id, batch.pk)
+            self.assertEqual(a.specifications.get("cpu"), "i5")
+
+    def test_five_bulk_adds_show_five_history_rows(self):
+        for _ in range(5):
+            self._bulk_post(quantity=2)
+        self.assertEqual(AssetBatch.objects.count(), 5)
+        resp = self.client.get("/batches/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.context["batch_rows"]), 5)
+
+    def test_bulk_add_records_create_audit_entry(self):
+        self._bulk_post(quantity=2)
+        from audit.models import AuditLog
+        batch = AssetBatch.objects.get()
+        self.assertTrue(
+            AuditLog.objects.filter(
+                target_model="assets.AssetBatch",
+                target_id=str(batch.pk),
+                action="CREATE",
+            ).exists()
+        )
+
+    def test_edit_reapplies_shared_values_to_all_assets(self):
+        self._bulk_post(quantity=4)
+        batch = AssetBatch.objects.get()
+        resp = self.client.post(f"/batches/{batch.pk}/edit/", {
+            "asset_type": self.atype.pk,
+            "brand": "HP",
+            "model_name": "EliteBook 840",
+            "spec_cpu": "i7",
+            "notes": "corrected",
+            "purchase_order": "PO/2026/9",
+        })
+        self.assertRedirects(resp, f"/batches/{batch.pk}/")
+        batch.refresh_from_db()
+        self.assertEqual(batch.brand, "HP")
+        # All member assets updated to the new shared values.
+        for a in batch.assets.all():
+            self.assertEqual(a.brand, "HP")
+            self.assertEqual(a.model_name, "EliteBook 840")
+            self.assertEqual(a.specifications.get("cpu"), "i7")
+            self.assertEqual(a.purchase_order, "PO/2026/9")
+
+    def test_edit_updates_assigned_asset_values_but_keeps_status(self):
+        self._bulk_post(quantity=2)
+        batch = AssetBatch.objects.get()
+        asset = batch.assets.first()
+        asset.status = AssetItem.Status.ASSIGNED
+        asset.save(update_fields=["status"])
+
+        self.client.post(f"/batches/{batch.pk}/edit/", {
+            "asset_type": self.atype.pk,
+            "brand": "Lenovo",
+            "model_name": "ThinkPad",
+            "spec_cpu": "i9",
+        })
+        asset.refresh_from_db()
+        # Shared value changed…
+        self.assertEqual(asset.brand, "Lenovo")
+        # …but status/serial/tag are untouched.
+        self.assertEqual(asset.status, AssetItem.Status.ASSIGNED)
+
+    def test_edit_records_update_audit_with_changes(self):
+        self._bulk_post(quantity=2)
+        batch = AssetBatch.objects.get()
+        self.client.post(f"/batches/{batch.pk}/edit/", {
+            "asset_type": self.atype.pk,
+            "brand": "Acer",
+            "model_name": "Latitude 5540",
+            "spec_cpu": "i5",
+        })
+        from audit.models import AuditLog
+        log = AuditLog.objects.filter(
+            target_model="assets.AssetBatch", action="UPDATE",
+        ).latest("created_at")
+        self.assertIn("brand", log.changes)
+        self.assertEqual(log.changes["brand"], ["Dell", "Acer"])
+
+    def test_delete_soft_deletes_batch_and_assets(self):
+        self._bulk_post(quantity=3)
+        batch = AssetBatch.objects.get()
+        resp = self.client.post(f"/batches/{batch.pk}/delete/")
+        self.assertRedirects(resp, "/batches/")
+        batch.refresh_from_db()
+        self.assertTrue(batch.is_deleted)
+        self.assertEqual(batch.assets.filter(is_deleted=False).count(), 0)
+        self.assertEqual(batch.assets.filter(is_deleted=True).count(), 3)
+        # Deleted batch drops out of the history list.
+        self.assertNotContains(self.client.get("/batches/"), batch.reference)
+
+    def test_viewer_cannot_edit_or_delete(self):
+        self._bulk_post(quantity=1)
+        batch = AssetBatch.objects.get()
+        self.client.force_login(_role_user("viewer", "Viewer"))
+        self.assertEqual(self.client.get(f"/batches/{batch.pk}/edit/").status_code, 403)
+        self.assertEqual(self.client.get(f"/batches/{batch.pk}/delete/").status_code, 403)
+        # …but can still view history and detail.
+        self.assertEqual(self.client.get("/batches/").status_code, 200)
+        self.assertEqual(self.client.get(f"/batches/{batch.pk}/").status_code, 200)

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Bulk Add History{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:list' %}" style="color:#6C757D">Assets</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>Bulk Add History</strong>
+{% endblock %}
+
+{% block topbar_actions %}
+  {% if user_is_it_officer %}
+  <a href="{% url 'assets:bulk_create' %}" class="btn btn-primary btn-sm">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="4" rx="1"/><rect x="2" y="10" width="20" height="4" rx="1"/><rect x="2" y="17" width="20" height="4" rx="1"/></svg>
+    New Bulk Add
+  </a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+
+<form method="get" class="filter-bar" style="margin-bottom:16px">
+  <input type="text" name="q" value="{{ q }}" class="form-input" placeholder="Search reference, brand, model, type…" style="max-width:340px">
+  <button type="submit" class="btn btn-primary">Search</button>
+  {% if has_filters %}<a href="{% url 'assets:batch_list' %}" class="btn btn-outline">Clear</a>{% endif %}
+</form>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Bulk Add History</h1>
+    <p class="text-muted text-small" style="margin-top:4px">{{ batch_rows|length }} bulk add{{ batch_rows|length|pluralize }} recorded</p>
+  </div>
+</div>
+
+<div class="table-wrap">
+  {% if batch_rows %}
+  <table>
+    <thead>
+      <tr>
+        <th style="width:1px" title="Sequence — newest first">SL</th>
+        <th>Reference</th>
+        <th>Type / Brand &amp; Model</th>
+        <th style="text-align:center">Assets</th>
+        <th>Added</th>
+        <th>By</th>
+        <th style="width:1px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for sl, batch in batch_rows %}
+      <tr>
+        <td style="color:#9CA3AF;font-weight:600;font-variant-numeric:tabular-nums">{{ sl }}</td>
+        <td>
+          <a href="{% url 'assets:batch_detail' batch.pk %}">
+            <span class="asset-tag">{{ batch.reference }}</span>
+          </a>
+        </td>
+        <td>
+          <div style="font-weight:600">{{ batch.asset_type.name }}</div>
+          <div class="text-muted text-small">{{ batch.brand }} {{ batch.model_name }}</div>
+        </td>
+        <td style="text-align:center">
+          <span style="display:inline-block;min-width:36px;background:#EFF6FF;color:#0076A7;font-weight:700;font-size:12.5px;padding:2px 8px;border-radius:99px">{{ batch.live_count }}</span>
+          {% if batch.live_count != batch.quantity %}
+            <div class="text-muted" style="font-size:10.5px;margin-top:2px">of {{ batch.quantity }} added</div>
+          {% endif %}
+        </td>
+        <td class="text-small" style="white-space:nowrap">{{ batch.created_at|date:"d M Y" }}<div class="text-muted" style="font-size:11px">{{ batch.created_at|date:"H:i" }}</div></td>
+        <td class="text-small">{% if batch.created_by %}{{ batch.created_by.get_full_name|default:batch.created_by.username }}{% else %}<span class="text-muted">System</span>{% endif %}</td>
+        <td style="white-space:nowrap">
+          <a href="{% url 'assets:batch_detail' batch.pk %}" class="btn btn-outline btn-sm" style="margin-right:4px">View</a>
+          {% if user_is_it_officer %}
+            <a href="{% url 'assets:batch_edit' batch.pk %}" class="btn btn-outline btn-sm" style="margin-right:4px" title="Edit batch">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="padding:60px 24px;text-align:center">
+    <svg width="40" height="40" fill="none" stroke="#D1D5DB" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:12px"><rect x="2" y="3" width="20" height="4" rx="1"/><rect x="2" y="10" width="20" height="4" rx="1"/><rect x="2" y="17" width="20" height="4" rx="1"/></svg>
+    <p style="font-size:15px;font-weight:600;color:#9CA3AF;margin-bottom:6px">No bulk adds yet</p>
+    <p class="text-muted text-small">Every time you add assets in bulk, the batch is recorded here.</p>
+    {% if user_is_it_officer %}
+    <div style="margin-top:16px"><a href="{% url 'assets:bulk_create' %}" class="btn btn-primary btn-sm">New Bulk Add</a></div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

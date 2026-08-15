@@ -14,6 +14,8 @@ class EventType(models.TextChoices):
     REPAIRED           = "REPAIRED",           "Repaired"
     DISPOSED           = "DISPOSED",           "Disposed"
     COMPONENT_SWAP     = "COMPONENT_SWAP",     "Component Swap"
+    COMPONENT_ADD      = "COMPONENT_ADD",      "Component Added"
+    COMPONENT_REMOVE   = "COMPONENT_REMOVE",   "Component Removed"
 
 
 class LifecycleEvent(models.Model):

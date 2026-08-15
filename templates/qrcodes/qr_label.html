@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>QR Label — {{ asset.asset_tag }}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;700&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+  <link href="{% static 'vendor/fonts.css' %}" rel="stylesheet">
   <style>
     body{font-family:'Inter',sans-serif;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px}
     .label{width:220px;border:2px solid #006633;border-radius:10px;padding:16px;text-align:center;page-break-inside:avoid}

@@ -6,6 +6,7 @@ from decimal import Decimal, InvalidOperation
 from django.contrib import messages
 import json
 
+from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -13,11 +14,13 @@ from django.utils import timezone
 
 from assignments.models import Assignment, AlertStatus, InactiveHolderAlert
 from catalogue import specs as catalogue_specs
+from config.pagination import parse_per_page as _parse_per_page
+from config.pagination import strip_params as _strip_params
 from config.permissions import it_officer_required, viewer_required
 from locations.models import Location
 
 from .models import (
-    AssetCategory, AssetItem, AssetModelName, AssetType,
+    AssetBatch, AssetCategory, AssetItem, AssetModelName, AssetType,
     Brand, SpecChoice, Vendor, WorkOrder,
 )
 from .services.excel_import import (
@@ -100,7 +103,7 @@ def _validate_asset_form(data, spec_schema, exclude_pk=None):
 
 
 def _locations_qs():
-    return Location.objects.filter(is_active=True).select_related("parent__parent")
+    return Location.objects.filter(is_active=True).select_related("building", "block", "level")
 
 
 def _types_qs():
@@ -299,13 +302,18 @@ def dashboard(request):
     from sync_prp.models import SyncLog
 
     qs = AssetItem.objects.filter(is_deleted=False)
-    total = qs.count()
-    assigned_count = qs.filter(status=AssetItem.Status.ASSIGNED).count()
-    in_stock_count = qs.filter(status=AssetItem.Status.IN_STOCK).count()
-    maintenance_count = qs.filter(status=AssetItem.Status.MAINTENANCE).count()
-    lost_count = qs.filter(status=AssetItem.Status.LOST).count()
-    damaged_count = qs.filter(status=AssetItem.Status.DAMAGED).count()
-    disposed_count = qs.filter(status=AssetItem.Status.DISPOSED).count()
+
+    # One GROUP BY instead of seven separate COUNT round trips.
+    by_status = dict(
+        qs.values_list("status").annotate(n=Count("pk")).values_list("status", "n")
+    )
+    total = sum(by_status.values())
+    assigned_count = by_status.get(AssetItem.Status.ASSIGNED, 0)
+    in_stock_count = by_status.get(AssetItem.Status.IN_STOCK, 0)
+    maintenance_count = by_status.get(AssetItem.Status.MAINTENANCE, 0)
+    lost_count = by_status.get(AssetItem.Status.LOST, 0)
+    damaged_count = by_status.get(AssetItem.Status.DAMAGED, 0)
+    disposed_count = by_status.get(AssetItem.Status.DISPOSED, 0)
     issues_count = maintenance_count + lost_count + damaged_count
 
     horizon = timezone.now().date() + timedelta(days=30)
@@ -351,8 +359,8 @@ def dashboard(request):
     for t in type_qs:
         cat = t.category
         if cat.pk not in _cat_map:
-            _cat_map[cat.pk] = {"name": cat.name, "types": [], "total": 0}
-        _cat_map[cat.pk]["types"].append({"name": t.name, "count": t.count})
+            _cat_map[cat.pk] = {"pk": cat.pk, "name": cat.name, "types": [], "total": 0}
+        _cat_map[cat.pk]["types"].append({"pk": t.pk, "name": t.name, "count": t.count})
         _cat_map[cat.pk]["total"] += t.count
     category_breakdown = sorted(_cat_map.values(), key=lambda x: -x["total"])
     breakdown_max = category_breakdown[0]["total"] if category_breakdown else 1
@@ -380,18 +388,29 @@ def dashboard(request):
 
 @viewer_required
 def asset_list(request):
+    # SL is a display sequence: newest asset shows the highest number, so the
+    # list is ordered newest-first by creation order (not stored on the model).
     qs = AssetItem.objects.filter(is_deleted=False).select_related(
         "asset_type__category", "storage_location"
-    ).order_by("asset_tag")
+    ).order_by("-created_at", "-id")
 
     status = request.GET.get("status", "").strip()
     type_id = request.GET.get("type", "").strip()
+    category_id = request.GET.get("category", "").strip()
     q = request.GET.get("q", "").strip()
 
-    if status:
-        qs = qs.filter(status=status)
+    # status may be a single value or a comma list (e.g. dashboard "Issues" tile
+    # links to ?status=MAINTENANCE,LOST,DAMAGED). Only known statuses are kept.
+    status_values = [
+        s for s in (v.strip() for v in status.split(","))
+        if s in AssetItem.Status.values
+    ]
+    if status_values:
+        qs = qs.filter(status__in=status_values)
     if type_id:
         qs = qs.filter(asset_type_id=type_id)
+    if category_id:
+        qs = qs.filter(asset_type__category_id=category_id)
     if q:
         qs = qs.filter(
             Q(asset_tag__icontains=q)
@@ -400,23 +419,49 @@ def asset_list(request):
             | Q(serial_number__icontains=q)
         )
 
-    asset_ids = list(qs.values_list("pk", flat=True))
+    paginator = Paginator(qs, _parse_per_page(request))
+    page_obj = paginator.get_page(request.GET.get("page", 1))
+    assets = list(page_obj)
+
     active_map = {
         a.asset_id: a
         for a in Assignment.objects.filter(
-            asset_id__in=asset_ids,
+            asset_id__in=[a.pk for a in assets],
             returned_at__isnull=True,
         ).select_related("assignee__employee", "assignee__mp", "assignee__office", "assignee__location")
     }
 
-    asset_rows = [(asset, active_map.get(asset.pk)) for asset in qs]
+    # SL: highest number on the newest (first) row, counting down. The sequence
+    # spans the whole result set, so page 2 continues where page 1 left off.
+    total = paginator.count
+    first_sl = total - page_obj.start_index() + 1
+    asset_rows = [
+        (first_sl - i, asset, active_map.get(asset.pk))
+        for i, asset in enumerate(assets)
+    ]
+
+    # The status dropdown only reflects a single-value filter; the multi-value
+    # "Issues" entry-point leaves it on "All Statuses".
+    current_status = status_values[0] if len(status_values) == 1 else ""
+    category = None
+    if category_id:
+        category = AssetCategory.objects.filter(pk=category_id).first()
 
     return render(request, "assets/asset_list.html", {
         "asset_rows": asset_rows,
+        "page_obj": page_obj,
+        "total_count": total,
+        "per_page": paginator.per_page,
+        "base_qs": _strip_params(request, "page"),
+        "base_qs_nopag": _strip_params(request, "page", "per_page"),
         "statuses": AssetItem.Status,
         "asset_types": _types_qs(),
-        "current_status": status,
+        "current_status": current_status,
         "current_type": type_id,
+        "current_category": category_id,
+        "current_category_obj": category,
+        "is_issues_filter": len(status_values) > 1,
+        "has_filters": bool(q or status_values or type_id or category_id),
         "q": q,
     })
 
@@ -484,6 +529,7 @@ def asset_detail(request, pk):
         # Master-data-driven spec rows; empty for legacy assets (template falls back).
         "spec_rows": catalogue_specs.display_rows(asset.asset_type, asset.specifications),
         "components": asset.components.filter(is_active=True),
+        "removed_components": asset.components.filter(is_active=False).order_by("-removed_at"),
         "lifecycle_events": lifecycle_events,
         "warranty_info": warranty_info,
         "amc_info": amc_info,
@@ -715,33 +761,66 @@ def asset_bulk_create(request):
             specs = catalogue_specs.collect_values(selected_type, request.POST)
             # One work order shared by all assets in this batch
             shared_work_order = _save_work_order(request)
+
+            # The batch records the shared snapshot and groups the assets so it
+            # can later be viewed, edited (re-applied) and soft-deleted as a unit.
+            batch = AssetBatch.objects.create(
+                reference=AssetBatch.generate_reference(),
+                asset_type=selected_type,
+                quantity=len(serial_numbers),
+                brand=request.POST["brand"].strip(),
+                model_name=request.POST["model_name"].strip(),
+                specifications=specs,
+                storage_location_id=request.POST.get("storage_location") or None,
+                purchase_date=_parse_date_safe(request.POST.get("purchase_date")),
+                purchase_order=request.POST.get("purchase_order", "").strip(),
+                supplier=request.POST.get("supplier", "").strip(),
+                purchase_cost=_parse_decimal_safe(request.POST.get("purchase_cost")),
+                warranty_expiry=_parse_date_safe(request.POST.get("warranty_expiry")),
+                amc_expiry=_parse_date_safe(request.POST.get("amc_expiry")),
+                notes=request.POST.get("notes", "").strip(),
+                work_order=shared_work_order,
+                created_by=request.user,
+                updated_by=request.user,
+            )
+
             created_tags = []
             for serial in serial_numbers:
                 tag = _generate_asset_tag(selected_type)
                 asset = AssetItem(
                     asset_tag=tag,
                     asset_type=selected_type,
-                    brand=request.POST["brand"].strip(),
-                    model_name=request.POST["model_name"].strip(),
+                    brand=batch.brand,
+                    model_name=batch.model_name,
                     serial_number=serial,
                     status=AssetItem.Status.IN_STOCK,
                     specifications=specs,
                     storage_location_id=request.POST.get("storage_location") or None,
-                    purchase_date=_parse_date_safe(request.POST.get("purchase_date")),
-                    purchase_order=request.POST.get("purchase_order", "").strip(),
-                    supplier=request.POST.get("supplier", "").strip(),
-                    purchase_cost=_parse_decimal_safe(request.POST.get("purchase_cost")),
-                    warranty_expiry=_parse_date_safe(request.POST.get("warranty_expiry")),
-                    amc_expiry=_parse_date_safe(request.POST.get("amc_expiry")),
-                    notes=request.POST.get("notes", "").strip(),
+                    purchase_date=batch.purchase_date,
+                    purchase_order=batch.purchase_order,
+                    supplier=batch.supplier,
+                    purchase_cost=batch.purchase_cost,
+                    warranty_expiry=batch.warranty_expiry,
+                    amc_expiry=batch.amc_expiry,
+                    notes=batch.notes,
                     work_order=shared_work_order,
+                    batch=batch,
                     created_by=request.user,
                 )
                 asset.save()
                 created_tags.append(tag)
 
-            messages.success(request, f"Bulk add complete: {len(created_tags)} asset(s) created successfully.")
-            return redirect("assets:list")
+            from audit.services import record as audit_record
+            audit_record(
+                "CREATE", batch,
+                note=f"Bulk add: {len(created_tags)} {selected_type.name} created",
+            )
+
+            messages.success(
+                request,
+                f"Bulk add complete: {len(created_tags)} asset(s) created under batch {batch.reference}.",
+            )
+            return redirect("assets:batch_detail", pk=batch.pk)
 
     if request.method == "POST":
         spec_fields = catalogue_specs.form_values(
@@ -761,6 +840,217 @@ def asset_bulk_create(request):
         "serial_numbers_raw": request.POST.get("serial_numbers", "") if request.method == "POST" else "",
         **_catalog_context(),
         **_cascade_ctx(selected_type, form_data),
+    })
+
+
+# ---------------------------------------------------------------------------
+# Bulk Add Batches — history, view, edit (re-apply), delete
+# ---------------------------------------------------------------------------
+
+@viewer_required
+def batch_list(request):
+    """History of every bulk add — one row per batch, newest first."""
+    qs = (
+        AssetBatch.objects.filter(is_deleted=False)
+        .select_related("asset_type__category", "created_by")
+        .annotate(live_count=Count("assets", filter=Q(assets__is_deleted=False)))
+        .order_by("-created_at", "-id")
+    )
+    q = request.GET.get("q", "").strip()
+    if q:
+        qs = qs.filter(
+            Q(reference__icontains=q)
+            | Q(brand__icontains=q)
+            | Q(model_name__icontains=q)
+            | Q(asset_type__name__icontains=q)
+        )
+
+    batches = list(qs)
+    total = len(batches)
+    # SL: highest number on the newest (first) row, counting down.
+    batch_rows = [(total - i, b) for i, b in enumerate(batches)]
+
+    return render(request, "assets/batch_list.html", {
+        "batch_rows": batch_rows,
+        "q": q,
+        "has_filters": bool(q),
+    })
+
+
+@viewer_required
+def batch_detail(request, pk):
+    batch = get_object_or_404(
+        AssetBatch.objects.select_related(
+            "asset_type__category", "storage_location", "work_order",
+            "created_by", "updated_by",
+        ),
+        pk=pk, is_deleted=False,
+    )
+    assets = list(
+        batch.assets.filter(is_deleted=False)
+        .select_related("asset_type", "storage_location")
+        .order_by("asset_tag")
+    )
+
+    # CRUD operation timeline for this batch (CREATE / UPDATE / DELETE).
+    from audit.models import AuditLog
+    from audit.services import prepare_entries
+    audit_entries = prepare_entries(
+        AuditLog.objects.filter(
+            target_model="assets.AssetBatch", target_id=str(batch.pk),
+        ).select_related("actor")[:50]
+    )
+
+    return render(request, "assets/batch_detail.html", {
+        "batch": batch,
+        "assets": assets,
+        "spec_rows": catalogue_specs.display_rows(batch.asset_type, batch.specifications),
+        "audit_entries": audit_entries,
+    })
+
+
+def _batch_snapshot(batch) -> dict:
+    """JSON-safe, human-readable snapshot of a batch's shared fields, keyed by
+    the same field names the audit log humanizes (matches AssetItem labels)."""
+    return {
+        "asset_type": str(batch.asset_type) if batch.asset_type_id else None,
+        "brand": batch.brand,
+        "model_name": batch.model_name,
+        "specifications": batch.specifications,
+        "storage_location": str(batch.storage_location) if batch.storage_location_id else None,
+        "purchase_date": batch.purchase_date.isoformat() if batch.purchase_date else None,
+        "purchase_order": batch.purchase_order,
+        "supplier": batch.supplier,
+        "purchase_cost": str(batch.purchase_cost) if batch.purchase_cost is not None else None,
+        "warranty_expiry": batch.warranty_expiry.isoformat() if batch.warranty_expiry else None,
+        "amc_expiry": batch.amc_expiry.isoformat() if batch.amc_expiry else None,
+        "notes": batch.notes,
+    }
+
+
+@it_officer_required
+def batch_edit(request, pk):
+    """
+    Edit a batch's shared values and re-apply them to every live member asset.
+    Never touches per-asset status, serial number, asset tag or assignment.
+    """
+    batch = get_object_or_404(AssetBatch, pk=pk, is_deleted=False)
+    categories = AssetCategory.objects.filter(is_active=True)
+    types = _types_qs()
+    locations = _locations_qs()
+    errors = {}
+
+    if request.method == "POST":
+        raw_type = request.POST.get("asset_type", "")
+        try:
+            selected_type = AssetType.objects.get(pk=raw_type, is_active=True)
+        except AssetType.DoesNotExist:
+            selected_type = batch.asset_type
+        spec_schema = selected_type.spec_schema or []
+        form_data = request.POST
+        errors = _validate_asset_form(request.POST, spec_schema)
+        # Asset tag isn't part of a batch edit — drop any tag validation noise.
+        errors.pop("asset_tag", None)
+
+        if not errors:
+            before = _batch_snapshot(batch)
+            new_wo = _save_work_order(request)
+
+            batch.asset_type = selected_type
+            batch.brand = request.POST["brand"].strip()
+            batch.model_name = request.POST["model_name"].strip()
+            batch.specifications = catalogue_specs.collect_values(selected_type, request.POST)
+            batch.storage_location_id = request.POST.get("storage_location") or None
+            batch.purchase_date = _parse_date_safe(request.POST.get("purchase_date"))
+            batch.purchase_order = request.POST.get("purchase_order", "").strip()
+            batch.supplier = request.POST.get("supplier", "").strip()
+            batch.purchase_cost = _parse_decimal_safe(request.POST.get("purchase_cost"))
+            batch.warranty_expiry = _parse_date_safe(request.POST.get("warranty_expiry"))
+            batch.amc_expiry = _parse_date_safe(request.POST.get("amc_expiry"))
+            batch.notes = request.POST.get("notes", "").strip()
+            if new_wo:
+                batch.work_order = new_wo
+            elif request.POST.get("clear_work_order"):
+                batch.work_order = None
+            batch.updated_by = request.user
+            batch.save()
+
+            # Re-apply the shared snapshot to every live member asset.
+            updated = batch.apply_to_assets()
+
+            after = _batch_snapshot(batch)
+            changes = {
+                field: [before[field], after[field]]
+                for field in before
+                if before[field] != after[field]
+            }
+            from audit.services import record as audit_record
+            audit_record(
+                "UPDATE", batch, changes=changes,
+                note=f"Edited batch — re-applied to {updated} asset(s)",
+            )
+
+            messages.success(
+                request,
+                f"Batch {batch.reference} updated. Changes re-applied to {updated} asset(s).",
+            )
+            return redirect("assets:batch_detail", pk=batch.pk)
+
+        selected_type_ctx = selected_type
+        spec_fields = catalogue_specs.form_values(
+            selected_type, catalogue_specs.collect_values(selected_type, request.POST)
+        )
+    else:
+        selected_type_ctx = batch.asset_type
+        form_data = {
+            "asset_type": str(batch.asset_type_id),
+            "brand": batch.brand,
+            "model_name": batch.model_name,
+            "storage_location": str(batch.storage_location_id) if batch.storage_location_id else "",
+            "purchase_date": batch.purchase_date.isoformat() if batch.purchase_date else "",
+            "purchase_order": batch.purchase_order,
+            "supplier": batch.supplier,
+            "purchase_cost": str(batch.purchase_cost) if batch.purchase_cost else "",
+            "warranty_expiry": batch.warranty_expiry.isoformat() if batch.warranty_expiry else "",
+            "amc_expiry": batch.amc_expiry.isoformat() if batch.amc_expiry else "",
+            "notes": batch.notes,
+        }
+        spec_fields = catalogue_specs.form_values(batch.asset_type, batch.specifications)
+
+    return render(request, "assets/batch_form.html", {
+        "batch": batch,
+        "categories": categories,
+        "types": types,
+        "locations": locations,
+        "selected_type": selected_type_ctx,
+        "spec_fields": spec_fields,
+        "form_data": form_data,
+        "errors": errors,
+        "live_count": batch.live_assets.count(),
+        **_catalog_context(),
+        **_cascade_ctx(selected_type_ctx, form_data),
+    })
+
+
+@it_officer_required
+def batch_delete(request, pk):
+    batch = get_object_or_404(AssetBatch, pk=pk, is_deleted=False)
+    live_count = batch.live_assets.count()
+    if request.method == "POST":
+        count = batch.soft_delete()
+        from audit.services import record as audit_record
+        audit_record(
+            "DELETE", batch,
+            note=f"Batch deleted — soft-deleted {count} asset(s)",
+        )
+        messages.success(
+            request,
+            f"Batch {batch.reference} deleted along with {count} asset(s).",
+        )
+        return redirect("assets:batch_list")
+    return render(request, "assets/batch_delete_confirm.html", {
+        "batch": batch,
+        "live_count": live_count,
     })
 
 

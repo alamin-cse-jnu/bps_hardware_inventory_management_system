@@ -151,6 +151,134 @@ class AssetType(models.Model):
         return f"{self.category.name} — {self.name}"
 
 
+class AssetBatch(models.Model):
+    """
+    One bulk-add operation. Groups the assets created together on the Bulk Add
+    page under a single reference so the batch can be viewed, edited (re-applying
+    its shared values to every member asset) and soft-deleted as a unit.
+
+    Holds a snapshot of the *shared* fields entered on the bulk-add form. The
+    per-asset fields (serial number, asset tag, status, assignment) are NEVER
+    stored here and NEVER changed by a batch edit.
+    """
+
+    reference = models.CharField(max_length=50, unique=True)
+    asset_type = models.ForeignKey(
+        AssetType,
+        on_delete=models.PROTECT,
+        related_name="batches",
+    )
+    quantity = models.PositiveIntegerField(default=0)
+
+    # ── Shared snapshot (mirrors the shared bulk-add fields) ────────────────
+    brand = models.CharField(max_length=100)
+    model_name = models.CharField(max_length=200)
+    specifications = models.JSONField(default=dict, blank=True)
+    storage_location = models.ForeignKey(
+        "locations.Location",
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="stored_asset_batches",
+    )
+    purchase_date = models.DateField(null=True, blank=True)
+    purchase_order = models.CharField(max_length=100, blank=True)
+    supplier = models.CharField(max_length=200, blank=True)
+    purchase_cost = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    warranty_expiry = models.DateField(null=True, blank=True)
+    amc_expiry = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    work_order = models.ForeignKey(
+        WorkOrder,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="batches",
+    )
+
+    # Soft delete (architectural convention: never hard-delete)
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        User, null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="asset_batches_created",
+    )
+    updated_by = models.ForeignKey(
+        User, null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="asset_batches_updated",
+    )
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        verbose_name = "Bulk Add Batch"
+        verbose_name_plural = "Bulk Add Batches"
+        indexes = [
+            models.Index(fields=["is_deleted"]),
+        ]
+
+    def __str__(self) -> str:
+        return self.reference
+
+    @classmethod
+    def generate_reference(cls) -> str:
+        """Auto-generate BA-YYYY-NNNN reference (BA = Bulk Add)."""
+        year = timezone.now().year
+        prefix = f"BA-{year}-"
+        last = (
+            cls.objects
+            .filter(reference__startswith=prefix)
+            .order_by("-reference")
+            .values_list("reference", flat=True)
+            .first()
+        )
+        seq = int(last.split("-")[-1]) + 1 if last else 1
+        return f"{prefix}{seq:04d}"
+
+    @property
+    def live_assets(self):
+        return self.assets.filter(is_deleted=False)
+
+    def apply_to_assets(self) -> int:
+        """
+        Push this batch's shared field values onto every live member asset.
+
+        Uses a bulk ``.update()`` so it scales to hundreds of rows. It NEVER
+        touches ``status``, ``serial_number``, ``asset_tag`` or assignment —
+        assigned/transferred assets keep their state; only the shared values
+        change. Returns the number of assets updated.
+        """
+        return self.assets.filter(is_deleted=False).update(
+            asset_type=self.asset_type,
+            brand=self.brand,
+            model_name=self.model_name,
+            specifications=self.specifications,
+            storage_location=self.storage_location,
+            purchase_date=self.purchase_date,
+            purchase_order=self.purchase_order,
+            supplier=self.supplier,
+            purchase_cost=self.purchase_cost,
+            warranty_expiry=self.warranty_expiry,
+            amc_expiry=self.amc_expiry,
+            notes=self.notes,
+            work_order=self.work_order,
+            updated_at=timezone.now(),
+        )
+
+    def soft_delete(self) -> int:
+        """Soft-delete the batch and all its live member assets."""
+        now = timezone.now()
+        count = self.assets.filter(is_deleted=False).update(
+            is_deleted=True, deleted_at=now, updated_at=now,
+        )
+        self.is_deleted = True
+        self.deleted_at = now
+        self.save(update_fields=["is_deleted", "deleted_at", "updated_at"])
+        return count
+
+
 class AssetItem(models.Model):
     class Status(models.TextChoices):
         IN_STOCK = "IN_STOCK", "In Stock"
@@ -206,6 +334,15 @@ class AssetItem(models.Model):
     # Work order document (shared across bulk-add batches)
     work_order = models.ForeignKey(
         WorkOrder,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="assets",
+    )
+
+    # Bulk-add batch this asset was created in (null for single-add / import)
+    batch = models.ForeignKey(
+        AssetBatch,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
@@ -277,6 +414,10 @@ class AssetComponent(models.Model):
         CPU_UNIT = "CPU_UNIT", "CPU Unit"
         RAM = "RAM", "RAM"
         STORAGE_DRIVE = "STORAGE_DRIVE", "Storage Drive"
+        SFP = "SFP", "SFP Module"
+        NIC = "NIC", "Network Card"
+        PSU = "PSU", "Power Supply"
+        BATTERY = "BATTERY", "Battery"
         UPS = "UPS", "UPS"
         OTHER = "OTHER", "Other"
 

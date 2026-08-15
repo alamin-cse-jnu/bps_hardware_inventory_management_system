@@ -7,10 +7,14 @@ from assignees.models import Assignee, AssigneeType, CachedEmployee, Source
 from assignments.models import Assignment
 from assignments.services import perform_transfer
 
+from django.contrib.auth.models import Group
+
 from .models import EventType, LifecycleEvent
 from .services import (
+    add_component,
     dispose_asset,
     recover_asset,
+    remove_component,
     repair_asset,
     report_damaged,
     report_lost,
@@ -301,6 +305,118 @@ class SwapComponentTests(TestCase):
                 new_brand="G.Skill", new_model="8GB", new_serial="GS-001",
                 performed_by=self.user,
             )
+
+
+# ── add_component / remove_component ──────────────────────────────────────────
+
+class AddRemoveComponentTests(TestCase):
+
+    def setUp(self):
+        self.user = make_user()
+        self.asset = make_asset(tag="PC-010", has_components=True)
+
+    def test_add_creates_active_component_and_event(self):
+        ev = add_component(
+            self.asset, AssetComponent.ComponentType.SFP,
+            brand="Cisco", model="GLC-SX-MMD", serial="SFP-1",
+            performed_by=self.user, note="Fibre uplink",
+        )
+        self.assertEqual(ev.event_type, EventType.COMPONENT_ADD)
+        self.assertIsNotNone(ev.component)
+        self.assertTrue(ev.component.is_active)
+        self.assertEqual(self.asset.components.filter(is_active=True).count(), 1)
+        # status untouched
+        self.asset.refresh_from_db()
+        self.assertEqual(self.asset.status, AssetItem.Status.IN_STOCK)
+
+    def test_add_rejected_when_type_has_no_components(self):
+        plain = make_asset(tag="LAP-1", has_components=False)
+        with self.assertRaises(ValidationError):
+            add_component(
+                plain, AssetComponent.ComponentType.RAM,
+                brand="X", model="Y", serial="Z", performed_by=self.user,
+            )
+
+    def test_remove_marks_inactive_with_reason(self):
+        comp = AssetComponent.objects.create(
+            parent_asset=self.asset,
+            component_type=AssetComponent.ComponentType.STORAGE_DRIVE,
+            brand="Samsung", model_name="870 EVO", serial_number="SSD-1",
+            is_active=True,
+        )
+        ev = remove_component(self.asset, comp, self.user, note="Failed drive")
+        comp.refresh_from_db()
+        self.assertFalse(comp.is_active)
+        self.assertIsNotNone(comp.removed_at)
+        self.assertEqual(comp.removal_reason, "Failed drive")
+        self.assertEqual(ev.event_type, EventType.COMPONENT_REMOVE)
+
+    def test_remove_rejects_wrong_asset(self):
+        other = make_asset(tag="PC-011", has_components=True)
+        comp = AssetComponent.objects.create(
+            parent_asset=self.asset,
+            component_type=AssetComponent.ComponentType.RAM,
+            brand="A", model_name="B", is_active=True,
+        )
+        with self.assertRaises(ValidationError):
+            remove_component(other, comp, self.user)
+
+    def test_remove_rejects_already_removed(self):
+        comp = AssetComponent.objects.create(
+            parent_asset=self.asset,
+            component_type=AssetComponent.ComponentType.RAM,
+            brand="A", model_name="B", is_active=False,
+        )
+        with self.assertRaises(ValidationError):
+            remove_component(self.asset, comp, self.user)
+
+
+# ── component_panel view ──────────────────────────────────────────────────────
+
+class ComponentPanelViewTests(TestCase):
+
+    def setUp(self):
+        self.asset = make_asset(tag="PC-020", has_components=True)
+        officer = User.objects.create_user(username="off", password="pw")
+        grp, _ = Group.objects.get_or_create(name="IT Officer")
+        officer.groups.add(grp)
+        self.client.force_login(officer)
+        self.url = f"/lifecycle/{self.asset.pk}/components/"
+
+    def test_get_renders_panel(self):
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Manage Components")
+
+    def test_post_add_then_replace_then_remove(self):
+        # add
+        r = self.client.post(self.url, {
+            "action": "add", "component_type": "RAM",
+            "brand": "Kingston", "model_name": "8GB", "serial_number": "K1",
+        })
+        self.assertEqual(r.status_code, 200)
+        comp = self.asset.components.get(is_active=True)
+        # replace
+        self.client.post(self.url, {
+            "action": "replace", "old_component_id": comp.pk,
+            "component_type": "RAM", "brand": "Corsair", "model_name": "16GB",
+            "serial_number": "C1", "note": "upgrade",
+        })
+        comp.refresh_from_db()
+        self.assertFalse(comp.is_active)
+        new = self.asset.components.get(is_active=True)
+        self.assertEqual(new.brand, "Corsair")
+        # remove
+        self.client.post(self.url, {"action": "remove", "component_id": new.pk, "note": "pull"})
+        self.assertEqual(self.asset.components.filter(is_active=True).count(), 0)
+        self.assertEqual(self.asset.components.filter(is_active=False).count(), 2)
+
+    def test_viewer_forbidden(self):
+        viewer = User.objects.create_user(username="vw", password="pw")
+        grp, _ = Group.objects.get_or_create(name="Viewer")
+        viewer.groups.add(grp)
+        self.client.force_login(viewer)
+        self.assertEqual(self.client.get(self.url).status_code, 403)
 
 
 # ── LifecycleEvent str ────────────────────────────────────────────────────────

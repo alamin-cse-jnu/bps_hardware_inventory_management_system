@@ -74,7 +74,7 @@ def main():
     sftp.close()
     print(f"      {n} files uploaded.\n")
 
-    print("[3/3] Copying into container and restarting web...")
+    print("[3/4] Copying into container...")
     # Copy key dirs directly into the live container (instant, no rebuild needed)
     for src_dir in ("templates", "static", "config"):
         run(ssh, f"docker cp {REMOTE_DIR}/{src_dir} {CONTAINER}:/app/{src_dir}")
@@ -82,6 +82,11 @@ def main():
     for app in ("assets", "assignees", "assignments", "catalogue", "lifecycle",
                 "locations", "qrcodes", "sync_prp", "reports"):
         run(ssh, f"docker cp {REMOTE_DIR}/{app} {CONTAINER}:/app/{app}")
+
+    print("\n[4/4] Applying migrations and restarting web...")
+    # Apply any pending schema migrations (no-op when there are none). This does
+    # NOT run the gated `migrate_location_blocks` data command — that stays manual.
+    run(ssh, f"docker exec {CONTAINER} python manage.py migrate --noinput")
     # Restart gunicorn to reload Python modules and clear template cache
     run(ssh, f"cd {REMOTE_DIR} && docker compose -f docker-compose.yml "
              f"-f docker-compose.prod.yml restart web")

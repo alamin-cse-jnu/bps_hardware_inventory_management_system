@@ -176,6 +176,70 @@ def swap_component(
     )
 
 
+@transaction.atomic
+def add_component(
+    asset: AssetItem,
+    component_type: str,
+    brand: str,
+    model: str,
+    serial: str,
+    performed_by: User,
+    note: str = "",
+) -> LifecycleEvent:
+    """
+    Install a new component on a has_components asset (e.g. an extra RAM stick,
+    an SFP module). Status and assignment are unchanged.
+    """
+    if not asset.asset_type.has_components:
+        raise ValidationError(f"{asset.asset_type.name} does not support components.")
+
+    new_comp = AssetComponent.objects.create(
+        parent_asset=asset,
+        component_type=component_type,
+        brand=brand,
+        model_name=model,
+        serial_number=serial,
+        is_active=True,
+    )
+    return _make_event(
+        asset, EventType.COMPONENT_ADD,
+        old_status=asset.status, new_status=asset.status,
+        performed_by=performed_by, note=note,
+        component=new_comp,
+    )
+
+
+@transaction.atomic
+def remove_component(
+    asset: AssetItem,
+    component: AssetComponent,
+    performed_by: User,
+    note: str = "",
+) -> LifecycleEvent:
+    """
+    Remove (decommission) a component from a has_components asset. The component
+    row is kept (is_active=False) with a removal reason + date for the record.
+    Status and assignment are unchanged.
+    """
+    if component.parent_asset_id != asset.pk:
+        raise ValidationError("Component does not belong to this asset.")
+    if not component.is_active:
+        raise ValidationError("Component is already removed.")
+
+    now = timezone.now()
+    component.is_active = False
+    component.removed_at = now
+    component.removal_reason = note or "Removed"
+    component.save(update_fields=["is_active", "removed_at", "removal_reason", "updated_at"])
+
+    return _make_event(
+        asset, EventType.COMPONENT_REMOVE,
+        old_status=asset.status, new_status=asset.status,
+        performed_by=performed_by, note=note,
+        component=component,
+    )
+
+
 # ── dispatcher (used by the view) ─────────────────────────────────────────────
 
 # Maps EventType value → the service function for that event

@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
-from locations.models import Location
+from locations.models import Building, Location
 
 from .models import Assignee, AssigneeType, CachedEmployee, CachedMP, CachedOffice, Source
 
@@ -35,7 +35,8 @@ def make_office(**kwargs) -> CachedOffice:
 
 
 def make_building() -> Location:
-    loc = Location(name="Parliament Bhaban", level_type=Location.LevelType.BUILDING)
+    b = Building.objects.create(name="Parliament Bhaban")
+    loc = Location(name="Main Gate", building=b)
     loc.full_clean()
     loc.save()
     return loc

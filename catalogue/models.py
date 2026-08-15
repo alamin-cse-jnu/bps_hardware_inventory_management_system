@@ -78,6 +78,7 @@ class SubAssetSpecField(models.Model):
         TEXT = "text", "Text box"
         NUMBER = "number", "Number + fixed unit"
         UNITS = "units", "Number + unit chips"
+        NUMBER_TOGGLE = "number_toggle", "Number + toggle / segmented chips"
         SELECT = "select", "Dropdown"
         TOGGLE = "toggle", "Toggle / segmented chips"
 
@@ -91,7 +92,7 @@ class SubAssetSpecField(models.Model):
         help_text="Stable slug used as the storage key, e.g. ram, storage_type.",
     )
     label = models.CharField(max_length=120)
-    widget = models.CharField(max_length=12, choices=Widget.choices, default=Widget.TEXT)
+    widget = models.CharField(max_length=20, choices=Widget.choices, default=Widget.TEXT)
     # For NUMBER: a fixed unit badge (e.g. "GB", "inches", "cores").
     unit = models.CharField(max_length=20, blank=True)
     # For SELECT / TOGGLE / UNITS: the list of option strings.
