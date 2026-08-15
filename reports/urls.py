@@ -14,6 +14,7 @@ urlpatterns = [
     path("view/lifecycle/",               views.view_lifecycle,            name="lifecycle_view"),
     path("view/warranty/",                views.view_warranty,             name="warranty_view"),
     path("view/asset-history/<int:pk>/",  views.view_asset_history,        name="asset_history_view"),
+    path("view/office-assets/",           views.view_office_assets,        name="office_assets_view"),
 
     # ── Excel downloads ────────────────────────────────────────────────────────
     path("excel/inventory/",           views.download_inventory,          name="inventory_excel"),
@@ -22,6 +23,7 @@ urlpatterns = [
     path("excel/warranty/",            views.download_warranty,            name="warranty_excel"),
     path("excel/holder-assignments/",  views.download_holder_assignments,  name="holder_assignments_excel"),
     path("excel/asset-history/<int:pk>/", views.download_asset_history,   name="asset_history_excel"),
+    path("excel/office-assets/",       views.download_office_assets,      name="office_assets_excel"),
 
     # ── PDF downloads ──────────────────────────────────────────────────────────
     path("pdf/inventory/",          views.download_inventory_pdf,          name="inventory_pdf"),

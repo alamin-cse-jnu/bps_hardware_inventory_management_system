@@ -1,0 +1,335 @@
+{% extends "base.html" %}
+{% load report_tags %}
+
+{% block title %}Office-wise Asset List — Reports{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{% url 'assets:dashboard' %}">IT Inventory</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <a href="{% url 'reports:index' %}">Reports</a>
+  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+  <strong>Office-wise Asset List</strong>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <div class="page-title">Office-wise Asset List</div>
+    <span style="background:#E8F3F8;color:#0076A7;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700">
+      {{ asset_total }} asset{{ asset_total|pluralize }}
+    </span>
+    <span style="background:#F3F4F6;color:#495057;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600">
+      {{ holder_count }} holder{{ holder_count|pluralize }}
+    </span>
+  </div>
+  <div style="display:flex;gap:8px">
+    <a href="{% url 'reports:office_assets_excel' %}?{{ request.GET.urlencode }}"
+       class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:6px">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Excel
+    </a>
+  </div>
+</div>
+
+<!-- ── Office selector ──────────────────────────────────────────────────── -->
+<div class="card" style="margin-bottom:16px">
+  <div class="card-body">
+    <form method="get" action="" id="scope-form">
+      <input type="hidden" name="per_page" value="{{ per_page }}">
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">
+
+        {% for level, label, plural in level_meta %}
+        <div>
+          <label style="display:block;font-size:11px;color:#6C757D;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">{{ label }}</label>
+
+          <div class="ms" data-level="{{ level }}" style="position:relative">
+            <button type="button" class="ms-toggle filter-input"
+                    style="width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;background:#fff">
+              <span class="ms-summary" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">All {{ plural }}</span>
+              <svg width="12" height="12" fill="none" stroke="#6C757D" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+
+            <div class="ms-panel"
+                 style="display:none;position:absolute;z-index:40;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #E5E7EB;border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.12);max-height:280px;flex-direction:column">
+              <div style="padding:8px;border-bottom:1px solid #F3F4F6">
+                <input type="text" class="ms-search filter-input" placeholder="Search…"
+                       style="width:100%;height:28px;font-size:12px">
+              </div>
+              <div class="ms-list" style="overflow-y:auto;padding:4px 0;flex:1"></div>
+              <div style="padding:6px 10px;border-top:1px solid #F3F4F6;display:flex;gap:10px;align-items:center">
+                <a href="#" class="ms-all" style="font-size:11.5px;color:#0076A7;text-decoration:none;font-weight:500">Select all</a>
+                <span style="color:#E5E7EB">|</span>
+                <a href="#" class="ms-none" style="font-size:11.5px;color:#6C757D;text-decoration:none">Clear</a>
+              </div>
+            </div>
+          </div>
+
+          <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#495057;margin-top:7px;cursor:pointer;user-select:none">
+            <input type="checkbox" name="{{ level }}_only" value="1"
+                   {% if level == 'wing' and scope.wing_only %}checked{% elif level == 'branch' and scope.branch_only %}checked{% elif level == 'section' and scope.section_only %}checked{% endif %}
+                   style="accent-color:#0076A7">
+            only the selected office
+          </label>
+        </div>
+        {% endfor %}
+
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:16px;align-items:center;flex-wrap:wrap">
+        <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+        <a href="{% url 'reports:office_assets_view' %}" class="btn btn-outline btn-sm">Clear</a>
+        <span style="font-size:12px;color:#6C757D;margin-left:4px">{{ scope_summary }}</span>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Data table ───────────────────────────────────────────────────────── -->
+<div class="card" style="margin-bottom:16px">
+  <div class="table-wrap">
+    <table style="width:100%;border-collapse:collapse" class="office-table">
+      <thead>
+        <tr>
+          <th style="width:44px">#</th>
+          {% for key, label in cols %}<th>{{ label }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for group in groups %}
+          {% for row in group.rows %}
+          <tr {% if forloop.first and not forloop.parentloop.first %}style="border-top:2px solid #D8E7EF"{% endif %}>
+            {% if forloop.first %}
+            <td rowspan="{{ group.rowspan }}" style="color:#9CA3AF;font-size:12px;vertical-align:top">
+              {{ forloop.parentloop.counter0|add:start_index }}
+            </td>
+            <td rowspan="{{ group.rowspan }}" style="vertical-align:top;font-weight:600">
+              {{ group.holder }}
+              {% if group|get_item:'_is_office' %}
+              <div style="font-size:10.5px;font-weight:600;color:#0076A7;margin-top:2px">OFFICE-HELD</div>
+              {% endif %}
+              {% if group|get_item:'_inactive' %}
+              <div style="font-size:10.5px;font-weight:600;color:#EF4444;margin-top:2px">INACTIVE</div>
+              {% endif %}
+            </td>
+            <td rowspan="{{ group.rowspan }}" style="vertical-align:top">{{ group.designation|default:"—" }}</td>
+            <td rowspan="{{ group.rowspan }}" style="vertical-align:top">{{ group.wing }}</td>
+            <td rowspan="{{ group.rowspan }}" style="vertical-align:top">{{ group.branch }}</td>
+            <td rowspan="{{ group.rowspan }}" style="vertical-align:top">{{ group.section }}</td>
+            {% endif %}
+
+            <td><a href="{{ row|get_item:'_detail_url' }}" class="asset-tag" style="text-decoration:none">{{ row.asset_tag }}</a></td>
+
+            {% with cat_span=row|get_item:'_span_category' type_span=row|get_item:'_span_asset_type' %}
+            {% if cat_span %}
+            <td rowspan="{{ cat_span }}" style="vertical-align:top">{{ row.category }}</td>
+            {% endif %}
+            {% if type_span %}
+            <td rowspan="{{ type_span }}" style="vertical-align:top">{{ row.asset_type }}</td>
+            {% endif %}
+            {% endwith %}
+
+            <td>{{ row.brand|default:"—" }}</td>
+            <td>{{ row.model|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        {% empty %}
+        <tr>
+          <td colspan="{{ cols|length|add:1 }}" style="text-align:center;padding:40px;color:#9CA3AF;font-size:13px">
+            No assets found for the selected offices.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── Pagination ───────────────────────────────────────────────────────── -->
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+  <div style="display:flex;align-items:center;gap:6px">
+    {% if page_obj.has_previous %}
+    <a href="?{{ base_qs }}&page={{ page_obj.previous_page_number }}" class="btn btn-outline btn-sm">← Prev</a>
+    {% else %}
+    <span class="btn btn-outline btn-sm" style="opacity:.4;cursor:default">← Prev</span>
+    {% endif %}
+    <span style="font-size:13px;color:#495057;padding:0 8px">
+      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    </span>
+    {% if page_obj.has_next %}
+    <a href="?{{ base_qs }}&page={{ page_obj.next_page_number }}" class="btn btn-outline btn-sm">Next →</a>
+    {% else %}
+    <span class="btn btn-outline btn-sm" style="opacity:.4;cursor:default">Next →</span>
+    {% endif %}
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#6C757D">
+    <span>Show:</span>
+    {% if per_page == 25 %}
+    <span style="background:#0076A7;color:#fff;padding:3px 10px;border-radius:4px;font-weight:600;font-size:12px">25</span>
+    {% else %}
+    <a href="?{{ base_qs_nopag }}&per_page=25" style="padding:3px 10px;border:1px solid #E5E7EB;border-radius:4px;color:#495057;text-decoration:none;font-size:12px">25</a>
+    {% endif %}
+    {% if per_page == 50 %}
+    <span style="background:#0076A7;color:#fff;padding:3px 10px;border-radius:4px;font-weight:600;font-size:12px">50</span>
+    {% else %}
+    <a href="?{{ base_qs_nopag }}&per_page=50" style="padding:3px 10px;border:1px solid #E5E7EB;border-radius:4px;color:#495057;text-decoration:none;font-size:12px">50</a>
+    {% endif %}
+    {% if per_page == 100 %}
+    <span style="background:#0076A7;color:#fff;padding:3px 10px;border-radius:4px;font-weight:600;font-size:12px">100</span>
+    {% else %}
+    <a href="?{{ base_qs_nopag }}&per_page=100" style="padding:3px 10px;border:1px solid #E5E7EB;border-radius:4px;color:#495057;text-decoration:none;font-size:12px">100</a>
+    {% endif %}
+    <span style="color:#9CA3AF">holders per page</span>
+  </div>
+</div>
+
+<style>
+  .office-table td { vertical-align: top; }
+  .office-table td, .office-table th { border-bottom: 1px solid #F1F3F5; }
+  .ms-opt:hover { background:#F6FAFC; }
+</style>
+
+<script>
+(function () {
+  var OPTIONS  = {{ options_json|safe }};
+  var SELECTED = {
+    wing:    {{ sel_wing|safe }},
+    branch:  {{ sel_branch|safe }},
+    section: {{ sel_section|safe }}
+  };
+  var CHILD_OF = { wing: 'branch', branch: 'section', section: null };
+  var LIST_KEY = { wing: 'wings', branch: 'branches', section: 'sections' };
+
+  function optionsFor(level) {
+    var all = OPTIONS[LIST_KEY[level]] || [];
+    if (level === 'wing') return all;
+    var parentLevel = level === 'branch' ? 'wing' : 'branch';
+    var parents = SELECTED[parentLevel];
+    if (!parents.length) return all;               // no parent filter → show all
+    var allowed = {};
+    parents.forEach(function (p) { allowed[p] = true; });
+    return all.filter(function (o) { return allowed[o.parent]; });
+  }
+
+  function render(level) {
+    var root = document.querySelector('.ms[data-level="' + level + '"]');
+    if (!root) return;
+    var list  = root.querySelector('.ms-list');
+    var query = (root.querySelector('.ms-search').value || '').toLowerCase();
+    var opts  = optionsFor(level);
+
+    // Drop selections that are no longer reachable under the current parents.
+    var visible = {};
+    opts.forEach(function (o) { visible[o.id] = true; });
+    SELECTED[level] = SELECTED[level].filter(function (id) { return visible[id]; });
+
+    list.innerHTML = '';
+    var shown = opts.filter(function (o) {
+      return !query || o.name.toLowerCase().indexOf(query) !== -1;
+    });
+
+    if (!shown.length) {
+      var empty = document.createElement('div');
+      empty.style.cssText = 'padding:10px 12px;font-size:12px;color:#9CA3AF';
+      empty.textContent = 'No offices match.';
+      list.appendChild(empty);
+    }
+
+    shown.forEach(function (o) {
+      var label = document.createElement('label');
+      label.className = 'ms-opt';
+      label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:5px 12px;font-size:12.5px;cursor:pointer;user-select:none';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.name = level;
+      cb.value = o.id;
+      cb.checked = SELECTED[level].indexOf(o.id) !== -1;
+      cb.style.accentColor = '#0076A7';
+      cb.addEventListener('change', function () {
+        var i = SELECTED[level].indexOf(o.id);
+        if (cb.checked && i === -1) SELECTED[level].push(o.id);
+        if (!cb.checked && i !== -1) SELECTED[level].splice(i, 1);
+        summarise(level);
+        var child = CHILD_OF[level];
+        if (child) { render(child); var g = CHILD_OF[child]; if (g) render(g); }
+      });
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(o.name));
+      list.appendChild(label);
+    });
+
+    // A selection hidden by the search box is still a selection: without a
+    // stand-in input it would silently vanish from the submitted form.
+    var rendered = {};
+    shown.forEach(function (o) { rendered[o.id] = true; });
+    SELECTED[level].forEach(function (id) {
+      if (rendered[id]) return;
+      var keep = document.createElement('input');
+      keep.type = 'hidden';
+      keep.name = level;
+      keep.value = id;
+      list.appendChild(keep);
+    });
+
+    summarise(level);
+  }
+
+  function summarise(level) {
+    var root = document.querySelector('.ms[data-level="' + level + '"]');
+    var out  = root.querySelector('.ms-summary');
+    var sel  = SELECTED[level];
+    var names = {};
+    (OPTIONS[LIST_KEY[level]] || []).forEach(function (o) { names[o.id] = o.name; });
+    if (!sel.length) {
+      out.textContent = 'All ' + LIST_KEY[level];
+      out.style.color = '#6C757D';
+    } else if (sel.length === 1) {
+      out.textContent = names[sel[0]] || sel[0];
+      out.style.color = '#212529';
+    } else {
+      out.textContent = sel.length + ' selected';
+      out.style.color = '#212529';
+    }
+  }
+
+  document.querySelectorAll('.ms').forEach(function (root) {
+    var level  = root.dataset.level;
+    var toggle = root.querySelector('.ms-toggle');
+    var panel  = root.querySelector('.ms-panel');
+
+    toggle.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var open = panel.style.display === 'flex';
+      document.querySelectorAll('.ms-panel').forEach(function (p) { p.style.display = 'none'; });
+      panel.style.display = open ? 'none' : 'flex';
+      if (!open) root.querySelector('.ms-search').focus();
+    });
+    panel.addEventListener('click', function (e) { e.stopPropagation(); });
+    root.querySelector('.ms-search').addEventListener('input', function () { render(level); });
+
+    root.querySelector('.ms-all').addEventListener('click', function (e) {
+      e.preventDefault();
+      SELECTED[level] = optionsFor(level).map(function (o) { return o.id; });
+      render(level);
+      var child = CHILD_OF[level];
+      if (child) { render(child); var g = CHILD_OF[child]; if (g) render(g); }
+    });
+    root.querySelector('.ms-none').addEventListener('click', function (e) {
+      e.preventDefault();
+      SELECTED[level] = [];
+      render(level);
+      var child = CHILD_OF[level];
+      if (child) { render(child); var g = CHILD_OF[child]; if (g) render(g); }
+    });
+  });
+
+  document.addEventListener('click', function () {
+    document.querySelectorAll('.ms-panel').forEach(function (p) { p.style.display = 'none'; });
+  });
+
+  ['wing', 'branch', 'section'].forEach(render);
+})();
+</script>
+
+{% endblock %}

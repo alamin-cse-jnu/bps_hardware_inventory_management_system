@@ -87,6 +87,29 @@ HOLDER_ASSIGNMENTS_COLS: list[tuple[str, str]] = [
     ("assigned_since", "Assigned Since"),
 ]
 
+# Office-wise Asset List (Phase 11).
+# Fixed column set — the Excel merge geometry is defined in terms of these
+# exact groups (identity block A–E, run-merge block Category/Asset Type), so
+# this report deliberately has no column picker.
+OFFICE_ASSETS_COLS: list[tuple[str, str]] = [
+    ("holder",      "Holder"),
+    ("designation", "Designation"),
+    ("wing",        "Wing"),
+    ("branch",      "Branch"),
+    ("section",     "Section"),
+    ("asset_tag",   "Asset Tag"),
+    ("category",    "Category"),
+    ("asset_type",  "Asset Type"),
+    ("brand",       "Brand"),
+    ("model",       "Model"),
+]
+
+# Columns merged across a holder's whole row block.
+OFFICE_ASSETS_IDENTITY_KEYS = ["holder", "designation", "wing", "branch", "section"]
+# Columns merged across consecutive equal runs *within* a holder block.
+OFFICE_ASSETS_RUN_KEYS = ["category", "asset_type"]
+
+
 ASSET_HISTORY_COLS: list[tuple[str, str]] = [
     ("assigned_to",  "Assigned To"),
     ("holder_type",  "Holder Type"),

@@ -109,7 +109,7 @@ Template flags: `user_is_admin` / `user_is_it_officer` / `user_is_viewer` from `
 
 `Assignee` is a unified wrapper over `CachedEmployee`, `CachedMP`, `CachedOffice`, `Location`. Must be kept in sync:
 - **PRP sync** — `_sync_employees/mps/offices` call `Assignee.objects.get_or_create(...)` after every `update_or_create`. Inactive cached records set `Assignee.is_active=False`.
-- **Location creation** (`locations/views.py` → `_save_location`) — creates an `Assignee(LOCATION)` row.
+- **Locations** — `Location.sync_assignee()` upserts the `Assignee(LOCATION)` row and mirrors `is_active` onto it. Call it after **every** save that can change `is_active`, not just on create: `_save_location` (the edit form has an is_active checkbox, so locations reactivate too) and `location_delete`. A LOCATION assignee has no independent lifecycle — leaving it active after deactivating the location is what puts dead locations back in the assign panel.
 - **Manual assignee creation** (`assignees/views.py`) — creates an `Assignee` row on save.
 
 The assign-panel search (`assignees:search`) queries `Assignee` directly. Missing rows = empty search results.
@@ -139,9 +139,55 @@ Centrally-managed catalogue replacing the old 3 admin pages (Asset Catalog / Dro
 - **Seed** — `python manage.py seed_catalogue` (idempotent) loads `docs/Asset_Master_Data_Polished.xlsx` → 6 Main / 18 Sub / 51 Brand / 137 Model / 73 spec fields.
 - **Legacy** — old `assets` catalog/dropdowns/spec-choices routes/views remain (unlinked from nav) so legacy `Brand`/`AssetModelName`/`SpecChoice` data isn't orphaned. Vendors are managed from a section on the Master Data page.
 
+## Office-wise Asset List (Phase 11)
+
+Assets grouped by office placement, with the merged-cell Excel layout from
+`docs/office wise asset list.xlsx`. Routes: `/reports/view/office-assets/` +
+`/reports/excel/office-assets/` (Viewer and above).
+
+- **Hierarchy** — Wing → Branch → Section. Wings are derived as the children of
+  whichever node the employee `wing_id`s sit under (SECRETARY in prod) — no
+  prp_id is hardcoded. Filtering uses the denormalised
+  `CachedEmployee.wing_id / branch_id / section_id`, which match the
+  `CachedOffice` parent tree exactly (verified: 0 mismatches over 1,212 branch
+  and 1,103 section placements). Units fold into their parent section.
+- **Selection** — multi-select per level, `?wing=56,69&branch=66&wing_only=1`.
+  Each level has an "only the selected office" flag meaning *staff at that node
+  itself* (`wing_only` → `branch_id=""`, `branch_only` → `section_id=""`,
+  `section_only` → `unit_id=""`).
+- **Narrowing rule** — a wing term is dropped when a branch beneath it is also
+  selected (unless `wing_only` is set); likewise branch/section. Without this,
+  picking a branch would be a no-op, since its wing must be selected first for
+  the branch to appear in the dropdown. `scope_terms()` in
+  `reports/office_scope.py` is the single source of truth — both the employee
+  `Q` and the office-holder predicate derive from it, so they cannot drift.
+- **Merge geometry** — `SL` + `Holder…Section` merge across the holder's whole
+  row block; `Category`/`Asset Type` merge across consecutive equal runs
+  *within* a block; `Asset Tag`/`Brand`/`Model` never merge; merges never cross
+  a holder boundary. Spans are computed once by `office_assets.annotate_runs()`
+  and consumed by both the HTML `rowspan` and the Excel `merge_cells`.
+- **SL column** — Excel column A, numbering *holders* not rows, merged down its
+  holder's block (matches the `#` column on the view page).
+- **Borders** — thin grid over the header and all data cells, applied to every
+  constituent cell of a merged range (Excel draws a merged block's edges from
+  the cells beneath it, so bordering only the anchor loses the bottom edge).
+  Note openpyxl's *reader* reports `MergedCell` styles as default no matter
+  what the file holds, so border coverage must be asserted against the written
+  XML — a round-trip read cannot see it.
+- **Fixed columns** — no column picker: merge geometry is defined in terms of
+  these exact column groups.
+- **Ordering** — Wing → Branch → Section → staff → the office's own assets
+  last within its node. Rows within a holder sort Category → Type → Tag so the
+  merge runs are maximal. Missing levels render as `…`.
+- **Pagination is by holder**, never by row, so a merged block is never split
+  across pages.
+- **Included** — employee holders plus `OFFICE`-type assignees; inactive
+  employees still holding assets appear flagged (never dropped — decision #9).
+  Placement is read live from `CachedEmployee`, not `holder_snapshot`.
+
 ## Current State
 
-**Phases 1–10: ✅ All complete · 311 tests**
+**Phases 1–11: ✅ All complete · 352 tests**
 
 | Phase | Scope | Status |
 |-------|-------|--------|
@@ -151,6 +197,7 @@ Centrally-managed catalogue replacing the old 3 admin pages (Asset Catalog / Dro
 | 8 | Report tabular views — column picker, pagination, Excel + PDF download | ✅ Complete |
 | 9 | Catalogue — cascading Master Data page, spec schema, seed command | ✅ Complete |
 | 10 | Performance — vendored assets, pagination, caching, nginx gzip | ✅ Complete |
+| 11 | Office-wise Asset List — Wing/Branch/Section scope, merged-cell Excel | ✅ Complete |
 
 **Known failing tests (pre-existing, unrelated to Phase 10):**
 `audit.tests.test_assignment_logs_assign` creates an `Assignment` without

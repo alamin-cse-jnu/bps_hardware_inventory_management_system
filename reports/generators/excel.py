@@ -10,7 +10,7 @@ from datetime import date, timedelta
 
 from django.utils import timezone
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from reports.columns import (
@@ -18,6 +18,9 @@ from reports.columns import (
     HOLDER_ASSIGNMENTS_COLS,
     INVENTORY_COLS,
     LIFECYCLE_COLS,
+    OFFICE_ASSETS_COLS,
+    OFFICE_ASSETS_IDENTITY_KEYS,
+    OFFICE_ASSETS_RUN_KEYS,
     TRANSFER_LOG_COLS,
     WARRANTY_COLS,
 )
@@ -30,6 +33,16 @@ _FONT_TITLE = Font(name="Calibri", bold=True, color="0076A7", size=13)
 _FONT_ORG   = Font(name="Calibri", italic=True, color="777777", size=9)
 _ALIGN_CTR  = Alignment(horizontal="center", vertical="center", wrap_text=False)
 _ALIGN_L    = Alignment(horizontal="left",   vertical="center", wrap_text=False)
+# Merged blocks: anchor the text to the top-left and wrap, so a tall merged
+# holder block reads alongside its first asset row rather than floating mid-cell.
+_ALIGN_MERGE = Alignment(horizontal="left", vertical="top", wrap_text=True)
+_ALIGN_SL   = Alignment(horizontal="center", vertical="top", wrap_text=False)
+
+# Grid lines. Applied to every cell of a merged range, not just the anchor —
+# Excel draws a merged block's edges from its constituent cells.
+_SIDE_THIN   = Side(style="thin", color="BFCBD4")
+_BORDER_ALL  = Border(left=_SIDE_THIN, right=_SIDE_THIN,
+                      top=_SIDE_THIN, bottom=_SIDE_THIN)
 
 # ── Per-report column → default width maps ────────────────────────────────────
 _INV_WIDTHS: dict[str, int] = {
@@ -59,6 +72,10 @@ _HOLD_WIDTHS: dict[str, int] = {
     "holder": 28, "holder_type": 10, "designation": 34, "department": 28,
     "asset_tag": 14, "category": 14, "asset_type": 16, "brand": 14,
     "model": 22, "status": 12, "assigned_since": 16,
+}
+_OFFICE_WIDTHS: dict[str, int] = {
+    "holder": 30, "designation": 38, "wing": 22, "branch": 28, "section": 28,
+    "asset_tag": 16, "category": 22, "asset_type": 16, "brand": 12, "model": 22,
 }
 _HIST_WIDTHS: dict[str, int] = {
     "assigned_to": 28, "holder_type": 10, "designation": 34, "department": 26,
@@ -469,6 +486,105 @@ def holder_assignments_excel(
             "assigned_since": _date_s(asgn.assigned_at.date()),
         }
         _data_row(ws, hrow + 1 + i, [row_dict[k] for k in eff], alt=(i % 2 == 1))
+
+    return _wb_bytes(wb)
+
+
+def office_assets_excel(groups: list[dict], subtitle: str = "") -> bytes:
+    """
+    Office-wise asset list with merged cells.
+
+    Two independent merge bands, mirroring docs/office wise asset list.xlsx:
+
+      * Holder…Section — merged across the holder's entire row block.
+      * Category / Asset Type — merged across consecutive equal runs *inside*
+        one holder block. Merges never cross a holder boundary.
+
+      * Asset Tag / Brand / Model are never merged.
+
+    Row shading alternates per holder block rather than per row; striping
+    individual rows looks wrong underneath a tall merged cell.
+    """
+    keys = [k for k, _ in OFFICE_ASSETS_COLS]
+    # SL takes column 1 and is numbered per holder, so every other column
+    # shifts one to the right.
+    sl_offset = 1
+    identity_cols = [keys.index(k) + 1 + sl_offset for k in OFFICE_ASSETS_IDENTITY_KEYS]
+    run_cols = [(keys.index(k) + 1 + sl_offset, k) for k in OFFICE_ASSETS_RUN_KEYS]
+    n_cols = len(keys) + sl_offset
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Office-wise Assets"
+
+    hrow = _title_block(
+        ws, "Office-wise Asset List",
+        f"{subtitle}  ·  Generated: {_date_s(date.today())}" if subtitle
+        else f"Generated: {_date_s(date.today())}",
+    )
+    _header_row(ws, hrow, ["SL"] + _labels_for(keys, OFFICE_ASSETS_COLS))
+    _col_widths(ws, [6] + _widths_for(keys, _OFFICE_WIDTHS))
+
+    # ── Pass 1: write every row, remembering each holder's row span ───────
+    row = hrow + 1
+    blocks: list[tuple[int, int, list[dict]]] = []
+    for block_index, group in enumerate(groups):
+        rows = group["rows"]
+        if not rows:
+            continue
+        start = row
+        alt = block_index % 2 == 1
+
+        for offset, entry in enumerate(rows):
+            # SL counts holders, not rows — written once at the block anchor.
+            values = [block_index + 1 if offset == 0 else ""]
+            for k in keys:
+                if k in OFFICE_ASSETS_IDENTITY_KEYS:
+                    values.append(group[k])
+                elif k in OFFICE_ASSETS_RUN_KEYS and entry.get(f"_span_{k}", 1) == 0:
+                    values.append("")          # continuation row of a merge run
+                else:
+                    values.append(entry.get(k, ""))
+            _data_row(ws, row, values, alt=alt)
+            row += 1
+        blocks.append((start, row - 1, rows))
+
+    # ── Pass 2: merges ────────────────────────────────────────────────────
+    for start, end, rows in blocks:
+        # SL + identity: one merge per column across the whole holder.
+        if end > start:
+            ws.merge_cells(start_row=start, start_column=1, end_row=end, end_column=1)
+        ws.cell(row=start, column=1).alignment = _ALIGN_SL
+
+        for col in identity_cols:
+            if end > start:
+                ws.merge_cells(
+                    start_row=start, start_column=col, end_row=end, end_column=col
+                )
+            ws.cell(row=start, column=col).alignment = _ALIGN_MERGE
+
+        # Category / Asset Type: merge consecutive equal runs. Spans come from
+        # office_assets.annotate_runs — the same numbers the HTML rowspan uses.
+        for col, key in run_cols:
+            for offset, entry in enumerate(rows):
+                span = entry.get(f"_span_{key}", 1)
+                if span > 1:
+                    ws.merge_cells(
+                        start_row=start + offset, start_column=col,
+                        end_row=start + offset + span - 1, end_column=col,
+                    )
+                if span:
+                    ws.cell(row=start + offset, column=col).alignment = _ALIGN_MERGE
+
+    # ── Pass 3: grid over header + every data cell ────────────────────────
+    # Applied last, and to every constituent cell of a merged range rather
+    # than just its anchor — Excel draws a merged block's edges from the cells
+    # underneath it, so bordering only the anchor loses the bottom edge.
+    # (openpyxl writes these style indices correctly even though its *reader*
+    # reports MergedCell styles as default.)
+    for r in range(hrow, max(row, hrow + 1)):
+        for c in range(1, n_cols + 1):
+            ws.cell(row=r, column=c).border = _BORDER_ALL
 
     return _wb_bytes(wb)
 

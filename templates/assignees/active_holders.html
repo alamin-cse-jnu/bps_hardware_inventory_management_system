@@ -36,27 +36,50 @@
 
 <!-- Tabs -->
 <nav class="tab-nav">
-  <a href="?tab=employees" class="{% if tab == 'employees' %}active{% endif %}">
+  <a href="?tab=employees{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="{% if tab == 'employees' %}active{% endif %}">
     <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
     Employees
     <span class="tab-badge">{{ counts.employees }}</span>
   </a>
-  <a href="?tab=mps" class="{% if tab == 'mps' %}active{% endif %}">
+  <a href="?tab=mps{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="{% if tab == 'mps' %}active{% endif %}">
     <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
     MPs
     <span class="tab-badge">{{ counts.mps }}</span>
   </a>
-  <a href="?tab=offices" class="{% if tab == 'offices' %}active{% endif %}">
+  <a href="?tab=offices{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="{% if tab == 'offices' %}active{% endif %}">
     <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
     Offices
     <span class="tab-badge">{{ counts.offices }}</span>
   </a>
-  <a href="?tab=locations" class="{% if tab == 'locations' %}active{% endif %}">
+  <a href="?tab=locations{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="{% if tab == 'locations' %}active{% endif %}">
     <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
     Locations
     <span class="tab-badge">{{ counts.locations }}</span>
   </a>
 </nav>
+
+<!-- Search -->
+<form method="get" action="" style="margin-bottom:16px">
+  <input type="hidden" name="tab" value="{{ tab }}">
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <div style="position:relative;flex:1;min-width:240px;max-width:460px">
+      <svg width="14" height="14" fill="none" stroke="#9CA3AF" stroke-width="2" viewBox="0 0 24 24"
+           style="position:absolute;left:11px;top:50%;transform:translateY(-50%);pointer-events:none">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="search" name="q" value="{{ q }}" placeholder="{{ search_placeholder }}"
+             autocomplete="off"
+             style="width:100%;height:34px;padding:0 12px 0 32px;border:1px solid #E5E7EB;border-radius:6px;font-size:13px">
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">Search</button>
+    {% if q %}
+    <a href="?tab={{ tab }}" class="btn btn-outline btn-sm">Clear</a>
+    <span style="font-size:12px;color:#6C757D">
+      {{ holders|length }} match{{ holders|length|pluralize:"es" }} for &ldquo;{{ q }}&rdquo;
+    </span>
+    {% endif %}
+  </div>
+</form>
 
 <div class="card">
   {% if holders %}
@@ -156,7 +179,12 @@
   {% else %}
   <div class="empty-state">
     <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="display:block;margin:0 auto 10px;opacity:.3"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
-    No active holders in this category.
+    {% if q %}
+      No active holders in this category match &ldquo;{{ q }}&rdquo;.
+      <div style="margin-top:10px"><a href="?tab={{ tab }}" class="btn btn-outline btn-sm">Clear search</a></div>
+    {% else %}
+      No active holders in this category.
+    {% endif %}
   </div>
   {% endif %}
 </div>
