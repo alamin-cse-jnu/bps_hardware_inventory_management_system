@@ -114,3 +114,23 @@ class Location(models.Model):
         the assignee layer, reports and exports need no changes."""
         desc = self.descriptor
         return f"{self.name} — {desc}" if desc else self.name
+
+    # ── Assignee layer sync ───────────────────────────────────────────────────
+
+    def sync_assignee(self) -> None:
+        """
+        Mirror ``is_active`` onto the unified Assignee row, creating it if absent.
+
+        A LOCATION assignee has no independent lifecycle — its active state is
+        purely derived from the Location. The three cached holder types cascade
+        the same way from their ``mark_inactive()``; locations toggle in both
+        directions because the edit form exposes an is_active checkbox, so this
+        must run on every save, not only on deactivation.
+        """
+        from assignees.models import Assignee, AssigneeType
+
+        Assignee.objects.update_or_create(
+            assignee_type=AssigneeType.LOCATION,
+            location=self,
+            defaults={"is_active": self.is_active},
+        )

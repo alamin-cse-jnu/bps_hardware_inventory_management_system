@@ -3,7 +3,6 @@ from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 
-from assignees.models import Assignee, AssigneeType
 from config.permissions import it_officer_required, viewer_required
 
 from .models import Block, Building, Level, Location
@@ -93,6 +92,9 @@ def location_delete(request, pk):
         return redirect("locations:list")
     location.is_active = False
     location.save(update_fields=["is_active", "updated_at"])
+    # Without this the Assignee row stays active and the deactivated location
+    # keeps showing up in the assign panel.
+    location.sync_assignee()
     messages.success(request, f'Location "{location.name}" deactivated.')
     return redirect("locations:list")
 
@@ -165,11 +167,9 @@ def _save_location(request, instance):
         try:
             loc.full_clean()
             loc.save()
-            if not instance:
-                Assignee.objects.get_or_create(
-                    assignee_type=AssigneeType.LOCATION, location=loc,
-                    defaults={"is_active": True},
-                )
+            # Creates the Assignee row on add, and keeps its is_active in step
+            # with the edit form's checkbox on update.
+            loc.sync_assignee()
             verb = "updated" if instance else "created"
             messages.success(request, f'Location "{loc.name}" {verb}.')
             return redirect("locations:list")

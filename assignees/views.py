@@ -36,6 +36,10 @@ def search(request):
                 Q(assignee_type="EMPLOYEE", employee__is_active=False)
                 | Q(assignee_type="MP", mp__is_active=False)
                 | Q(assignee_type="OFFICE", office__is_active=False)
+                # Belt and braces alongside Location.sync_assignee(): catches
+                # rows deactivated through any other path (admin, shell, or
+                # before the cascade existed).
+                | Q(assignee_type="LOCATION", location__is_active=False)
             )
         )
 
@@ -801,6 +805,8 @@ def active_holders(request):
     if tab not in ("employees", "mps", "offices", "locations"):
         tab = "employees"
 
+    q = request.GET.get("q", "").strip()
+
     active_filter = Q(assignments__returned_at__isnull=True, assignments__asset__is_deleted=False)
 
     # SL is a display sequence: the holder with the most recent active assignment
@@ -815,24 +821,55 @@ def active_holders(request):
         .distinct()
     )
 
+    # Per-type search fields. Each tab searches only what it displays, so a
+    # term never matches a holder for a reason the row doesn't show.
+    search_fields = {
+        AssigneeType.EMPLOYEE: [
+            "employee__name_en", "employee__name_bn",
+            "employee__designation_en", "employee__prp_id",
+        ],
+        AssigneeType.MP: [
+            "mp__name_en", "mp__name_bn", "mp__constituency",
+        ],
+        AssigneeType.OFFICE: [
+            "office__name_en", "office__name_bn",
+        ],
+        # The rows render Location.full_path, so the dimensions that make up
+        # that string are searchable too — matching the assign-panel search.
+        AssigneeType.LOCATION: [
+            "location__name", "location__room",
+            "location__building__name", "location__block__name",
+            "location__level__name",
+        ],
+    }
+
+    def _for(assignee_type):
+        qs = base.filter(assignee_type=assignee_type)
+        if q:
+            matches = Q()
+            for field in search_fields[assignee_type]:
+                matches |= Q(**{f"{field}__icontains": q})
+            qs = qs.filter(matches)
+        return qs
+
     employees = (
-        base.filter(assignee_type=AssigneeType.EMPLOYEE)
+        _for(AssigneeType.EMPLOYEE)
         .select_related("employee")
         .order_by("-last_assigned", "employee__name_en")
     )
     mps = (
-        base.filter(assignee_type=AssigneeType.MP)
+        _for(AssigneeType.MP)
         .select_related("mp")
         .order_by("-last_assigned", "mp__name_en")
     )
     offices = (
-        base.filter(assignee_type=AssigneeType.OFFICE)
+        _for(AssigneeType.OFFICE)
         .select_related("office")
         .order_by("-last_assigned", "office__name_en")
     )
     locations = (
-        base.filter(assignee_type=AssigneeType.LOCATION)
-        .select_related("location")
+        _for(AssigneeType.LOCATION)
+        .select_related("location__building", "location__block", "location__level")
         .order_by("-last_assigned", "location__name")
     )
 
@@ -853,8 +890,17 @@ def active_holders(request):
     total = len(holder_list)
     holders = [(total - i, h) for i, h in enumerate(holder_list)]
 
+    placeholders = {
+        "employees": "Search by name, designation or ID…",
+        "mps": "Search by name or constituency…",
+        "offices": "Search by office name…",
+        "locations": "Search by location name…",
+    }
+
     return render(request, "assignees/active_holders.html", {
         "tab": tab,
         "holders": holders,
         "counts": counts,
+        "q": q,
+        "search_placeholder": placeholders[tab],
     })

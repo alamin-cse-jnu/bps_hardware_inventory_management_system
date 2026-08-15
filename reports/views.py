@@ -20,6 +20,7 @@ from reports.columns import (
     HOLDER_ASSIGNMENTS_COLS,
     INVENTORY_COLS,
     LIFECYCLE_COLS,
+    OFFICE_ASSETS_COLS,
     TRANSFER_LOG_COLS,
     WARRANTY_COLS,
     parse_cols,
@@ -29,8 +30,16 @@ from reports.generators.excel import (
     holder_assignments_excel,
     inventory_excel,
     lifecycle_events_excel,
+    office_assets_excel,
     transfer_log_excel,
     warranty_expiry_excel,
+)
+from reports.office_assets import asset_count, build_groups
+from reports.office_scope import (
+    build_office_options,
+    parse_scope,
+    scope_label,
+    scope_terms,
 )
 from reports.generators.pdf import disposal_pdf, handover_pdf, tabular_pdf
 
@@ -448,6 +457,65 @@ def view_lifecycle(request):
         "base_qs":           _strip_params(request, "page"),
         "base_qs_nopag":     _strip_params(request, "page", "per_page"),
     })
+
+
+# ── Office-wise Asset List (Phase 11) ──────────────────────────────────────────
+
+def _office_context(request):
+    """Shared scope resolution for the view page and the Excel download."""
+    options = build_office_options()
+    scope = parse_scope(request, options)
+    terms = scope_terms(scope, options)
+    return options, scope, terms
+
+
+@viewer_required
+def view_office_assets(request):
+    import json
+
+    options, scope, terms = _office_context(request)
+    groups = build_groups(terms, options)
+
+    # Paginate by holder, never by row: a holder's rows form one merged block
+    # and must not be split across pages.
+    per_page = _parse_per_page(request)
+    paginator = Paginator(groups, per_page)
+    page_obj = paginator.get_page(request.GET.get("page", 1))
+
+    return render(request, "reports/view_office_assets.html", {
+        "groups":        list(page_obj),
+        "cols":          OFFICE_ASSETS_COLS,
+        "page_obj":      page_obj,
+        "per_page":      per_page,
+        "start_index":   page_obj.start_index(),
+        "holder_count":  paginator.count,
+        "asset_total":   asset_count(groups),
+        "scope":         scope,
+        "scope_summary": scope_label(scope, options),
+        "level_meta":    [
+            ("wing", "Wing", "wings"),
+            ("branch", "Branch", "branches"),
+            ("section", "Section", "sections"),
+        ],
+        "options_json":  json.dumps({
+            "wings":    options.wings,
+            "branches": options.branches,
+            "sections": options.sections,
+        }),
+        "sel_wing":      json.dumps(scope.wing),
+        "sel_branch":    json.dumps(scope.branch),
+        "sel_section":   json.dumps(scope.section),
+        "base_qs":       _strip_params(request, "page"),
+        "base_qs_nopag": _strip_params(request, "page", "per_page"),
+    })
+
+
+@viewer_required
+def download_office_assets(request):
+    options, scope, terms = _office_context(request)
+    groups = build_groups(terms, options)
+    data = office_assets_excel(groups, subtitle=scope_label(scope, options))
+    return _excel_response(data, "office_wise_asset_list.xlsx")
 
 
 # ── PDF download views (Session 8.2 + 8.3) ───────────────────────────────────

@@ -105,7 +105,23 @@
       "PowerShell(git fetch *)",
       "PowerShell(git *)",
       "PowerShell(docker ps *)",
-      "PowerShell(docker exec it-inventory-final-web-1 *)"
+      "PowerShell(docker exec it-inventory-final-web-1 *)",
+      "PowerShell($g = Get-Command gh -ErrorAction SilentlyContinue; if \\($g\\) { Write-Output $g.Source; gh auth status } else { Write-Output \"gh NOT_FOUND\" })",
+      "PowerShell(Get-NetTCPConnection *)",
+      "PowerShell(Get-Process *)",
+      "PowerShell(Get-CimInstance *)",
+      "PowerShell(foreach \\($u in @\\(\"http://127.0.0.1:8000/\",\"http://[::1]:8000/\",\"http://localhost:8000/\"\\)\\) { try { $r = Invoke-WebRequest -Uri $u -MaximumRedirection 0 -TimeoutSec 8 -ErrorAction Stop; \"$u => $\\($r.StatusCode\\)\" } catch { if \\($_.Exception.Response\\) { \"$u => $\\([int]$_.Exception.Response.StatusCode\\) \\(redirect/http\\)\" } else { \"$u => FAIL: $\\($_.Exception.Message\\)\" } } })",
+      "PowerShell(foreach \\($u in @\\(\"http://127.0.0.1:8000/\",\"http://[::1]:8000/\",\"http://localhost:8000/\"\\)\\) { try { $r = Invoke-WebRequest -Uri $u -UseBasicParsing -MaximumRedirection 0 -TimeoutSec 8 -ErrorAction Stop; \"$u => $\\($r.StatusCode\\)\" } catch { if \\($_.Exception.Response\\) { \"$u => HTTP $\\([int]$_.Exception.Response.StatusCode\\)\" } else { \"$u => FAIL: $\\($_.Exception.Message\\)\" } } })",
+      "PowerShell(foreach \\($u in @\\(\"http://127.0.0.1:8000/\",\"http://[::1]:8000/\",\"http://localhost:8000/\"\\)\\) { $code = & curl.exe -s -o NUL -w \"%{http_code}\" --max-time 8 $u 2>&1; \"$u => $code\" })",
+      "PowerShell(& curl.exe -s -i --max-time 8 http://localhost:8000/ | Select-Object -First 8; \"===== login page =====\"; & curl.exe -s -o NUL -w \"login => %{http_code}, size %{size_download}`n\" --max-time 8 -L http://localhost:8000/)",
+      "PowerShell(docker cp \"C:\\\\Users\\\\alami\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Development-projects-it-inventory-final\\\\f02f3fdc-bacb-4335-a4c5-dfa173fa1fa4\\\\scratchpad\\\\dump.py\" it-inventory-final-web-1:/tmp/dump.py; docker exec it-inventory-final-web-1 python /tmp/dump.py)",
+      "PowerShell(Select-String *)",
+      "Bash(docker cp *)",
+      "PowerShell(docker cp \"C:\\\\Users\\\\alami\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Development-projects-it-inventory-final\\\\f02f3fdc-bacb-4335-a4c5-dfa173fa1fa4\\\\scratchpad\\\\borders.py\" it-inventory-final-web-1:/tmp/borders.py; docker exec it-inventory-final-web-1 python /tmp/borders.py)",
+      "PowerShell(docker cp \"C:\\\\Users\\\\alami\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Development-projects-it-inventory-final\\\\f02f3fdc-bacb-4335-a4c5-dfa173fa1fa4\\\\scratchpad\\\\borders2.py\" it-inventory-final-web-1:/tmp/borders2.py; docker exec it-inventory-final-web-1 python /tmp/borders2.py)",
+      "PowerShell(docker cp \"C:\\\\Users\\\\alami\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Development-projects-it-inventory-final\\\\f02f3fdc-bacb-4335-a4c5-dfa173fa1fa4\\\\scratchpad\\\\verify2.py\" it-inventory-final-web-1:/tmp/verify2.py; docker exec it-inventory-final-web-1 python manage.py shell -c \"exec\\(open\\('/tmp/verify2.py'\\).read\\(\\)\\)\")",
+      "PowerShell(docker cp \"C:\\\\Users\\\\alami\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Development-projects-it-inventory-final\\\\f02f3fdc-bacb-4335-a4c5-dfa173fa1fa4\\\\scratchpad\\\\loc.py\" it-inventory-final-web-1:/tmp/loc.py; docker exec it-inventory-final-web-1 python manage.py shell -c \"exec\\(open\\('/tmp/loc.py'\\).read\\(\\)\\)\")",
+      "PowerShell(docker cp \"C:\\\\Users\\\\alami\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Development-projects-it-inventory-final\\\\f02f3fdc-bacb-4335-a4c5-dfa173fa1fa4\\\\scratchpad\\\\live.py\" it-inventory-final-web-1:/tmp/live.py; docker exec it-inventory-final-web-1 python manage.py shell -c \"exec\\(open\\('/tmp/live.py'\\).read\\(\\)\\)\")"
     ]
   }
 }
