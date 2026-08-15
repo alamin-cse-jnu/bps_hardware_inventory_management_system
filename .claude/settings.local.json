@@ -101,7 +101,9 @@
       "Bash(grep -vi \"GLib-GIO\\\\|UWP app\\\\|has no verbs\\\\|^$\")",
       "Bash(git checkout *)",
       "Bash(gh pr create --base main --head feat/catalogue-master-data --title 'Add catalogue app: cascading master data + spec widgets' --body ' *)",
-      "PowerShell($g = Get-Command gh -ErrorAction SilentlyContinue; if \\($g\\) { Write-Output $g.Source } else { Write-Output \"NOT_FOUND\" })"
+      "PowerShell($g = Get-Command gh -ErrorAction SilentlyContinue; if \\($g\\) { Write-Output $g.Source } else { Write-Output \"NOT_FOUND\" })",
+      "PowerShell(git fetch *)",
+      "PowerShell(git *)"
     ]
   }
 }
