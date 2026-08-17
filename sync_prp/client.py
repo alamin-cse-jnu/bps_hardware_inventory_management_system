@@ -6,6 +6,8 @@ import requests
 from django.conf import settings
 from django.core.cache import cache
 
+from .tls import ca_bundle
+
 
 class PRPApiError(Exception):
     pass
@@ -42,6 +44,7 @@ class PRPApiClient:
                     "password": settings.PRP_API_PASSWORD,
                 },
                 timeout=30,
+                verify=ca_bundle(),
             )
             resp.raise_for_status()
         except requests.RequestException as exc:
@@ -112,4 +115,5 @@ class PRPApiClient:
             params={"action": action},
             headers={"Authorization": token},
             timeout=60,
+            verify=ca_bundle(),
         )
