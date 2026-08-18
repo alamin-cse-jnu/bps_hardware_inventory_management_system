@@ -129,6 +129,7 @@ def build_groups(terms: list[ScopeTerm], options: OfficeOptions) -> list[dict]:
             "asset_type": asset.asset_type.name,
             "brand": asset.brand or "",
             "model": asset.model_name or "",
+            "serial_number": asset.serial_number or "",
             "_detail_url": reverse("assets:detail", args=[asset.pk]),
             "_status_raw": asset.status,
         })

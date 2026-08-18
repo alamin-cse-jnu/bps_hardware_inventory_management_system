@@ -92,16 +92,17 @@ HOLDER_ASSIGNMENTS_COLS: list[tuple[str, str]] = [
 # exact groups (identity block A–E, run-merge block Category/Asset Type), so
 # this report deliberately has no column picker.
 OFFICE_ASSETS_COLS: list[tuple[str, str]] = [
-    ("holder",      "Holder"),
-    ("designation", "Designation"),
-    ("wing",        "Wing"),
-    ("branch",      "Branch"),
-    ("section",     "Section"),
-    ("asset_tag",   "Asset Tag"),
-    ("category",    "Category"),
-    ("asset_type",  "Asset Type"),
-    ("brand",       "Brand"),
-    ("model",       "Model"),
+    ("holder",        "Holder"),
+    ("designation",   "Designation"),
+    ("wing",          "Wing"),
+    ("branch",        "Branch"),
+    ("section",       "Section"),
+    ("category",      "Category"),
+    ("asset_type",    "Asset Type"),
+    ("brand",         "Brand"),
+    ("model",         "Model"),
+    ("serial_number", "Serial Number"),
+    ("asset_tag",     "Asset Tag"),
 ]
 
 # Columns merged across a holder's whole row block.

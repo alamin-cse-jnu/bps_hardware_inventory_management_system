@@ -161,10 +161,13 @@ Assets grouped by office placement, with the merged-cell Excel layout from
   the branch to appear in the dropdown. `scope_terms()` in
   `reports/office_scope.py` is the single source of truth — both the employee
   `Q` and the office-holder predicate derive from it, so they cannot drift.
+- **Columns** — `SL` · `Holder`/`Designation`/`Wing`/`Branch`/`Section` ·
+  `Category`/`Asset Type` · `Brand`/`Model`/`Serial Number`/`Asset Tag`
+  (serial number sits before the tag, which closes the row).
 - **Merge geometry** — `SL` + `Holder…Section` merge across the holder's whole
   row block; `Category`/`Asset Type` merge across consecutive equal runs
-  *within* a block; `Asset Tag`/`Brand`/`Model` never merge; merges never cross
-  a holder boundary. Spans are computed once by `office_assets.annotate_runs()`
+  *within* a block; `Brand`/`Model`/`Serial Number`/`Asset Tag` never merge;
+  merges never cross a holder boundary. Spans are computed once by `office_assets.annotate_runs()`
   and consumed by both the HTML `rowspan` and the Excel `merge_cells`.
 - **SL column** — Excel column A, numbering *holders* not rows, merged down its
   holder's block (matches the `#` column on the view page).

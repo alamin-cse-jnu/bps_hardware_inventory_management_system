@@ -75,7 +75,8 @@ _HOLD_WIDTHS: dict[str, int] = {
 }
 _OFFICE_WIDTHS: dict[str, int] = {
     "holder": 30, "designation": 38, "wing": 22, "branch": 28, "section": 28,
-    "asset_tag": 16, "category": 22, "asset_type": 16, "brand": 12, "model": 22,
+    "category": 22, "asset_type": 16, "brand": 12, "model": 22,
+    "serial_number": 22, "asset_tag": 16,
 }
 _HIST_WIDTHS: dict[str, int] = {
     "assigned_to": 28, "holder_type": 10, "designation": 34, "department": 26,
@@ -444,12 +445,14 @@ def holder_assignments_excel(
         .select_related(
             "asset__asset_type__category",
             "assignee__employee", "assignee__mp", "assignee__office",
+            "assignee__location",
         )
         .order_by(
             "assignee__assignee_type",
             "assignee__employee__name_en",
             "assignee__mp__name_en",
             "assignee__office__name_en",
+            "assignee__location__name",
             "asset__asset_tag",
         )
     )
@@ -500,7 +503,7 @@ def office_assets_excel(groups: list[dict], subtitle: str = "") -> bytes:
       * Category / Asset Type — merged across consecutive equal runs *inside*
         one holder block. Merges never cross a holder boundary.
 
-      * Asset Tag / Brand / Model are never merged.
+      * Brand / Model / Serial Number / Asset Tag are never merged.
 
     Row shading alternates per holder block rather than per row; striping
     individual rows looks wrong underneath a tall merged cell.

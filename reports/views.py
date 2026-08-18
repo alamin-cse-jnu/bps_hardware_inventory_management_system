@@ -247,12 +247,14 @@ def view_holder_assignments(request):
         .select_related(
             "asset__asset_type__category",
             "assignee__employee", "assignee__mp", "assignee__office",
+            "assignee__location",
         )
         .order_by(
             "assignee__assignee_type",
             "assignee__employee__name_en",
             "assignee__mp__name_en",
             "assignee__office__name_en",
+            "assignee__location__name",
             "asset__asset_tag",
         )
     )
@@ -610,12 +612,14 @@ def download_holder_assignments_pdf(request):
         .select_related(
             "asset__asset_type__category",
             "assignee__employee", "assignee__mp", "assignee__office",
+            "assignee__location",
         )
         .order_by(
             "assignee__assignee_type",
             "assignee__employee__name_en",
             "assignee__mp__name_en",
             "assignee__office__name_en",
+            "assignee__location__name",
             "asset__asset_tag",
         )
     )

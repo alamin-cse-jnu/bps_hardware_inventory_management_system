@@ -119,8 +119,6 @@
             <td rowspan="{{ group.rowspan }}" style="vertical-align:top">{{ group.section }}</td>
             {% endif %}
 
-            <td><a href="{{ row|get_item:'_detail_url' }}" class="asset-tag" style="text-decoration:none">{{ row.asset_tag }}</a></td>
-
             {% with cat_span=row|get_item:'_span_category' type_span=row|get_item:'_span_asset_type' %}
             {% if cat_span %}
             <td rowspan="{{ cat_span }}" style="vertical-align:top">{{ row.category }}</td>
@@ -132,6 +130,8 @@
 
             <td>{{ row.brand|default:"—" }}</td>
             <td>{{ row.model|default:"—" }}</td>
+            <td>{{ row.serial_number|default:"—" }}</td>
+            <td><a href="{{ row|get_item:'_detail_url' }}" class="asset-tag" style="text-decoration:none">{{ row.asset_tag }}</a></td>
           </tr>
           {% endfor %}
         {% empty %}

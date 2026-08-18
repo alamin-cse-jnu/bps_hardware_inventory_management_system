@@ -93,6 +93,7 @@ class OfficeFixture(TestCase):
     def give(self, assignee, tag, asset_type):
         asset = AssetItem.objects.create(
             asset_tag=tag, asset_type=asset_type, brand="Acme", model_name="M1",
+            serial_number=f"SN-{tag}",
             status=AssetItem.Status.ASSIGNED, created_by=self.user,
         )
         Assignment.objects.create(
@@ -278,10 +279,10 @@ class OfficeAssetsExcelTest(OfficeAssetGroupingTest):
         self.assertIn("A7:A9", merges)      # SL merged across the holder
         for col in "BCDEF":
             self.assertIn(f"{col}7:{col}9", merges, f"identity column {col} not merged")
-        self.assertIn("H7:H9", merges)      # Category across the whole block
-        self.assertIn("I7:I8", merges)      # Asset Type only across the 2 laptops
-        self.assertNotIn("I7:I9", merges)
-        for col in ("G", "J", "K"):         # Tag / Brand / Model never merge
+        self.assertIn("G7:G9", merges)      # Category across the whole block
+        self.assertIn("H7:H8", merges)      # Asset Type only across the 2 laptops
+        self.assertNotIn("H7:H9", merges)
+        for col in ("I", "J", "K", "L"):    # Brand / Model / Serial / Tag never merge
             self.assertFalse(any(m.startswith(col) for m in merges),
                              f"column {col} must not be merged")
 
@@ -299,9 +300,14 @@ class OfficeAssetsExcelTest(OfficeAssetGroupingTest):
 
     def test_continuation_cells_are_blank(self):
         ws = self.sheet()
+        self.assertIsNone(ws["G8"].value)
         self.assertIsNone(ws["H8"].value)
-        self.assertIsNone(ws["I8"].value)
-        self.assertEqual(ws["G8"].value, "LAP-002")
+        self.assertEqual(ws["L8"].value, "LAP-002")
+
+    def test_serial_number_precedes_asset_tag(self):
+        ws = self.sheet()
+        self.assertEqual(ws["K7"].value, "SN-LAP-001")
+        self.assertEqual(ws["L7"].value, "LAP-001")
 
     def test_identity_values_written_once_at_anchor(self):
         ws = self.sheet()
@@ -345,9 +351,9 @@ class OfficeAssetsExcelTest(OfficeAssetGroupingTest):
             c.get("r"): int(c.get("s", 0)) for c in sheet.iter(f"{ns}c")
         }
 
-        # Header row 5 through the last data row 9, all 11 columns.
+        # Header row 5 through the last data row 9, all 12 columns.
         for r in range(5, 10):
-            for col in "ABCDEFGHIJK":
+            for col in "ABCDEFGHIJKL":
                 coord = f"{col}{r}"
                 self.assertIn(coord, style_of, f"{coord} not written")
                 self.assertIn(
@@ -358,9 +364,10 @@ class OfficeAssetsExcelTest(OfficeAssetGroupingTest):
     def test_header_labels(self):
         ws = self.sheet()
         self.assertEqual(
-            [ws.cell(row=5, column=c).value for c in range(1, 12)],
+            [ws.cell(row=5, column=c).value for c in range(1, 13)],
             ["SL", "Holder", "Designation", "Wing", "Branch", "Section",
-             "Asset Tag", "Category", "Asset Type", "Brand", "Model"],
+             "Category", "Asset Type", "Brand", "Model", "Serial Number",
+             "Asset Tag"],
         )
 
     def test_empty_groups_still_produce_a_workbook(self):
