@@ -10,6 +10,7 @@ from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.html import escape
 from django.utils import timezone
 
 from assignments.models import Assignment, AlertStatus, InactiveHolderAlert
@@ -21,7 +22,7 @@ from locations.models import Location
 
 from .models import (
     AssetBatch, AssetCategory, AssetItem, AssetModelName, AssetType,
-    Brand, SpecChoice, Vendor, WorkOrder,
+    Brand, SpecChoice, Vendor, WorkOrder, is_placeholder_serial,
 )
 from .services.excel_import import (
     SESSION_KEY_COLS,
@@ -86,6 +87,11 @@ def _validate_asset_form(data, spec_schema, exclude_pk=None):
             qs = qs.exclude(pk=exclude_pk)
         if qs.exists():
             errors["asset_tag"] = f"Asset tag '{tag}' is already in use."
+    serial = data.get("serial_number", "").strip()
+    if serial:
+        other = AssetItem.serial_conflict(serial, exclude_pk=exclude_pk)
+        if other is not None:
+            errors["serial_number"] = AssetItem.serial_conflict_message(serial, other)
     for field in ("purchase_date", "warranty_expiry", "amc_expiry"):
         val = data.get(field, "").strip()
         if val:
@@ -100,6 +106,40 @@ def _validate_asset_form(data, spec_schema, exclude_pk=None):
         except (InvalidOperation, ValueError):
             errors["purchase_cost"] = "Enter a valid number (e.g. 45000.00)."
     return errors
+
+
+def _validate_serial_list(serials: list[str]) -> str | None:
+    """
+    Check a bulk-add serial list for duplicates, against the live assets and
+    against itself. Returns a newline-separated message (rendered with
+    ``linebreaksbr``) naming the offending lines, or None when all are free.
+
+    Placeholder entries ("UNKNOWN" and friends) mean "no serial", so they are
+    allowed to repeat down the list.
+    """
+    problems: list[str] = []
+    seen: dict[str, int] = {}  # upper-cased serial -> line number first seen
+
+    for line_no, serial in enumerate(serials, start=1):
+        if is_placeholder_serial(serial):
+            continue
+        key = serial.upper()
+        if key in seen:
+            problems.append(
+                f"Line {line_no}: '{serial}' repeats the serial number on line {seen[key]}."
+            )
+            continue
+        seen[key] = line_no
+        other = AssetItem.serial_conflict(serial)
+        if other is not None:
+            problems.append(f"Line {line_no}: {AssetItem.serial_conflict_message(serial, other)}")
+
+    if not problems:
+        return None
+    shown = problems[:10]
+    if len(problems) > len(shown):
+        shown.append(f"…and {len(problems) - len(shown)} more duplicate serial number(s).")
+    return "\n".join(shown)
 
 
 def _locations_qs():
@@ -757,6 +797,11 @@ def asset_bulk_create(request):
                     "The count must match exactly."
                 )
 
+        if not errors.get("serial_numbers"):
+            duplicate_msg = _validate_serial_list(serial_numbers)
+            if duplicate_msg:
+                errors["serial_numbers"] = duplicate_msg
+
         if not errors and selected_type:
             specs = catalogue_specs.collect_values(selected_type, request.POST)
             # One work order shared by all assets in this batch
@@ -1116,6 +1161,31 @@ def asset_tag_check(request):
     if qs.exists():
         return HttpResponse(
             '<span style="color:#EF4444;font-size:11px;font-weight:600">✗ Tag already in use</span>'
+        )
+    return HttpResponse(
+        '<span style="color:#10B981;font-size:11px;font-weight:600">✓ Available</span>'
+    )
+
+
+@it_officer_required
+def asset_serial_check(request):
+    """HTMX live validation: checks if a serial number is already in use."""
+    serial = request.GET.get("serial_number", "").strip()
+    exclude_pk = request.GET.get("exclude_pk", "").strip()
+    if not serial:
+        return HttpResponse("")
+    if is_placeholder_serial(serial):
+        return HttpResponse(
+            '<span style="color:#6C757D;font-size:11px">'
+            "Treated as “no serial” — not checked for duplicates</span>"
+        )
+    other = AssetItem.serial_conflict(
+        serial, exclude_pk=int(exclude_pk) if exclude_pk.isdigit() else None
+    )
+    if other is not None:
+        return HttpResponse(
+            '<span style="color:#EF4444;font-size:11px;font-weight:600">'
+            f"✗ Already used by {escape(other.asset_tag)}</span>"
         )
     return HttpResponse(
         '<span style="color:#10B981;font-size:11px;font-weight:600">✓ Available</span>'

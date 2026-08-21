@@ -8,7 +8,13 @@ from django.utils import timezone
 
 from locations.models import Building, Level, Location
 
-from .models import AssetCategory, AssetComponent, AssetItem, AssetType
+from .models import (
+    AssetCategory,
+    AssetComponent,
+    AssetItem,
+    AssetType,
+    is_placeholder_serial,
+)
 from .services.excel_import import (
     FIXED_COLUMNS,
     ExcelImportExecutor,
@@ -801,8 +807,9 @@ class BulkBatchTests(TestCase):
             self.assertEqual(a.specifications.get("cpu"), "i5")
 
     def test_five_bulk_adds_show_five_history_rows(self):
-        for _ in range(5):
-            self._bulk_post(quantity=2)
+        for batch_no in range(5):
+            # Serials are unique per batch — the same plate cannot be added twice.
+            self._bulk_post(quantity=2, serials=[f"SN-B{batch_no}-{i}" for i in range(2)])
         self.assertEqual(AssetBatch.objects.count(), 5)
         resp = self.client.get("/batches/")
         self.assertEqual(resp.status_code, 200)
@@ -897,3 +904,330 @@ class BulkBatchTests(TestCase):
         # …but can still view history and detail.
         self.assertEqual(self.client.get("/batches/").status_code, 200)
         self.assertEqual(self.client.get(f"/batches/{batch.pk}/").status_code, 200)
+
+
+# ---------------------------------------------------------------------------
+# Serial number uniqueness
+# ---------------------------------------------------------------------------
+
+class SerialNumberUniquenessTests(TestCase):
+    """Model + DB level: one serial number, at most one live asset."""
+
+    def setUp(self):
+        self.atype = make_type()
+
+    def _item(self, tag, serial, **kwargs):
+        return AssetItem.objects.create(
+            asset_tag=tag,
+            asset_type=self.atype,
+            brand="Dell",
+            model_name="Latitude 5540",
+            serial_number=serial,
+            **kwargs,
+        )
+
+    def test_duplicate_serial_raises_integrity_error(self):
+        from django.db import IntegrityError
+        self._item("SER-001", "SN-DUP-1")
+        with self.assertRaises(IntegrityError):
+            self._item("SER-002", "SN-DUP-1")
+
+    def test_duplicate_serial_is_case_insensitive(self):
+        from django.db import IntegrityError
+        self._item("SER-001", "sn-dup-1")
+        with self.assertRaises(IntegrityError):
+            self._item("SER-002", "SN-DUP-1")
+
+    def test_blank_serials_may_repeat(self):
+        self._item("SER-001", "")
+        self._item("SER-002", "")
+        self.assertEqual(AssetItem.objects.filter(serial_number="").count(), 2)
+
+    def test_serial_freed_by_soft_delete(self):
+        first = self._item("SER-001", "SN-REUSE")
+        first.soft_delete()
+        # The same serial can now be entered again on a live asset.
+        self._item("SER-002", "SN-REUSE")
+        self.assertEqual(
+            AssetItem.objects.filter(serial_number="SN-REUSE", is_deleted=False).count(), 1
+        )
+
+    def test_clean_reports_duplicate_with_conflicting_tag(self):
+        self._item("SER-001", "SN-CLEAN")
+        dup = AssetItem(
+            asset_tag="SER-002", asset_type=self.atype,
+            brand="Dell", model_name="Latitude 5540", serial_number="SN-CLEAN",
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            dup.full_clean()
+        message = str(ctx.exception.message_dict["serial_number"])
+        self.assertIn("SER-001", message)
+        self.assertIn("must be unique", message)
+
+    def test_clean_allows_asset_to_keep_its_own_serial(self):
+        asset = self._item("SER-001", "SN-SELF")
+        asset.notes = "unchanged serial"
+        asset.full_clean()  # must not raise
+
+    def test_serial_conflict_ignores_deleted_and_blank(self):
+        deleted = self._item("SER-001", "SN-GONE")
+        deleted.soft_delete()
+        self.assertIsNone(AssetItem.serial_conflict("SN-GONE"))
+        self.assertIsNone(AssetItem.serial_conflict(""))
+        self.assertIsNone(AssetItem.serial_conflict("   "))
+
+    def test_serial_conflict_matches_ignoring_case_and_padding(self):
+        live = self._item("SER-001", "SN-MATCH")
+        self.assertEqual(AssetItem.serial_conflict("  sn-match "), live)
+
+
+class SerialNumberFormValidationTests(TestCase):
+    """The add/edit/bulk forms reject duplicates with a message, not a 500."""
+
+    def setUp(self):
+        self.officer = _role_user("serial-officer", "IT Officer")
+        self.client.force_login(self.officer)
+        self.category = make_category("Computing")
+        self.atype = make_type(category=self.category, name="Laptop")
+        SubAssetSpecField.objects.create(
+            sub_asset=self.atype, key="cpu", label="CPU", widget="text",
+        )
+        self.existing = AssetItem.objects.create(
+            asset_tag="EXIST-001", asset_type=self.atype,
+            brand="Dell", model_name="Latitude 5540", serial_number="SN-TAKEN",
+        )
+
+    def _form_data(self, **overrides):
+        data = {
+            "asset_type": self.atype.pk,
+            "brand": "Dell",
+            "model_name": "Latitude 5540",
+            "serial_number": "SN-FREE",
+            "spec_cpu": "i5",
+        }
+        data.update(overrides)
+        return data
+
+    def test_create_rejects_duplicate_serial(self):
+        resp = self.client.post("/new/", self._form_data(serial_number="SN-TAKEN"))
+        self.assertEqual(resp.status_code, 200)  # re-rendered, not redirected
+        self.assertContains(resp, "EXIST-001")
+        self.assertContains(resp, "must be unique")
+        self.assertEqual(AssetItem.objects.filter(serial_number="SN-TAKEN").count(), 1)
+
+    def test_create_rejects_duplicate_serial_in_different_case(self):
+        resp = self.client.post("/new/", self._form_data(serial_number="sn-taken"))
+        self.assertContains(resp, "must be unique")
+        self.assertEqual(AssetItem.objects.count(), 1)
+
+    def test_create_accepts_free_serial(self):
+        resp = self.client.post("/new/", self._form_data(serial_number="SN-FREE"))
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(AssetItem.objects.filter(serial_number="SN-FREE").exists())
+
+    def test_edit_rejects_serial_owned_by_another_asset(self):
+        other = AssetItem.objects.create(
+            asset_tag="EXIST-002", asset_type=self.atype,
+            brand="Dell", model_name="Latitude 5540", serial_number="SN-OTHER",
+        )
+        resp = self.client.post(
+            f"/{other.pk}/edit/", self._form_data(serial_number="SN-TAKEN")
+        )
+        self.assertContains(resp, "must be unique")
+        other.refresh_from_db()
+        self.assertEqual(other.serial_number, "SN-OTHER")
+
+    def test_edit_allows_asset_to_keep_its_own_serial(self):
+        resp = self.client.post(
+            f"/{self.existing.pk}/edit/",
+            self._form_data(serial_number="SN-TAKEN", model_name="Latitude 5550"),
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.existing.refresh_from_db()
+        self.assertEqual(self.existing.model_name, "Latitude 5550")
+
+    def _bulk_post(self, serials):
+        return self.client.post("/bulk-add/", {
+            "asset_type": self.atype.pk,
+            "brand": "Dell",
+            "model_name": "Latitude 5540",
+            "quantity": str(len(serials)),
+            "serial_numbers": "\n".join(serials),
+            "spec_cpu": "i5",
+        })
+
+    def test_bulk_add_rejects_serial_already_in_system(self):
+        resp = self._bulk_post(["SN-A", "SN-TAKEN", "SN-B"])
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Line 2")
+        self.assertContains(resp, "EXIST-001")
+        # Nothing created — the whole batch is rejected.
+        self.assertEqual(AssetItem.objects.count(), 1)
+
+    def test_bulk_add_rejects_serial_repeated_within_the_list(self):
+        resp = self._bulk_post(["SN-A", "SN-B", "sn-a"])
+        self.assertContains(resp, "Line 3")
+        self.assertContains(resp, "repeats the serial number on line 1")
+        self.assertEqual(AssetItem.objects.count(), 1)
+
+    def test_bulk_add_accepts_distinct_free_serials(self):
+        resp = self._bulk_post(["SN-A", "SN-B", "SN-C"])
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(AssetItem.objects.count(), 4)
+
+    def test_serial_check_endpoint_reports_conflict(self):
+        resp = self.client.get("/serial-check/", {"serial_number": "sn-taken"})
+        self.assertContains(resp, "EXIST-001")
+
+    def test_serial_check_endpoint_reports_available(self):
+        resp = self.client.get("/serial-check/", {"serial_number": "SN-NOBODY"})
+        self.assertContains(resp, "Available")
+
+    def test_serial_check_excludes_the_asset_being_edited(self):
+        resp = self.client.get(
+            "/serial-check/",
+            {"serial_number": "SN-TAKEN", "exclude_pk": str(self.existing.pk)},
+        )
+        self.assertContains(resp, "Available")
+
+
+class ExcelImportSerialUniquenessTests(TestCase):
+    """Duplicate serials are import errors, both against the DB and in-file."""
+
+    def setUp(self):
+        self.asset_type = make_import_type(spec_schema=["cpu", "ram"])
+        self.building, self.floor, self.room = make_location_hierarchy()
+        self.headers = _base_headers(self.asset_type)
+
+    def _validate(self, rows):
+        f = make_excel_file(self.headers, rows)
+        return ExcelImportValidator().validate(f, self.asset_type.pk)
+
+    def test_serial_already_in_system_fails(self):
+        AssetItem.objects.create(
+            asset_tag="IMP-EXIST", asset_type=self.asset_type,
+            brand="Dell", model_name="Latitude", serial_number="SN-TEST-001",
+        )
+        row = _valid_row_values()  # serial_number is "SN-TEST-001"
+        results = self._validate([row])
+        self.assertEqual(results[0]["status"], "error")
+        self.assertTrue(any("IMP-EXIST" in e for e in results[0]["errors"]))
+
+    def test_serial_of_soft_deleted_asset_is_free(self):
+        gone = AssetItem.objects.create(
+            asset_tag="IMP-GONE", asset_type=self.asset_type,
+            brand="Dell", model_name="Latitude", serial_number="SN-TEST-001",
+        )
+        gone.soft_delete()
+        results = self._validate([_valid_row_values(self.room.full_path)])
+        self.assertEqual(results[0]["status"], "valid")
+
+    def test_serial_repeated_within_the_file_fails(self):
+        first = _valid_row_values(self.room.full_path)
+        second = _valid_row_values(self.room.full_path)
+        second[1] = first[1].lower()  # same serial, different case
+        results = self._validate([first, second])
+        self.assertEqual(results[0]["status"], "valid")
+        self.assertEqual(results[1]["status"], "error")
+        self.assertTrue(any("repeated in this file" in e for e in results[1]["errors"]))
+
+
+class PlaceholderSerialTests(TestCase):
+    """"UNKNOWN" and friends mean "no serial" — they may repeat."""
+
+    def setUp(self):
+        self.atype = make_type()
+
+    def _item(self, tag, serial):
+        return AssetItem.objects.create(
+            asset_tag=tag, asset_type=self.atype,
+            brand="Dell", model_name="Latitude 5540", serial_number=serial,
+        )
+
+    def test_placeholder_helper_recognises_blank_and_words(self):
+        for value in ("", "   ", "UNKNOWN", "unknown", " Unknown ", "N/A", "na", "-", "?"):
+            self.assertTrue(is_placeholder_serial(value), value)
+        for value in ("SN-001", "UNKNOWN-1", "NA1"):
+            self.assertFalse(is_placeholder_serial(value), value)
+
+    def test_placeholder_serials_may_repeat(self):
+        self._item("PH-001", "UNKNOWN")
+        self._item("PH-002", "Unknown")
+        self._item("PH-003", "N/A")
+        self.assertEqual(AssetItem.objects.count(), 3)
+
+    def test_placeholder_passes_full_clean(self):
+        self._item("PH-001", "UNKNOWN")
+        second = AssetItem(
+            asset_tag="PH-002", asset_type=self.atype,
+            brand="Dell", model_name="Latitude 5540", serial_number="UNKNOWN",
+        )
+        second.full_clean()  # must not raise
+
+    def test_real_serial_still_unique_alongside_placeholders(self):
+        from django.db import IntegrityError
+        self._item("PH-001", "UNKNOWN")
+        self._item("PH-002", "SN-REAL")
+        with self.assertRaises(IntegrityError):
+            self._item("PH-003", "SN-REAL")
+
+
+class PlaceholderSerialFormTests(TestCase):
+    def setUp(self):
+        self.client.force_login(_role_user("ph-officer", "IT Officer"))
+        self.atype = make_type(category=make_category("Computing"), name="Laptop")
+        SubAssetSpecField.objects.create(
+            sub_asset=self.atype, key="cpu", label="CPU", widget="text",
+        )
+        AssetItem.objects.create(
+            asset_tag="PH-EXIST", asset_type=self.atype,
+            brand="Dell", model_name="Latitude 5540", serial_number="UNKNOWN",
+        )
+
+    def test_create_accepts_repeated_placeholder(self):
+        resp = self.client.post("/new/", {
+            "asset_type": self.atype.pk, "brand": "Dell",
+            "model_name": "Latitude 5540", "serial_number": "unknown", "spec_cpu": "i5",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(AssetItem.objects.count(), 2)
+
+    def test_bulk_add_accepts_repeated_placeholders(self):
+        resp = self.client.post("/bulk-add/", {
+            "asset_type": self.atype.pk, "brand": "Dell",
+            "model_name": "Latitude 5540", "quantity": "3",
+            "serial_numbers": "UNKNOWN\nUnknown\nN/A", "spec_cpu": "i5",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(AssetItem.objects.count(), 4)
+
+    def test_serial_check_marks_placeholder_as_unchecked(self):
+        resp = self.client.get("/serial-check/", {"serial_number": "UNKNOWN"})
+        self.assertContains(resp, "not checked for duplicates")
+
+
+class ExcelImportPlaceholderSerialTests(TestCase):
+    def setUp(self):
+        self.asset_type = make_import_type(spec_schema=["cpu", "ram"])
+        self.building, self.floor, self.room = make_location_hierarchy()
+        self.headers = _base_headers(self.asset_type)
+
+    def _validate(self, rows):
+        return ExcelImportValidator().validate(
+            make_excel_file(self.headers, rows), self.asset_type.pk
+        )
+
+    def test_repeated_placeholder_rows_are_warnings_not_errors(self):
+        AssetItem.objects.create(
+            asset_tag="IMP-PH", asset_type=self.asset_type,
+            brand="Dell", model_name="Latitude", serial_number="UNKNOWN",
+        )
+        first = _valid_row_values(self.room.full_path)
+        first[1] = "UNKNOWN"
+        second = _valid_row_values(self.room.full_path)
+        second[1] = "unknown"
+        results = self._validate([first, second])
+        for result in results:
+            self.assertEqual(result["status"], "warning")
+            self.assertEqual(result["errors"], [])
+            self.assertTrue(any("no serial" in w for w in result["warnings"]))
