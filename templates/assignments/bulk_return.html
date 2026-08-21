@@ -34,8 +34,8 @@
               <td><span class="asset-tag">{{ asset.asset_tag }}</span></td>
               <td>
                 <div style="font-size:13px;color:#374151;font-weight:500">{{ asset.asset_type.name|title }}</div>
-                {% if asset.brand or asset.model %}
-                <div class="text-muted text-small">{{ asset.brand|title }} {{ asset.model }}</div>
+                {% if asset.brand or asset.model_name %}
+                <div class="text-muted text-small">{{ asset.brand|title }} {{ asset.model_name }}</div>
                 {% endif %}
               </td>
               <td>
