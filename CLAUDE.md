@@ -82,6 +82,7 @@ Template flags: `user_is_admin` / `user_is_it_officer` / `user_is_viewer` from `
 ## Security & Conventions
 
 - Soft-delete ONLY — `is_deleted` + `deleted_at`, never `Model.delete()`
+- Serial numbers are unique per live asset — case-insensitive partial unique index (`uniq_live_asset_serial_ci`); blanks and the `NON_SERIAL_PLACEHOLDERS` words ("UNKNOWN", "N/A", …) mean *no serial* and may repeat. Check with `AssetItem.serial_conflict()`; list existing clashes with `manage.py find_duplicate_serials`
 - 2FA for Admin (TOTP via `allauth.mfa`, enforced by `AdminMFARequiredMiddleware`)
 - Secrets in `.env` via `django-environ`/`python-decouple`, never hardcoded
 - Models: always `created_at`, `updated_at` · `created_by`/`updated_by` where relevant
@@ -182,6 +183,11 @@ Assets grouped by office placement, with the merged-cell Excel layout from
 - **Ordering** — Wing → Branch → Section → staff → the office's own assets
   last within its node. Rows within a holder sort Category → Type → Tag so the
   merge runs are maximal. Missing levels render as `…`.
+- **Summary** — `office_assets.summarise(groups)` returns holder counts
+  (employees / offices / total) plus the Category → Asset Type breakdown with
+  subtotals. Computed from the full group list *before* pagination, and shared
+  by the summary card on the view page and the workbook's second `Summary`
+  sheet, so the two cannot disagree. Sheet 1 stays the detail list.
 - **Pagination is by holder**, never by row, so a merged block is never split
   across pages.
 - **Included** — employee holders plus `OFFICE`-type assignees; inactive

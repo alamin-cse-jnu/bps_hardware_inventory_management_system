@@ -24,6 +24,7 @@ from reports.columns import (
     TRANSFER_LOG_COLS,
     WARRANTY_COLS,
 )
+from reports.office_assets import summarise
 
 # ── Brand colours ─────────────────────────────────────────────────────────────
 _FILL_HDR   = PatternFill("solid", fgColor="0076A7")
@@ -589,7 +590,95 @@ def office_assets_excel(groups: list[dict], subtitle: str = "") -> bytes:
         for c in range(1, n_cols + 1):
             ws.cell(row=r, column=c).border = _BORDER_ALL
 
+    # ── Summary sheet ─────────────────────────────────────────────────────
+    # Second sheet so the workbook still opens on the detail list, which is
+    # what the merge-geometry tests and the reader expect from sheet 1.
+    _office_summary_sheet(wb.create_sheet("Summary"), summarise(groups), subtitle)
+
     return _wb_bytes(wb)
+
+
+def _office_summary_sheet(ws, summary: dict, subtitle: str = "") -> None:
+    """
+    Headline counts + the Category → Asset Type breakdown, mirroring the
+    summary card on the view page. Both read the same ``summarise()`` dict.
+    """
+    hrow = _title_block(
+        ws, "Office-wise Asset List — Summary",
+        f"{subtitle}  ·  Generated: {_date_s(date.today())}" if subtitle
+        else f"Generated: {_date_s(date.today())}",
+    )
+    _col_widths(ws, [6, 30, 26, 12])
+
+    bold = Font(name="Calibri", bold=True, size=10)
+    blue = Font(name="Calibri", bold=True, color="0076A7", size=10)
+    right = Alignment(horizontal="right", vertical="center")
+
+    # Headline counts, one per row: label in column B, value in column D.
+    row = hrow
+    overview_header = row
+    _header_row(ws, row, ["", "Overview", "", "Count"])
+    row += 1
+    for label, value in (
+        ("Employees holding assets", summary["employees"]),
+        ("Offices holding assets", summary["offices"]),
+        ("Total holders", summary["holders"]),
+        ("Total assets", summary["assets"]),
+    ):
+        _data_row(ws, row, ["", label, "", value])
+        ws.cell(row=row, column=4).alignment = right
+        row += 1
+
+    # Category → Asset Type breakdown.
+    row += 1
+    breakdown_header = row
+    _header_row(ws, row, ["SL", "Category", "Asset Type", "Assets"])
+    row += 1
+    for index, category in enumerate(summary["categories"], start=1):
+        start = row
+        for type_index, entry in enumerate(category["types"]):
+            _data_row(ws, row, [
+                index if type_index == 0 else "",
+                category["name"] if type_index == 0 else "",
+                entry["name"],
+                entry["assets"],
+            ])
+            ws.cell(row=row, column=1).alignment = _ALIGN_SL
+            ws.cell(row=row, column=4).alignment = right
+            row += 1
+        # SL + Category merge down the category's type rows, matching the
+        # rowspan the view page uses.
+        if row - 1 > start:
+            ws.merge_cells(start_row=start, start_column=1, end_row=row - 1, end_column=1)
+            ws.merge_cells(start_row=start, start_column=2, end_row=row - 1, end_column=2)
+        ws.cell(row=start, column=2).alignment = _ALIGN_MERGE
+
+        # A category with a single type needs no subtotal — it would just
+        # repeat the row above it.
+        if category["type_count"] > 1:
+            _data_row(ws, row, ["", f"{category['name']} — subtotal", "", category["assets"]], alt=True)
+            for col in range(1, 5):
+                ws.cell(row=row, column=col).font = bold
+            ws.cell(row=row, column=4).alignment = right
+            row += 1
+
+    _data_row(ws, row, [
+        "",
+        f"Total — {summary['category_count']} categories · {summary['type_count']} asset types",
+        "",
+        summary["assets"],
+    ])
+    for col in range(1, 5):
+        ws.cell(row=row, column=col).font = blue
+    ws.cell(row=row, column=4).alignment = right
+
+    for r in list(range(overview_header, breakdown_header - 1)) + list(range(breakdown_header, row + 1)):
+        for c in range(1, 5):
+            ws.cell(row=r, column=c).border = _BORDER_ALL
+
+    # The overview block reuses _header_row, which freezes panes at its own
+    # position; re-freeze under the breakdown header so scrolling keeps it.
+    ws.freeze_panes = ws.cell(row=breakdown_header + 1, column=1)
 
 
 def asset_history_excel(
