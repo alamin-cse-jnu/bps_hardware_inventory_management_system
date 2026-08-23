@@ -188,9 +188,48 @@ Assets grouped by office placement, with the merged-cell Excel layout from
   employees still holding assets appear flagged (never dropped — decision #9).
   Placement is read live from `CachedEmployee`, not `holder_snapshot`.
 
+## Office Change Alerts (Phase 12)
+
+Second alert stream alongside Inactive Holder Alerts: PRP employees who **moved
+to a different office** while still holding assets. Routes:
+`/assignments/office-changes/` (Viewer and above) +
+`/assignments/office-changes/<pk>/` (IT Officer, HTMX panel).
+
+- **Model** — `assignments.OfficeChangeAlert`: `assignee` FK, `old_placement` /
+  `new_placement` JSON snapshots, `detected_at`, plus the same
+  `AlertStatus` / `resolve()` / `dismiss()` / `note` / `resolved_by` surface as
+  `InactiveHolderAlert`. `detected_at` is a plain default (not `auto_now_add`)
+  so a second move can refresh an open alert.
+- **Detection** — `_maybe_raise_office_change_alert()` in `sync_prp/services.py`,
+  called from `_sync_employees` after each `update_or_create` of an *existing*
+  record. `_sync_employees` reads every PRP employee's placement into
+  `placements_before` in one query up front, so spotting a move costs no extra
+  SELECT per employee.
+- **What counts as a move** — only the ids
+  (`wing_id/branch_id/section_id/unit_id/office_id`, `PLACEMENT_ID_FIELDS`)
+  are compared, via `placement_ids()`. A PRP-side *rename* of a wing/branch/
+  section therefore raises nothing. Names are stored anyway so an old alert
+  still reads correctly after a rename. `placement_of()` / `placement_path()`
+  live in `assignments/models.py` next to them.
+- **Raised only for holders with active assignments** — mirrors
+  `_maybe_raise_alert`. An employee first seen this run has no "before"
+  placement and never alerts.
+- **Repeat moves** — while an alert is OPEN, a further move advances
+  `new_placement` and `detected_at` but keeps the original `old_placement`
+  (that is where the assets were last confirmed). After resolve/dismiss, the
+  next move raises a fresh alert.
+- **Actions** — identical to the inactive-holder panel: per-asset **Transfer**
+  and **Return to Stock** buttons plus **Resolve**/**Dismiss** with an optional
+  note. Nothing is ever moved automatically (architectural decision #9).
+- **Nav** — own sidebar item under Monitoring with its own badge
+  (`open_office_changes_count`, cached under `OFFICE_CHANGE_COUNT_CACHE_KEY`,
+  invalidated by a post_save/post_delete signal like the alert badge). The
+  Alerts item's active-state check now excludes `office_change` url names so
+  only one item highlights.
+
 ## Current State
 
-**Phases 1–11: ✅ All complete · 352 tests**
+**Phases 1–12: ✅ All complete · 404 tests**
 
 | Phase | Scope | Status |
 |-------|-------|--------|
@@ -201,6 +240,7 @@ Assets grouped by office placement, with the merged-cell Excel layout from
 | 9 | Catalogue — cascading Master Data page, spec schema, seed command | ✅ Complete |
 | 10 | Performance — vendored assets, pagination, caching, nginx gzip | ✅ Complete |
 | 11 | Office-wise Asset List — Wing/Branch/Section scope, merged-cell Excel | ✅ Complete |
+| 12 | Office Change Alerts — flag holders who moved office, transfer/return/dismiss | ✅ Complete |
 
 **Known failing tests (pre-existing, unrelated to Phase 10):**
 `audit.tests.test_assignment_logs_assign` creates an `Assignment` without

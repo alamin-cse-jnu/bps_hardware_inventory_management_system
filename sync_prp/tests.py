@@ -1,9 +1,18 @@
+from copy import deepcopy
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from assignees.models import CachedEmployee, CachedMP, CachedOffice, Source
+from assignees.models import (
+    Assignee,
+    AssigneeType,
+    CachedEmployee,
+    CachedMP,
+    CachedOffice,
+    Source,
+)
+from assignments.models import AlertStatus, OfficeChangeAlert
 
 from .models import SyncLog
 from .services import _sync_employees, _sync_mps, _sync_offices, run_full_sync
@@ -261,3 +270,144 @@ class RunFullSyncTests(TestCase):
         user = User.objects.create_user(username="tester", password="pass")
         log = run_full_sync(triggered_by=user)
         self.assertEqual(log.triggered_by, user)
+
+
+# ── Office change detection ───────────────────────────────────────────────────
+
+class OfficeChangeDetectionTests(TestCase):
+    """
+    A PRP employee moving between offices while still holding assets raises an
+    OfficeChangeAlert. Like the inactive-holder flag, nothing is auto-returned.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="syncer", password="pw12345678")
+
+    def _seed_employee(self, **placement):
+        """Create EMP001 as it stood before the sync run."""
+        defaults = {
+            "wing_id": "1", "wing_name_en": "Admin Wing",
+            "branch_id": "2", "branch_name_en": "IT Branch",
+            "section_id": "3", "section_name_en": "Software Section",
+            "unit_id": "", "office_id": "10",
+            "office_name_en": "Parliament Secretariat",
+        }
+        defaults.update(placement)
+        return CachedEmployee.objects.create(
+            prp_id="EMP001", source=Source.PRP_API, name_en="John Doe", **defaults,
+        )
+
+    def _give_asset(self, emp):
+        """Put one active assignment on the employee."""
+        from assets.models import AssetCategory, AssetItem, AssetType
+        from assignments.models import Assignment
+
+        assignee, _ = Assignee.objects.get_or_create(
+            assignee_type=AssigneeType.EMPLOYEE, employee=emp,
+        )
+        cat, _ = AssetCategory.objects.get_or_create(name="Computing")
+        atype, _ = AssetType.objects.get_or_create(
+            category=cat, name="Laptop", defaults={"spec_schema": []},
+        )
+        asset = AssetItem.objects.create(
+            asset_tag="PC-2024-9001", asset_type=atype, brand="Dell",
+            model_name="Latitude", status=AssetItem.Status.ASSIGNED,
+        )
+        Assignment.objects.create(
+            asset=asset, assignee=assignee, holder_snapshot=assignee.build_snapshot(),
+            performed_by=self.user,
+        )
+        return assignee
+
+    @staticmethod
+    def _moved_record(**office_overrides):
+        rec = deepcopy(EMPLOYEE)
+        rec["officeDetails"].update(office_overrides)
+        return rec
+
+    def test_raises_alert_when_holder_moves_office(self):
+        emp = self._seed_employee()
+        assignee = self._give_asset(emp)
+
+        _sync_employees([self._moved_record(branchId=7, branchNameEn="Finance Branch")],
+                        SyncLog.objects.create())
+
+        alert = OfficeChangeAlert.objects.get(assignee=assignee)
+        self.assertEqual(alert.status, AlertStatus.OPEN)
+        self.assertEqual(alert.old_placement["branch_name_en"], "IT Branch")
+        self.assertEqual(alert.new_placement["branch_name_en"], "Finance Branch")
+
+    def test_no_alert_when_holder_has_no_assets(self):
+        self._seed_employee()
+        _sync_employees([self._moved_record(branchId=7, branchNameEn="Finance Branch")],
+                        SyncLog.objects.create())
+        self.assertEqual(OfficeChangeAlert.objects.count(), 0)
+
+    def test_no_alert_when_placement_unchanged(self):
+        emp = self._seed_employee()
+        self._give_asset(emp)
+        _sync_employees([EMPLOYEE], SyncLog.objects.create())
+        self.assertEqual(OfficeChangeAlert.objects.count(), 0)
+
+    def test_no_alert_for_rename_only(self):
+        """Same office ids, new label on the PRP side — not a move."""
+        emp = self._seed_employee()
+        self._give_asset(emp)
+        _sync_employees([self._moved_record(branchNameEn="ICT Branch")],
+                        SyncLog.objects.create())
+        self.assertEqual(OfficeChangeAlert.objects.count(), 0)
+        self.assertEqual(
+            CachedEmployee.objects.get(prp_id="EMP001").branch_name_en, "ICT Branch",
+        )
+
+    def test_no_alert_for_first_sight_of_employee(self):
+        """A newly created employee has no 'before' placement to move from."""
+        _sync_employees([EMPLOYEE], SyncLog.objects.create())
+        self.assertEqual(OfficeChangeAlert.objects.count(), 0)
+
+    def test_second_move_updates_open_alert_keeping_origin(self):
+        emp = self._seed_employee()
+        assignee = self._give_asset(emp)
+
+        _sync_employees([self._moved_record(branchId=7, branchNameEn="Finance Branch")],
+                        SyncLog.objects.create())
+        _sync_employees([self._moved_record(branchId=8, branchNameEn="Audit Branch")],
+                        SyncLog.objects.create())
+
+        self.assertEqual(OfficeChangeAlert.objects.count(), 1)
+        alert = OfficeChangeAlert.objects.get(assignee=assignee)
+        # Origin stays where the assets were last confirmed; destination advances.
+        self.assertEqual(alert.old_placement["branch_name_en"], "IT Branch")
+        self.assertEqual(alert.new_placement["branch_name_en"], "Audit Branch")
+
+    def test_move_after_resolution_raises_a_new_alert(self):
+        emp = self._seed_employee()
+        assignee = self._give_asset(emp)
+
+        _sync_employees([self._moved_record(branchId=7, branchNameEn="Finance Branch")],
+                        SyncLog.objects.create())
+        OfficeChangeAlert.objects.get(assignee=assignee).resolve(self.user)
+
+        _sync_employees([self._moved_record(branchId=8, branchNameEn="Audit Branch")],
+                        SyncLog.objects.create())
+
+        self.assertEqual(OfficeChangeAlert.objects.count(), 2)
+        self.assertEqual(
+            OfficeChangeAlert.objects.filter(status=AlertStatus.OPEN).count(), 1,
+        )
+
+    def test_alert_does_not_return_the_asset(self):
+        """Architectural decision #9 — the flag never moves an asset."""
+        from assets.models import AssetItem
+        from assignments.models import Assignment
+
+        emp = self._seed_employee()
+        self._give_asset(emp)
+        _sync_employees([self._moved_record(sectionId=99, sectionNameEn="Payroll Section")],
+                        SyncLog.objects.create())
+
+        asset = AssetItem.objects.get(asset_tag="PC-2024-9001")
+        self.assertEqual(asset.status, AssetItem.Status.ASSIGNED)
+        self.assertTrue(
+            Assignment.objects.filter(asset=asset, returned_at__isnull=True).exists()
+        )

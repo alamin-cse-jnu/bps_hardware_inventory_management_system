@@ -198,3 +198,111 @@ class InactiveHolderAlert(models.Model):
         if note:
             self.note = note
         self.save(update_fields=["status", "resolved_at", "resolved_by", "note", "updated_at"])
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OfficeChangeAlert
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Placement identity — a change in any of these means the holder moved office.
+PLACEMENT_ID_FIELDS = ("wing_id", "branch_id", "section_id", "unit_id", "office_id")
+# Stored alongside the ids so the alert still reads correctly years later,
+# even if the office is renamed or removed from the API.
+PLACEMENT_NAME_FIELDS = (
+    "wing_name_en", "branch_name_en", "section_name_en", "unit_name_en", "office_name_en",
+)
+
+
+def placement_of(employee) -> dict:
+    """Snapshot the office placement of a CachedEmployee as a plain dict."""
+    return {
+        f: getattr(employee, f, "") or ""
+        for f in PLACEMENT_ID_FIELDS + PLACEMENT_NAME_FIELDS
+    }
+
+
+def placement_ids(placement: dict) -> tuple:
+    """The comparable part of a placement dict — ids only, names ignored."""
+    return tuple((placement or {}).get(f, "") or "" for f in PLACEMENT_ID_FIELDS)
+
+
+def placement_path(placement: dict) -> str:
+    """Human-readable 'Section, Branch, Wing' path for a placement dict."""
+    placement = placement or {}
+    parts = [
+        placement.get("unit_name_en"),
+        placement.get("section_name_en"),
+        placement.get("branch_name_en"),
+        placement.get("wing_name_en"),
+    ]
+    return ", ".join(p for p in parts if p) or "—"
+
+
+class OfficeChangeAlert(models.Model):
+    """
+    Raised when a PRP-sourced employee's office placement changes while they
+    still hold assets. Like InactiveHolderAlert, this is a flag only — assets
+    are never moved automatically (architectural decision #9). A human decides
+    whether the assets follow the holder, return to stock, or stay put.
+    """
+
+    assignee = models.ForeignKey(
+        "assignees.Assignee",
+        on_delete=models.PROTECT,
+        related_name="office_change_alerts",
+    )
+    # Placement before and after the move, frozen at detection time.
+    old_placement = models.JSONField(default=dict, blank=True)
+    new_placement = models.JSONField(default=dict, blank=True)
+
+    # Not auto_now_add: a second move while the alert is still open refreshes it.
+    detected_at = models.DateTimeField(default=timezone.now)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(
+        max_length=10, choices=AlertStatus.choices, default=AlertStatus.OPEN,
+    )
+    note = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    resolved_by = models.ForeignKey(
+        User, null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="office_change_alerts_resolved",
+    )
+
+    class Meta:
+        ordering = ["-detected_at"]
+        verbose_name = "Office Change Alert"
+        verbose_name_plural = "Office Change Alerts"
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["assignee", "status"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Office change: {self.assignee} [{self.status}]"
+
+    @property
+    def old_path(self) -> str:
+        return placement_path(self.old_placement)
+
+    @property
+    def new_path(self) -> str:
+        return placement_path(self.new_placement)
+
+    def resolve(self, user: User, note: str = "") -> None:
+        self.status = AlertStatus.RESOLVED
+        self.resolved_at = timezone.now()
+        self.resolved_by = user
+        if note:
+            self.note = note
+        self.save(update_fields=["status", "resolved_at", "resolved_by", "note", "updated_at"])
+
+    def dismiss(self, user: User, note: str = "") -> None:
+        self.status = AlertStatus.DISMISSED
+        self.resolved_at = timezone.now()
+        self.resolved_by = user
+        if note:
+            self.note = note
+        self.save(update_fields=["status", "resolved_at", "resolved_by", "note", "updated_at"])

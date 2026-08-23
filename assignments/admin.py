@@ -1,7 +1,13 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import AlertStatus, Assignment, InactiveHolderAlert, TransferBatch
+from .models import (
+    AlertStatus,
+    Assignment,
+    InactiveHolderAlert,
+    OfficeChangeAlert,
+    TransferBatch,
+)
 
 
 # ── TransferBatch ──────────────────────────────────────────────────────────────
@@ -191,6 +197,81 @@ class InactiveHolderAlertAdmin(admin.ModelAdmin):
         color = "#ef4444" if count > 0 else "#10b981"
         return format_html(
             '<span style="font-weight:700;color:{};">{}</span>', color, count
+        )
+
+    def save_model(self, request, obj, form, change):
+        if change and obj.status in (AlertStatus.RESOLVED, AlertStatus.DISMISSED):
+            if not obj.resolved_by:
+                obj.resolved_by = request.user
+            from django.utils import timezone
+            if not obj.resolved_at:
+                obj.resolved_at = timezone.now()
+        super().save_model(request, obj, form, change)
+
+
+# ── OfficeChangeAlert ──────────────────────────────────────────────────────────
+
+@admin.register(OfficeChangeAlert)
+class OfficeChangeAlertAdmin(admin.ModelAdmin):
+    list_display = [
+        "assignee_name_col", "move_col", "detected_at", "status_badge",
+        "resolved_at", "resolved_by",
+    ]
+    list_filter = ["status"]
+    search_fields = ["assignee__employee__name_en"]
+    readonly_fields = [
+        "assignee", "old_placement", "new_placement", "detected_at",
+        "created_at", "updated_at", "resolved_at", "resolved_by",
+    ]
+    ordering = ["-detected_at"]
+    list_per_page = 30
+
+    fieldsets = [
+        ("Alert", {
+            "fields": ["assignee", "detected_at", "status"],
+        }),
+        ("Placement", {
+            "fields": ["old_placement", "new_placement"],
+        }),
+        ("Resolution", {
+            "fields": ["resolved_at", "resolved_by", "note"],
+        }),
+        ("Metadata", {
+            "fields": ["created_at", "updated_at"],
+            "classes": ["collapse"],
+        }),
+    ]
+
+    @admin.display(description="Holder")
+    def assignee_name_col(self, obj):
+        return obj.assignee.display_name
+
+    @admin.display(description="Move")
+    def move_col(self, obj):
+        return format_html(
+            '<span style="color:#6b7280;">{}</span>'
+            '<span style="color:#b45309;font-weight:700;"> &rarr; </span>'
+            '<span style="font-weight:600;">{}</span>',
+            obj.old_path, obj.new_path,
+        )
+
+    @admin.display(description="Status")
+    def status_badge(self, obj):
+        colours = {
+            AlertStatus.OPEN: ("background:#fffbeb;color:#b45309;", "Open"),
+            AlertStatus.RESOLVED: ("background:#ecfdf5;color:#10b981;", "Resolved"),
+            AlertStatus.DISMISSED: ("background:#f3f4f6;color:#6b7280;", "Dismissed"),
+        }
+        style, label = colours.get(obj.status, ("", obj.status))
+        return format_html(
+            '<span style="padding:2px 8px;border-radius:99px;font-size:11px;'
+            'font-weight:700;{}">{}</span>',
+            style, label,
+        )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            "assignee__employee", "resolved_by",
         )
 
     def save_model(self, request, obj, form, change):

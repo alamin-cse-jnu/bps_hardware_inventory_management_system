@@ -6,6 +6,7 @@ from config.permissions import role_context
 # Counting alerts each time is pure overhead, so the value is cached and the
 # InactiveHolderAlert post_save signal drops the key whenever it changes.
 ALERT_COUNT_CACHE_KEY = "nav:open_alerts_count"
+OFFICE_CHANGE_COUNT_CACHE_KEY = "nav:open_office_changes_count"
 ALERT_COUNT_TTL = 300
 
 ANONYMOUS_FLAGS = {
@@ -13,6 +14,7 @@ ANONYMOUS_FLAGS = {
     "user_is_it_officer": False,
     "user_is_viewer": False,
     "open_alerts_count": 0,
+    "open_office_changes_count": 0,
 }
 
 
@@ -26,10 +28,21 @@ def open_alerts_count() -> int:
     return count
 
 
+def open_office_changes_count() -> int:
+    count = cache.get(OFFICE_CHANGE_COUNT_CACHE_KEY)
+    if count is None:
+        from assignments.models import AlertStatus, OfficeChangeAlert
+
+        count = OfficeChangeAlert.objects.filter(status=AlertStatus.OPEN).count()
+        cache.set(OFFICE_CHANGE_COUNT_CACHE_KEY, count, ALERT_COUNT_TTL)
+    return count
+
+
 def role_flags(request):
     if not request.user.is_authenticated:
         return ANONYMOUS_FLAGS
 
     ctx = role_context(request.user)
     ctx["open_alerts_count"] = open_alerts_count()
+    ctx["open_office_changes_count"] = open_office_changes_count()
     return ctx

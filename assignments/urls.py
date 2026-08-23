@@ -14,4 +14,6 @@ urlpatterns = [
     path("bulk-assign-clear/", views.bulk_clear_assignee, name="bulk_clear_assignee"),
     path("alerts/", views.alerts_list, name="alerts_list"),
     path("alerts/<int:pk>/", views.alert_panel, name="alert_panel"),
+    path("office-changes/", views.office_changes_list, name="office_changes_list"),
+    path("office-changes/<int:pk>/", views.office_change_panel, name="office_change_panel"),
 ]

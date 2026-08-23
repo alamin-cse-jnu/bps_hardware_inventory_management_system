@@ -275,10 +275,16 @@
 
     <div class="nav-label">Monitoring</div>
 
-    <a href="{% url 'assignments:alerts_list' %}" class="nav-item {% if request.resolver_match.namespace == 'assignments' and 'alert' in request.resolver_match.url_name %}active{% endif %}">
+    <a href="{% url 'assignments:alerts_list' %}" class="nav-item {% if request.resolver_match.namespace == 'assignments' and 'alert' in request.resolver_match.url_name and 'office' not in request.resolver_match.url_name %}active{% endif %}">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       Alerts
       {% if open_alerts_count > 0 %}<span class="nav-badge">{{ open_alerts_count }}</span>{% endif %}
+    </a>
+
+    <a href="{% url 'assignments:office_changes_list' %}" class="nav-item {% if request.resolver_match.namespace == 'assignments' and 'office_change' in request.resolver_match.url_name %}active{% endif %}">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
+      Office Changes
+      {% if open_office_changes_count > 0 %}<span class="nav-badge">{{ open_office_changes_count }}</span>{% endif %}
     </a>
 
     <a href="{% url 'qrcodes:audit_list' %}" class="nav-item {% if request.resolver_match.namespace == 'qrcodes' and 'audit' in request.resolver_match.url_name %}active{% endif %}">

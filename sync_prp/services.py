@@ -1,7 +1,13 @@
 from django.utils import timezone
 
 from assignees.models import Assignee, AssigneeType, CachedEmployee, CachedMP, CachedOffice, Source
-from assignments.models import Assignment, InactiveHolderAlert
+from assignments.models import (
+    Assignment,
+    InactiveHolderAlert,
+    OfficeChangeAlert,
+    placement_ids,
+    placement_of,
+)
 
 from .client import PRPApiClient
 from .models import SyncLog
@@ -83,6 +89,17 @@ def _sync_employees(api_records: list, log: SyncLog) -> None:
     prp_ids_with_office: set[str] = set()
     prp_ids_no_office: set[str] = set()
 
+    # Office placement as it stands *before* this sync run, read in one query so
+    # the per-record loop can spot a move without an extra SELECT per employee.
+    placements_before = {
+        emp.prp_id: placement_of(emp)
+        for emp in CachedEmployee.objects.filter(source=Source.PRP_API).only(
+            "prp_id", "wing_id", "wing_name_en", "branch_id", "branch_name_en",
+            "section_id", "section_name_en", "unit_id", "unit_name_en",
+            "office_id", "office_name_en",
+        )
+    }
+
     for rec in api_records:
         prp_id = str(rec.get("prpId") or "").strip()
         if not prp_id:
@@ -137,6 +154,11 @@ def _sync_employees(api_records: list, log: SyncLog) -> None:
             assignee_type=AssigneeType.EMPLOYEE, employee=emp,
             defaults={"is_active": True},
         )
+
+        if not created:
+            _maybe_raise_office_change_alert(
+                emp, placements_before.get(prp_id), placement_of(emp),
+            )
 
     # Employees that exist in API but now have no office —
     # keep if they have asset history, hard-delete if they do not.
@@ -294,3 +316,44 @@ def _maybe_raise_alert(*, employee=None, mp=None, office=None) -> None:
         InactiveHolderAlert.objects.get_or_create(
             assignee=assignee, status="OPEN",
         )
+
+
+def _maybe_raise_office_change_alert(employee, before: dict | None, after: dict) -> None:
+    """
+    Flag a PRP employee who moved to a different office while still holding
+    assets. Like _maybe_raise_alert this only raises the flag — assets are never
+    moved automatically (architectural decision #9).
+
+    `before` is None for an employee first seen this run: nothing moved, so
+    nothing to report. Only the placement ids are compared, so a pure rename of
+    a wing/branch/section on the PRP side does not raise an alert.
+    """
+    if before is None or placement_ids(before) == placement_ids(after):
+        return
+
+    if not Assignment.objects.filter(
+        assignee__employee=employee, returned_at__isnull=True,
+    ).exists():
+        return
+
+    assignee = Assignee.objects.filter(
+        assignee_type=AssigneeType.EMPLOYEE, employee=employee,
+    ).first()
+    if assignee is None:
+        return
+
+    alert = OfficeChangeAlert.objects.filter(
+        assignee=assignee, status="OPEN",
+    ).first()
+    if alert is None:
+        OfficeChangeAlert.objects.create(
+            assignee=assignee, old_placement=before, new_placement=after,
+        )
+        return
+
+    # Moved again before anyone reviewed the previous move: keep the original
+    # "from" placement — that is where the assets were last confirmed — and
+    # advance the "to" placement to where the holder is now.
+    alert.new_placement = after
+    alert.detected_at = timezone.now()
+    alert.save(update_fields=["new_placement", "detected_at", "updated_at"])
