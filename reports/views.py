@@ -34,7 +34,7 @@ from reports.generators.excel import (
     transfer_log_excel,
     warranty_expiry_excel,
 )
-from reports.office_assets import asset_count, build_groups
+from reports.office_assets import asset_count, build_groups, summarise
 from reports.office_scope import (
     build_office_options,
     parse_scope,
@@ -477,6 +477,7 @@ def view_office_assets(request):
 
     options, scope, terms = _office_context(request)
     groups = build_groups(terms, options)
+    summary = summarise(groups)
 
     # Paginate by holder, never by row: a holder's rows form one merged block
     # and must not be split across pages.
@@ -492,6 +493,14 @@ def view_office_assets(request):
         "start_index":   page_obj.start_index(),
         "holder_count":  paginator.count,
         "asset_total":   asset_count(groups),
+        # Summarises the whole selection, not just the page being shown.
+        "summary":       summary,
+        "summary_tiles": [
+            ("Employees", summary["employees"]),
+            ("Offices", summary["offices"]),
+            ("Total Holders", summary["holders"]),
+            ("Total Assets", summary["assets"]),
+        ],
         "scope":         scope,
         "scope_summary": scope_label(scope, options),
         "level_meta":    [

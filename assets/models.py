@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.functions import Upper
 from django.utils import timezone
 
 User = get_user_model()
@@ -279,6 +280,33 @@ class AssetBatch(models.Model):
         return count
 
 
+# Words typed into the serial field to mean "this unit has no readable serial".
+# They are not identities, so they are exempt from the uniqueness rule and may
+# repeat as freely as a blank field. Compared upper-cased and stripped.
+NON_SERIAL_PLACEHOLDERS: frozenset[str] = frozenset({
+    "UNKNOWN", "N/A", "NA", "NIL", "NONE", "NOT SPECIFIED", "NOT AVAILABLE",
+    "-", "--", "?", ".",
+})
+
+
+def is_placeholder_serial(value: str) -> bool:
+    """True for a blank serial or one of the ``no serial`` placeholder words."""
+    cleaned = (value or "").strip()
+    return not cleaned or cleaned.upper() in NON_SERIAL_PLACEHOLDERS
+
+
+def _real_serial_condition() -> models.Q:
+    """
+    Rows the uniqueness constraint covers: live assets whose serial field holds
+    an actual serial — blanks and placeholder words are left out so they can
+    repeat.
+    """
+    condition = models.Q(is_deleted=False) & ~models.Q(serial_number="")
+    for placeholder in sorted(NON_SERIAL_PLACEHOLDERS):
+        condition &= ~models.Q(serial_number__iexact=placeholder)
+    return condition
+
+
 class AssetItem(models.Model):
     class Status(models.TextChoices):
         IN_STOCK = "IN_STOCK", "In Stock"
@@ -371,9 +399,51 @@ class AssetItem(models.Model):
             models.Index(fields=["status"]),
             models.Index(fields=["is_deleted"]),
         ]
+        constraints = [
+            # A serial number identifies one physical unit, so it may appear on
+            # at most one live asset. Compared case-insensitively (sn-1 and SN-1
+            # are the same plate) and only over rows that still count: blanks
+            # and placeholders repeat freely (plenty of old kit has no readable
+            # plate) and soft-deleted rows are out of the way so a serial can be
+            # re-entered after a mistaken row is deleted.
+            models.UniqueConstraint(
+                Upper("serial_number"),
+                condition=_real_serial_condition(),
+                name="uniq_live_asset_serial_ci",
+                violation_error_message=(
+                    "This serial number is already used by another asset. "
+                    "Serial numbers must be unique."
+                ),
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"{self.asset_tag} — {self.brand} {self.model_name}"
+
+    @classmethod
+    def serial_conflict(cls, serial: str, exclude_pk=None) -> "AssetItem | None":
+        """
+        The live asset already carrying ``serial``, or None if it is free.
+
+        Blank and placeholder serials never conflict. Matching is
+        case-insensitive so the same plate typed in a different case is still
+        caught.
+        """
+        serial = (serial or "").strip()
+        if is_placeholder_serial(serial):
+            return None
+        qs = cls.objects.filter(serial_number__iexact=serial, is_deleted=False)
+        if exclude_pk:
+            qs = qs.exclude(pk=exclude_pk)
+        return qs.first()
+
+    @staticmethod
+    def serial_conflict_message(serial: str, other: "AssetItem") -> str:
+        """User-facing wording for a duplicate serial — same text everywhere."""
+        return (
+            f"Serial number '{serial}' is already used by asset {other.asset_tag} "
+            f"({other.brand} {other.model_name}). Serial numbers must be unique."
+        )
 
     @property
     def is_assignable(self) -> bool:
@@ -404,6 +474,17 @@ class AssetItem(models.Model):
         # the DB level, but clean() catches it at the form/admin level too).
         if self.status not in self.Status.values:
             raise ValidationError({"status": f"Unknown status: {self.status}"})
+
+        # Duplicate serial: the DB constraint is the real guard, this turns it
+        # into a message naming the asset that already holds the serial.
+        if not self.is_deleted:
+            other = self.serial_conflict(self.serial_number, exclude_pk=self.pk)
+            if other is not None:
+                raise ValidationError({
+                    "serial_number": self.serial_conflict_message(
+                        self.serial_number.strip(), other
+                    )
+                })
 
 
 class AssetComponent(models.Model):

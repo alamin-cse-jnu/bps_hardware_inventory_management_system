@@ -195,3 +195,47 @@ def flatten(groups: list[dict]) -> list[dict]:
 
 def asset_count(groups: list[dict]) -> int:
     return sum(len(g["rows"]) for g in groups)
+
+
+def summarise(groups: list[dict]) -> dict:
+    """
+    Headline counts for the selected scope: how many holders, and how the
+    assets split across Category → Asset Type.
+
+    Computed from the full group list (before pagination), so the summary
+    describes the whole selection rather than the page on screen. The same
+    dict feeds the summary card on the view page and the Summary sheet in the
+    download, so the two cannot disagree.
+    """
+    employees = sum(1 for g in groups if not g["_is_office"])
+    offices = len(groups) - employees
+
+    # {category: {asset_type: count}} — insertion order is fixed by sorting below.
+    tally: dict[str, dict[str, int]] = {}
+    for group in groups:
+        for row in group["rows"]:
+            types = tally.setdefault(row["category"], {})
+            types[row["asset_type"]] = types.get(row["asset_type"], 0) + 1
+
+    categories = []
+    for name in sorted(tally, key=str.casefold):
+        types = [
+            {"name": type_name, "assets": tally[name][type_name]}
+            for type_name in sorted(tally[name], key=str.casefold)
+        ]
+        categories.append({
+            "name": name,
+            "types": types,
+            "type_count": len(types),
+            "assets": sum(t["assets"] for t in types),
+        })
+
+    return {
+        "employees": employees,
+        "offices": offices,
+        "holders": len(groups),
+        "assets": asset_count(groups),
+        "categories": categories,
+        "category_count": len(categories),
+        "type_count": sum(c["type_count"] for c in categories),
+    }

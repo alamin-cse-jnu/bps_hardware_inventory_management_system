@@ -95,7 +95,13 @@
 
       <div class="form-group" style="margin-bottom:0">
         <label class="form-label">Serial Number</label>
-        <input type="text" name="serial_number" value="{{ form_data.serial_number|default:'' }}" class="form-input" style="font-family:'JetBrains Mono',monospace" placeholder="Hardware serial number">
+        <input type="text" name="serial_number" value="{{ form_data.serial_number|default:'' }}" class="form-input" style="font-family:'JetBrains Mono',monospace" placeholder="Hardware serial number"
+               hx-get="{% url 'assets:serial_check' %}"
+               hx-trigger="keyup changed delay:600ms"
+               hx-target="#serial-status"
+               {% if is_edit %}hx-vals='{"exclude_pk": "{{ asset.pk }}"}'{% endif %}>
+        <div id="serial-status" style="min-height:18px;margin-top:4px"></div>
+        {% if errors.serial_number %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.serial_number }}</div>{% endif %}
       </div>
 
     </div>

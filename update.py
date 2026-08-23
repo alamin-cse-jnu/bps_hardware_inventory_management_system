@@ -74,16 +74,14 @@ def main():
     sftp.close()
     print(f"      {n} files uploaded.\n")
 
-    print("[3/4] Copying into container...")
-    # Copy key dirs directly into the live container (instant, no rebuild needed)
-    for src_dir in ("templates", "static", "config"):
-        run(ssh, f"docker cp {REMOTE_DIR}/{src_dir} {CONTAINER}:/app/{src_dir}")
-    # Copy all app directories (Python files)
-    for app in ("assets", "assignees", "assignments", "catalogue", "lifecycle",
-                "locations", "qrcodes", "sync_prp", "reports"):
-        run(ssh, f"docker cp {REMOTE_DIR}/{app} {CONTAINER}:/app/{app}")
+    # NOTE: deliberately no `docker cp` step here. REMOTE_DIR is bind-mounted
+    # to /app in the web container, so the upload above has ALREADY landed
+    # inside the container. Copying REMOTE_DIR/x into CONTAINER:/app/x wrote
+    # the host directory back into itself through that mount, burying a
+    # duplicate one level deeper on every deploy
+    # (REMOTE_DIR/sync_prp/sync_prp/sync_prp/...). Do not reintroduce it.
 
-    print("\n[4/4] Applying migrations and restarting web...")
+    print("[3/3] Applying migrations and restarting web...")
     # Apply any pending schema migrations (no-op when there are none). This does
     # NOT run the gated `migrate_location_blocks` data command — that stays manual.
     run(ssh, f"docker exec {CONTAINER} python manage.py migrate --noinput")

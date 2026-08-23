@@ -421,3 +421,120 @@ class OfficeAssetsViewTest(OfficeFixture):
         self.client.logout()
         resp = self.client.get(reverse("reports:office_assets_view"))
         self.assertIn(resp.status_code, (302, 403))
+
+
+# ── Summary block ────────────────────────────────────────────────────────────
+
+class OfficeAssetsSummaryTest(OfficeAssetGroupingTest):
+    """
+    Fixture recap: Wing Boss holds 1 Access Point (Networking); Section Staff
+    holds 2 Laptops + 1 Monitor (both Computing).
+    """
+
+    def summary(self):
+        from reports.office_assets import summarise
+        return summarise(self.groups())
+
+    def test_holder_counts(self):
+        s = self.summary()
+        self.assertEqual(s["employees"], 2)
+        self.assertEqual(s["offices"], 0)
+        self.assertEqual(s["holders"], 2)
+        self.assertEqual(s["assets"], 4)
+
+    def test_office_holders_counted_separately(self):
+        office = self.office_assignee("Alpha Branch One")
+        self.give(office, "AP-900", self.t_ap)
+        s = self.summary()
+        self.assertEqual(s["employees"], 2)
+        self.assertEqual(s["offices"], 1)
+        self.assertEqual(s["holders"], 3)
+        self.assertEqual(s["assets"], 5)
+
+    def test_category_and_type_breakdown(self):
+        s = self.summary()
+        self.assertEqual(
+            [(c["name"], c["assets"], c["type_count"]) for c in s["categories"]],
+            [("Computing Equipment", 3, 2), ("Networking Equipment", 1, 1)],
+        )
+        computing = s["categories"][0]
+        self.assertEqual(
+            [(t["name"], t["assets"]) for t in computing["types"]],
+            [("Laptop", 2), ("Monitor", 1)],
+        )
+
+    def test_totals_add_up(self):
+        s = self.summary()
+        self.assertEqual(sum(c["assets"] for c in s["categories"]), s["assets"])
+        self.assertEqual(s["category_count"], 2)
+        self.assertEqual(s["type_count"], 3)
+
+    def test_summary_covers_scope_not_page(self):
+        """Summary is built before pagination, so page size must not change it."""
+        client = Client()
+        client.force_login(self.user)
+        url = reverse("reports:office_assets_view")
+        wide = client.get(f"{url}?per_page=100").context["summary"]
+        narrow = client.get(f"{url}?per_page=25&page=1").context["summary"]
+        self.assertEqual(wide, narrow)
+        self.assertEqual(wide["assets"], 4)
+        self.assertEqual(wide["holders"], 2)
+
+    def test_empty_scope_summarises_to_zero(self):
+        from reports.office_assets import summarise
+        s = summarise([])
+        self.assertEqual(s["holders"], 0)
+        self.assertEqual(s["assets"], 0)
+        self.assertEqual(s["categories"], [])
+
+
+class OfficeAssetsSummarySheetTest(OfficeAssetGroupingTest):
+    def summary_sheet(self):
+        import io
+
+        import openpyxl
+
+        from reports.generators.excel import office_assets_excel
+        data = office_assets_excel(self.groups(), subtitle="Test scope")
+        return openpyxl.load_workbook(io.BytesIO(data))
+
+    def test_workbook_has_summary_sheet_after_the_detail_sheet(self):
+        wb = self.summary_sheet()
+        self.assertEqual(wb.sheetnames, ["Office-wise Assets", "Summary"])
+
+    def test_overview_counts_written(self):
+        ws = self.summary_sheet()["Summary"]
+        values = {
+            row[1]: row[3]
+            for row in ws.iter_rows(max_col=4, values_only=True)
+            if row[1]
+        }
+        self.assertEqual(values["Employees holding assets"], 2)
+        self.assertEqual(values["Offices holding assets"], 0)
+        self.assertEqual(values["Total holders"], 2)
+        self.assertEqual(values["Total assets"], 4)
+
+    def test_breakdown_rows_and_total(self):
+        ws = self.summary_sheet()["Summary"]
+        rows = [r for r in ws.iter_rows(max_col=4, values_only=True) if any(r)]
+        # Category name is written once at the run anchor; types follow.
+        self.assertIn((1, "Computing Equipment", "Laptop", 2), rows)
+        self.assertIn((None, None, "Monitor", 1), rows)
+        self.assertIn((None, "Computing Equipment — subtotal", None, 3), rows)
+        self.assertIn((2, "Networking Equipment", "Access Point", 1), rows)
+        self.assertIn(
+            (None, "Total — 2 categories · 3 asset types", None, 4), rows
+        )
+
+    def test_single_type_category_has_no_subtotal_row(self):
+        ws = self.summary_sheet()["Summary"]
+        labels = [r[1] for r in ws.iter_rows(max_col=4, values_only=True)]
+        self.assertNotIn("Networking Equipment — subtotal", labels)
+
+    def test_category_merged_down_its_type_rows(self):
+        merges = {str(m) for m in self.summary_sheet()["Summary"].merged_cells.ranges}
+        # Computing Equipment spans its 2 type rows in both SL and Category.
+        self.assertTrue(
+            any(m.startswith("B") and ":" in m for m in merges),
+            f"category column not merged: {merges}",
+        )

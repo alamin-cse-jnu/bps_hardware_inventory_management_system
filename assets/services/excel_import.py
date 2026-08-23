@@ -15,7 +15,7 @@ from django.utils import timezone
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-from assets.models import AssetItem, AssetType
+from assets.models import AssetItem, AssetType, is_placeholder_serial
 from locations.models import Location
 
 # ---------------------------------------------------------------------------
@@ -39,7 +39,7 @@ FIXED_COLUMNS: list[str] = [
 
 COLUMN_DESCRIPTIONS: dict[str, str] = {
     "asset_tag": "Optional. Leave blank for auto-generation (e.g. LAP-2026-0001).",
-    "serial_number": "Hardware serial number. Strongly recommended.",
+    "serial_number": "Hardware serial number. Strongly recommended — must be unique.",
     "brand": "REQUIRED. Manufacturer name (e.g. Dell, HP, Cisco).",
     "model_name": "REQUIRED. Model number or name (e.g. Latitude 5540).",
     "purchase_date": "Format: YYYY-MM-DD (e.g. 2024-01-15). Optional.",
@@ -234,6 +234,8 @@ class ExcelTemplateGenerator:
         ws.cell(row, 1, "3. Copy location paths from the 'Valid Locations' sheet.").font = _INSTR_FONT
         row += 1
         ws.cell(row, 1, "4. Do not edit column headers.").font = _INSTR_FONT
+        row += 1
+        ws.cell(row, 1, "5. Serial numbers must be unique — no repeats here or in the system.").font = _INSTR_FONT
         row += 2
 
         ws.cell(row, 1, "Column Reference").font = _INSTR_HEADER_FONT
@@ -309,6 +311,18 @@ class ExcelImportValidator:
         # Track tags seen in this batch to catch intra-batch duplicates
         batch_tags: set[str] = set()
 
+        # Existing serial numbers (live assets only, upper-cased) mapped to the
+        # asset holding them, so a clash can name the offending asset.
+        existing_serials: dict[str, str] = {
+            serial.upper(): tag
+            for serial, tag in AssetItem.objects.filter(is_deleted=False)
+            .exclude(serial_number="")
+            .values_list("serial_number", "asset_tag")
+            if not is_placeholder_serial(serial)
+        }
+        # Serials seen earlier in this file -> row number
+        batch_serials: dict[str, int] = {}
+
         results: list[dict] = []
         for row_idx in range(2, ws.max_row + 1):
             row_data = {
@@ -337,11 +351,30 @@ class ExcelImportValidator:
             else:
                 clean["model_name"] = model_name
 
-            # --- Serial number (warning if blank) ---
+            # --- Serial number (warning if blank, error if duplicate) ---
             serial = row_data.get("serial_number", "")
             clean["serial_number"] = serial
             if not serial:
                 warnings.append("serial_number is blank — consider adding it for traceability.")
+            elif is_placeholder_serial(serial):
+                warnings.append(
+                    f"serial_number '{serial}' is treated as 'no serial' — it is not "
+                    "checked for duplicates."
+                )
+            else:
+                key = serial.upper()
+                if key in existing_serials:
+                    errors.append(
+                        f"serial_number '{serial}' is already used by asset "
+                        f"{existing_serials[key]}. Serial numbers must be unique."
+                    )
+                elif key in batch_serials:
+                    errors.append(
+                        f"serial_number '{serial}' is repeated in this file "
+                        f"(first seen on row {batch_serials[key]})."
+                    )
+                else:
+                    batch_serials[key] = row_idx
 
             # --- asset_tag uniqueness ---
             tag = row_data.get("asset_tag", "")

@@ -71,7 +71,7 @@
           <div id="serial-count" style="font-size:12px;color:#6C757D">0 serial numbers entered</div>
           <div id="serial-match" style="font-size:12px;font-weight:600"></div>
         </div>
-        {% if errors.serial_numbers %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.serial_numbers }}</div>{% endif %}
+        {% if errors.serial_numbers %}<div style="color:#EF4444;font-size:11px;margin-top:2px">{{ errors.serial_numbers|linebreaksbr }}</div>{% endif %}
       </div>
 
     </div>

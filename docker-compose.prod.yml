@@ -5,8 +5,19 @@
 #   1. Set DEBUG=False, ALLOWED_HOSTS, and CSRF_TRUSTED_ORIGINS in .env
 #   2. Set a strong SECRET_KEY and POSTGRES_PASSWORD in .env
 
+# Cap container stdout logs. The json-file driver defaults to unbounded, so a
+# crash-looping worker could fill the disk with a single repeating traceback.
+# 10m x 3 files = 30MB ceiling per container. Note these options are applied at
+# container CREATION - `restart` will not pick them up, only `up -d` will.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   web:
+    logging: *default-logging
     ports: []
     expose:
       - "8000"
@@ -28,14 +39,17 @@ services:
              gunicorn config.wsgi:application --bind 0.0.0.0:8000 --worker-class gthread --workers 3 --threads 4 --timeout 120 --max-requests 1000 --max-requests-jitter 100"
 
   celery:
+    logging: *default-logging
     volumes:
       - media_data:/app/media
 
   celery-beat:
+    logging: *default-logging
     volumes:
       - media_data:/app/media
 
   nginx:
+    logging: *default-logging
     image: nginx:1.27-alpine
     restart: unless-stopped
     ports:
@@ -46,3 +60,11 @@ services:
       - media_data:/app/media:ro
     depends_on:
       - web
+
+  # db and redis are defined in docker-compose.yml; these stubs exist only to
+  # give them the same log ceiling.
+  db:
+    logging: *default-logging
+
+  redis:
+    logging: *default-logging
