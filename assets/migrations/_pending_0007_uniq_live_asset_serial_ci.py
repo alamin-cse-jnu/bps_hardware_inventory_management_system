@@ -1,7 +1,7 @@
 """
 PARKED — not applied yet. Django's migration loader skips modules whose name
 starts with "_", so this file is inert until it is renamed to
-``0007_assetitem_uniq_live_asset_serial_ci.py``.
+``0009_assetitem_uniq_live_asset_serial_ci.py``.
 
 It is parked because the constraint cannot be created while duplicate serials
 exist, and the web container runs ``migrate`` before gunicorn — a failing
@@ -10,7 +10,7 @@ index. Clean the data first:
 
     python manage.py find_duplicate_serials      # must report none
     mv assets/migrations/_pending_0007_uniq_live_asset_serial_ci.py \
-       assets/migrations/0007_assetitem_uniq_live_asset_serial_ci.py
+       assets/migrations/0009_assetitem_uniq_live_asset_serial_ci.py
     python manage.py migrate
 
 Form, bulk-add and Excel-import validation are unaffected by the parking —
@@ -71,7 +71,10 @@ def check_no_duplicate_serials(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('assets', '0006_alter_assetcomponent_component_type'),
+        # Must chain onto the current leaf, not 0006 — two children of one
+        # migration would fork the graph and every `migrate` would then fail
+        # with "Conflicting migrations detected".
+        ('assets', '0008_backfill_component_types'),
         ('locations', '0004_location_dimensions'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]

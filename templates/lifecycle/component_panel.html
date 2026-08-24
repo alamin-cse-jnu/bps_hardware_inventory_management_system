@@ -43,8 +43,15 @@
         <div class="cmp-row">
           <div class="cmp-row-head">
             <div>
-              <div style="font-weight:700;font-size:13px;color:#212529">{{ comp.get_component_type_display }}</div>
+              <div style="font-weight:700;font-size:13px;color:#212529">{{ comp.label }}{% if comp.capacity_display %} <span style="color:#0076A7">{{ comp.capacity_display }}</span>{% endif %}</div>
               <div class="text-small" style="color:#6C757D">{{ comp.brand }} {{ comp.model_name }}{% if comp.serial_number %} · <span style="font-family:'JetBrains Mono',monospace">{{ comp.serial_number }}</span>{% endif %}</div>
+              {% if comp.vendor or comp.cost or comp.purchase_date %}
+              <div class="text-small" style="color:#94A3B8;margin-top:1px">
+                {% if comp.cost %}৳{{ comp.cost|floatformat:2 }}{% endif %}
+                {% if comp.vendor %}{% if comp.cost %} · {% endif %}{{ comp.vendor.name }}{% endif %}
+                {% if comp.purchase_date %} · {{ comp.purchase_date|date:"d M Y" }}{% endif %}
+              </div>
+              {% endif %}
             </div>
           </div>
 
@@ -54,17 +61,8 @@
               {% csrf_token %}
               <input type="hidden" name="action" value="replace">
               <input type="hidden" name="old_component_id" value="{{ comp.pk }}">
-              <div class="cmp-hint">New part replacing this {{ comp.get_component_type_display }}:</div>
-              <div class="cmp-grid">
-                <select name="component_type" class="form-input cmp-input">
-                  {% for val, label in component_types %}
-                  <option value="{{ val }}" {% if val == comp.component_type %}selected{% endif %}>{{ label }}</option>
-                  {% endfor %}
-                </select>
-                <input type="text" name="brand" class="form-input cmp-input" placeholder="Brand">
-                <input type="text" name="model_name" class="form-input cmp-input" placeholder="Model">
-                <input type="text" name="serial_number" class="form-input cmp-input" placeholder="Serial no.">
-              </div>
+              <div class="cmp-hint">New part replacing this {{ comp.label }}:</div>
+              {% include "lifecycle/partials/component_fields.html" with selected_pk=comp.ctype_id %}
               <input type="text" name="note" class="form-input cmp-input" placeholder="Reason (e.g. damaged, upgrade)" style="margin-top:8px">
               <button type="submit" class="btn btn-primary btn-sm" style="margin-top:8px;width:100%">Confirm replacement</button>
             </form>
@@ -76,7 +74,7 @@
               {% csrf_token %}
               <input type="hidden" name="action" value="remove">
               <input type="hidden" name="component_id" value="{{ comp.pk }}">
-              <div class="cmp-hint">Remove this {{ comp.get_component_type_display }} from the asset. It stays on record as removed.</div>
+              <div class="cmp-hint">Remove this {{ comp.label }} from the asset. It stays on record as removed.</div>
               <input type="text" name="note" class="form-input cmp-input" placeholder="Reason (optional)">
               <button type="submit" class="btn btn-sm" style="margin-top:8px;width:100%;background:#EF4444;color:#fff;border:none">Confirm removal</button>
             </form>
@@ -91,20 +89,16 @@
 
       {# ── Add a part ────────────────────────────────────────────────── #}
       <div class="cmp-section-label">Add a part</div>
+      {% if not component_types %}
+      <div class="callout callout-gold" style="margin-bottom:10px">
+        <svg width="14" height="14" fill="none" stroke="#C8A951" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div style="color:#78350F;font-size:13px">No components are configured for {{ asset.asset_type.name }}. An Admin can add them in the Components section of the Master Data page.</div>
+      </div>
+      {% endif %}
       <form class="cmp-form" hx-post="{% url 'lifecycle:component_panel' asset.pk %}" hx-target="#panel-container" hx-swap="innerHTML" style="border:none;padding:0;background:none">
         {% csrf_token %}
         <input type="hidden" name="action" value="add">
-        <div class="cmp-grid">
-          <select name="component_type" class="form-input cmp-input">
-            <option value="">— Part type —</option>
-            {% for val, label in component_types %}
-            <option value="{{ val }}">{{ label }}</option>
-            {% endfor %}
-          </select>
-          <input type="text" name="brand" class="form-input cmp-input" placeholder="Brand">
-          <input type="text" name="model_name" class="form-input cmp-input" placeholder="Model">
-          <input type="text" name="serial_number" class="form-input cmp-input" placeholder="Serial no.">
-        </div>
+        {% include "lifecycle/partials/component_fields.html" %}
         <input type="text" name="note" class="form-input cmp-input" placeholder="Note (optional)" style="margin-top:8px">
         <button type="submit" class="btn btn-outline btn-sm" style="margin-top:8px;width:100%">
           <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="vertical-align:-2px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -126,6 +120,49 @@
     </div>
   </div>
 </div>
+
+<script>
+// Redraw the capacity box + unit chips from the part chosen in the same form.
+// Runs on insert (htmx executes scripts in swapped content) and again on every
+// change, so the Add form and each Replace form stay independent.
+(function () {
+  function syncPart(select) {
+    var form = select.closest('form');
+    if (!form) return;
+    var opt = select.options[select.selectedIndex];
+    var units = (opt && opt.dataset.units ? opt.dataset.units.split(',') : []).filter(Boolean);
+    var wantsCapacity = !!(opt && opt.dataset.capacity === '1');
+    var wrap = form.querySelector('.cmp-cap');
+    var unitSel = form.querySelector('.cmp-unit');
+    if (!wrap || !unitSel) return;
+
+    // A part with no units and no capacity has nothing to size — hide the row.
+    var show = wantsCapacity || units.length > 0;
+    wrap.style.display = show ? '' : 'none';
+    form.querySelector('input[name="capacity"]').required = wantsCapacity;
+
+    var current = unitSel.value;
+    unitSel.innerHTML = '';
+    if (!units.length) {
+      unitSel.style.display = 'none';
+      return;
+    }
+    unitSel.style.display = '';
+    units.forEach(function (u) {
+      var o = document.createElement('option');
+      o.value = u; o.textContent = u;
+      unitSel.appendChild(o);
+    });
+    var preferred = units.indexOf(current) >= 0 ? current : (opt.dataset.defaultUnit || units[0]);
+    unitSel.value = preferred;
+  }
+
+  document.querySelectorAll('.cmp-part').forEach(function (sel) {
+    syncPart(sel);
+    sel.addEventListener('change', function () { syncPart(sel); });
+  });
+})();
+</script>
 
 <style>
 .cmp-section-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#94A3B8;font-weight:700;margin-bottom:8px}

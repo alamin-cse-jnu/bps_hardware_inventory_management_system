@@ -125,6 +125,26 @@ ASSET_HISTORY_COLS: list[tuple[str, str]] = [
 ]
 
 
+COMPONENT_COLS: list[tuple[str, str]] = [
+    ("purchase_date",  "Purchase Date"),
+    ("component",      "Component"),
+    ("capacity",       "Capacity"),
+    ("brand",          "Brand"),
+    ("model",          "Model"),
+    ("serial_no",      "Serial No."),
+    ("cost",           "Cost"),
+    ("vendor",         "Vendor"),
+    ("purchase_order", "PO / Work Order"),
+    ("asset_tag",      "Asset Tag"),
+    ("category",       "Category"),
+    ("asset_type",     "Asset Type"),
+    ("holder",         "Current Holder"),
+    ("installed_on",   "Installed On"),
+    ("status",         "Status"),
+    ("added_by",       "Added By"),
+]
+
+
 def parse_cols(request, col_list: list[tuple[str, str]]) -> list[str]:
     """Read ?cols=, validate each key against col_list; return all keys if none valid."""
     valid_keys = {k for k, _ in col_list}

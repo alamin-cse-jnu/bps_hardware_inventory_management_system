@@ -1,0 +1,49 @@
+{% comment %}
+Shared field block for the Add-part and Replace-part forms.
+
+The part dropdown carries the master data on each option (data-units,
+data-capacity, data-default-unit) so choosing a part re-draws the capacity box
+and unit chips with no extra request — the same trick the asset form's cascade
+uses. `selected_pk` preselects the part being replaced.
+
+Use {% templatetag openblock %} comment {% templatetag closeblock %} here, not
+{% templatetag openbrace %}#: a {% templatetag openbrace %}# comment cannot span
+lines, so a multi-line one is emitted as literal text — and any markup inside it
+becomes real elements.
+{% endcomment %}
+<div class="cmp-grid">
+  <select name="ctype" class="form-input cmp-input cmp-part" required style="grid-column:1/-1">
+    <option value="">&mdash; Part &mdash;</option>
+    {% for c in component_types %}
+    <option value="{{ c.pk }}"
+            data-units="{{ c.units|join:',' }}"
+            data-default-unit="{{ c.default_unit }}"
+            data-capacity="{% if c.capacity_required %}1{% else %}0{% endif %}"
+            {% if selected_pk and c.pk == selected_pk %}selected{% endif %}>{{ c.name }}</option>
+    {% endfor %}
+  </select>
+</div>
+
+<div class="cmp-cap" style="display:none;margin-top:8px">
+  <div class="cmp-grid">
+    <input type="number" name="capacity" class="form-input cmp-input" placeholder="Capacity" step="0.01" min="0">
+    <select name="unit" class="form-input cmp-input cmp-unit"></select>
+  </div>
+</div>
+
+<div class="cmp-grid" style="margin-top:8px">
+  <input type="text" name="brand" class="form-input cmp-input" placeholder="Brand">
+  <input type="text" name="model_name" class="form-input cmp-input" placeholder="Model">
+  <input type="text" name="serial_number" class="form-input cmp-input" placeholder="Serial no." style="grid-column:1/-1">
+</div>
+
+<div class="cmp-section-label" style="margin:12px 0 6px">Purchase</div>
+<div class="cmp-grid">
+  <input type="number" name="cost" class="form-input cmp-input" placeholder="Cost" step="0.01" min="0">
+  <select name="vendor" class="form-input cmp-input">
+    <option value="">&mdash; Vendor &mdash;</option>
+    {% for v in vendors %}<option value="{{ v.pk }}">{{ v.name }}</option>{% endfor %}
+  </select>
+  <input type="date" name="purchase_date" class="form-input cmp-input" max="{% now 'Y-m-d' %}" title="Purchase date">
+  <input type="text" name="purchase_order" class="form-input cmp-input" placeholder="PO / work order">
+</div>

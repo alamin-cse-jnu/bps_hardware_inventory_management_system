@@ -376,7 +376,14 @@ class AddRemoveComponentTests(TestCase):
 class ComponentPanelViewTests(TestCase):
 
     def setUp(self):
+        from catalogue.models import ComponentType
+
         self.asset = make_asset(tag="PC-020", has_components=True)
+        # Phase 13: the panel offers master-data parts, not the legacy enum, so
+        # the posted field is the ComponentType id — and a part reaches the
+        # dropdown only where ``applies_to`` maps it.
+        self.ram = ComponentType.objects.get(code="ram")
+        self.ram.applies_to.add(self.asset.asset_type)
         officer = User.objects.create_user(username="off", password="pw")
         grp, _ = Group.objects.get_or_create(name="IT Officer")
         officer.groups.add(grp)
@@ -391,7 +398,7 @@ class ComponentPanelViewTests(TestCase):
     def test_post_add_then_replace_then_remove(self):
         # add
         r = self.client.post(self.url, {
-            "action": "add", "component_type": "RAM",
+            "action": "add", "ctype": str(self.ram.pk), "capacity": "8", "unit": "GB",
             "brand": "Kingston", "model_name": "8GB", "serial_number": "K1",
         })
         self.assertEqual(r.status_code, 200)
@@ -399,7 +406,8 @@ class ComponentPanelViewTests(TestCase):
         # replace
         self.client.post(self.url, {
             "action": "replace", "old_component_id": comp.pk,
-            "component_type": "RAM", "brand": "Corsair", "model_name": "16GB",
+            "ctype": str(self.ram.pk), "capacity": "16", "unit": "GB",
+            "brand": "Corsair", "model_name": "16GB",
             "serial_number": "C1", "note": "upgrade",
         })
         comp.refresh_from_db()

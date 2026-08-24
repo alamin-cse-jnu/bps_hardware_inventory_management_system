@@ -36,6 +36,11 @@ urlpatterns = [
     path("manage/dimension/<str:kind>/<int:pk>/toggle/", views.dimension_toggle, name="dimension_toggle"),
     path("manage/dimension/<str:kind>/<int:pk>/delete/", views.dimension_delete, name="dimension_delete"),
 
+    # Component types (global master data, mapped to Sub Assets)
+    path("manage/component/save/",            views.component_save,   name="component_save"),
+    path("manage/component/<int:pk>/toggle/", views.component_toggle, name="component_toggle"),
+    path("manage/component/<int:pk>/delete/", views.component_delete, name="component_delete"),
+
     path("manage/spec-field/save/",            views.specfield_save,   name="specfield_save"),
     path("manage/spec-field/<int:pk>/toggle/", views.specfield_toggle, name="specfield_toggle"),
     path("manage/spec-field/<int:pk>/delete/", views.specfield_delete, name="specfield_delete"),

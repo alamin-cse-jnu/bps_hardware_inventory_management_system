@@ -14,7 +14,10 @@ matching widget for every field, so the dropdown values, units, and toggles are
 all controlled here rather than hardcoded in templates.
 """
 
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.signals import m2m_changed
+from django.dispatch import receiver
 
 from assets.models import AssetType
 
@@ -122,3 +125,98 @@ class SubAssetSpecField(models.Model):
             "options": list(self.options or []),
             "required": self.required,
         }
+
+
+class ComponentType(models.Model):
+    """
+    Master data for the parts that can be fitted to an asset — RAM, Storage,
+    an SFP module. Replaces the hardcoded ``AssetComponent.ComponentType``
+    enum: the unit chips shown next to the capacity box come from ``units``,
+    and ``applies_to`` decides which Sub Assets offer this part.
+
+    ``applies_to`` is an explicit allow-list: a part is offered on the Sub
+    Assets named there and **nowhere else**. An empty list therefore means the
+    part is offered on no asset at all — it is inert until someone maps it.
+    Mapping a part to a Sub Asset switches that Sub Asset's ``has_components``
+    on, so master data stays the single control over which assets get a
+    components panel.
+    """
+
+    name = models.CharField(max_length=120, unique=True)
+    code = models.SlugField(
+        max_length=40,
+        unique=True,
+        help_text="Stable key kept on the component row, e.g. ram, storage.",
+    )
+    # Unit chips offered next to the capacity box, e.g. ["GB", "TB"].
+    units = models.JSONField(default=list, blank=True)
+    default_unit = models.CharField(max_length=20, blank=True)
+    capacity_required = models.BooleanField(
+        default=True,
+        help_text="Tick for sized parts (RAM, Storage). Untick for a keyboard or a mouse.",
+    )
+    serial_required = models.BooleanField(default=False)
+    applies_to = models.ManyToManyField(
+        AssetType,
+        blank=True,
+        related_name="component_types",
+        help_text="Select the Sub Assets that take this part. An unmapped part is offered nowhere.",
+    )
+    order = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["order", "name"]
+        verbose_name = "Component Type"
+        verbose_name_plural = "Component Types"
+
+    def __str__(self) -> str:
+        return self.name
+
+    @property
+    def unit_list(self) -> list[str]:
+        return [str(u) for u in (self.units or [])]
+
+    def clean(self) -> None:
+        units = self.unit_list
+        if self.default_unit and units and self.default_unit not in units:
+            raise ValidationError(
+                {"default_unit": f"“{self.default_unit}” is not one of the units: {', '.join(units)}."}
+            )
+
+    def as_dict(self) -> dict:
+        """Serialisable form used by the JSON API and the component panel."""
+        return {
+            "id": self.pk,
+            "name": self.name,
+            "code": self.code,
+            "units": self.unit_list,
+            "default_unit": self.default_unit or (self.unit_list[0] if self.unit_list else ""),
+            "capacity_required": self.capacity_required,
+            "serial_required": self.serial_required,
+        }
+
+    def available_for(self, asset_type: AssetType | None) -> bool:
+        """A part is offered only where it is explicitly mapped."""
+        if asset_type is None:
+            return False
+        return self.applies_to.filter(pk=asset_type.pk).exists()
+
+
+@receiver(m2m_changed, sender=ComponentType.applies_to.through)
+def _enable_components_on_mapped_types(sender, instance, action, pk_set, reverse, **kwargs):
+    """
+    Mapping a part to a Sub Asset turns that Sub Asset's ``has_components`` on.
+
+    Without this an Admin would have to remember to tick two boxes on two
+    different sections of the Master Data page, and the components panel would
+    stay hidden on an asset whose parts are already configured. Nothing is ever
+    switched *off* here — un-mapping a part does not prove the Sub Asset has no
+    other parts, and the flag is still editable by hand.
+    """
+    if action != "post_add" or not pk_set:
+        return
+    type_ids = {instance.pk} if reverse else set(pk_set)
+    AssetType.objects.filter(pk__in=type_ids, has_components=False).update(has_components=True)

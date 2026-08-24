@@ -14,6 +14,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from reports.columns import (
+    COMPONENT_COLS,
     ASSET_HISTORY_COLS,
     HOLDER_ASSIGNMENTS_COLS,
     INVENTORY_COLS,
@@ -78,6 +79,12 @@ _OFFICE_WIDTHS: dict[str, int] = {
     "holder": 30, "designation": 38, "wing": 22, "branch": 28, "section": 28,
     "category": 22, "asset_type": 16, "brand": 12, "model": 22,
     "serial_number": 22, "asset_tag": 16,
+}
+_CMP_WIDTHS: dict[str, int] = {
+    "purchase_date": 14, "component": 18, "capacity": 12, "brand": 14,
+    "model": 22, "serial_no": 20, "cost": 12, "vendor": 24,
+    "purchase_order": 18, "asset_tag": 16, "category": 18, "asset_type": 16,
+    "holder": 28, "installed_on": 18, "status": 12, "added_by": 22,
 }
 _HIST_WIDTHS: dict[str, int] = {
     "assigned_to": 28, "holder_type": 10, "designation": 34, "department": 26,
@@ -679,6 +686,94 @@ def _office_summary_sheet(ws, summary: dict, subtitle: str = "") -> None:
     # The overview block reuses _header_row, which freezes panes at its own
     # position; re-freeze under the breakdown header so scrolling keeps it.
     ws.freeze_panes = ws.cell(row=breakdown_header + 1, column=1)
+
+
+def component_purchases_excel(
+    rows: list[dict],
+    summary: dict,
+    subtitle: str = "",
+    columns: list[str] | None = None,
+) -> bytes:
+    """
+    Component Purchases workbook — detail on sheet 1, vendor/date totals on
+    sheet 2.
+
+    Rows and summary are both passed in already built by ``reports.components``
+    so the workbook cannot disagree with the view page about what the filters
+    selected or what the totals are.
+    """
+    eff = _eff_cols(columns, COMPONENT_COLS)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Component Purchases"
+    hrow = _title_block(ws, "Component Purchases", subtitle)
+    _header_row(ws, hrow, _labels_for(eff, COMPONENT_COLS))
+    _col_widths(ws, _widths_for(eff, _CMP_WIDTHS))
+
+    cost_col = eff.index("cost") + 1 if "cost" in eff else None
+    for i, row in enumerate(rows):
+        _data_row(ws, hrow + 1 + i, [row[k] for k in eff], alt=(i % 2 == 1))
+        # Cost is written as a number, not text, so the column can be summed in
+        # Excel. Blank stays blank — a missing price is not zero.
+        if cost_col and row["cost"] != "":
+            cell = ws.cell(row=hrow + 1 + i, column=cost_col)
+            cell.value = float(row["cost"])
+            cell.number_format = "#,##0.00"
+            cell.alignment = Alignment(horizontal="right", vertical="center")
+
+    _component_summary_sheet(wb.create_sheet("Summary"), summary, subtitle)
+    return _wb_bytes(wb)
+
+
+def _component_summary_sheet(ws, summary: dict, subtitle: str = "") -> None:
+    """Vendor-wise, date-wise and part-wise totals — the summary card, tabulated."""
+    hrow = _title_block(
+        ws, "Component Purchases — Summary",
+        f"{subtitle}  ·  Generated: {_date_s(date.today())}" if subtitle
+        else f"Generated: {_date_s(date.today())}",
+    )
+    _col_widths(ws, [6, 34, 12, 16])
+
+    right = Alignment(horizontal="right", vertical="center")
+    money = "#,##0.00"
+
+    def _money_cell(row: int, column: int, value) -> None:
+        cell = ws.cell(row=row, column=column)
+        cell.value = float(value)
+        cell.number_format = money
+        cell.alignment = right
+
+    row = hrow
+    _header_row(ws, row, ["", "Overview", "Count", "Cost"])
+    row += 1
+    _data_row(ws, row, ["", "Components", summary["total"], ""])
+    ws.cell(row=row, column=3).alignment = right
+    _money_cell(row, 4, summary["total_cost"])
+    row += 1
+    # Called out because the total spend only covers the priced rows — without
+    # this line a report full of blank costs reads as a cheap one.
+    _data_row(ws, row, ["", "With a cost recorded", summary["costed"], ""])
+    ws.cell(row=row, column=3).alignment = right
+    row += 1
+    _data_row(ws, row, ["", "Without a cost recorded", summary["uncosted"], ""])
+    ws.cell(row=row, column=3).alignment = right
+    row += 2
+
+    for title, entries in (
+        ("Vendor", summary["vendors"]),
+        ("Period", summary["periods"]),
+        ("Component", summary["parts"]),
+    ):
+        _header_row(ws, row, ["SL", title, "Count", "Cost"])
+        row += 1
+        for index, entry in enumerate(entries, start=1):
+            _data_row(ws, row, [index, entry["name"], entry["count"], ""], alt=(index % 2 == 0))
+            ws.cell(row=row, column=1).alignment = _ALIGN_CTR
+            ws.cell(row=row, column=3).alignment = right
+            _money_cell(row, 4, entry["cost"])
+            row += 1
+        row += 1
 
 
 def asset_history_excel(

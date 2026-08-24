@@ -411,6 +411,92 @@
   </div>
 </div>
 
+{# ── Component types (parts fitted to an asset) ───────────────────────── #}
+<div class="card" id="components" style="margin-bottom:20px">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid #EEF2F5">
+    <div>
+      <h3 style="font-size:13px;font-weight:700;color:#1F2937;margin:0">Components <span style="font-weight:400;color:#9CA3AF">({{ component_types|length }})</span></h3>
+      <div style="font-size:11.5px;color:#6C8A95;margin-top:2px">Parts fitted to an asset — RAM, storage, an SFP module. A part is offered only on the Sub Assets listed under <strong>Offered on</strong>, and mapping it there turns that Sub Asset's components panel on.</div>
+    </div>
+    <details class="md-edit md-modal" style="position:relative">
+      <summary class="btn btn-primary btn-sm" style="list-style:none">+ Add Component</summary>
+      <div class="md-pop">
+        <div class="md-modal-title">Add component</div>
+        <form method="post" action="{% url 'catalogue:component_save' %}">{% csrf_token %}
+          <input type="text" name="name" placeholder="Name, e.g. RAM" required>
+          <input type="text" name="units" placeholder="Units, comma-separated, e.g. GB, TB">
+          <input type="text" name="default_unit" placeholder="Default unit, e.g. GB">
+          <label class="ck"><input type="checkbox" name="capacity_required" checked> Needs a capacity (sized part)</label>
+          <label class="ck"><input type="checkbox" name="serial_required"> Needs a serial number</label>
+          <div style="font-size:11.5px;color:#6C8A95;margin:8px 0 4px">Offered on these Sub Assets — pick at least one, or the part appears nowhere:</div>
+          <select name="applies_to" multiple size="7" class="form-input" style="width:100%;font-size:12.5px;height:auto;margin-bottom:8px">
+            {% regroup all_sub_assets by category as sub_groups %}
+            {% for group in sub_groups %}
+            <optgroup label="{{ group.grouper.name }}">
+              {% for t in group.list %}<option value="{{ t.pk }}">{{ t.name }}</option>{% endfor %}
+            </optgroup>
+            {% endfor %}
+          </select>
+          <button class="btn btn-primary btn-xs" style="width:100%">Add Component</button>
+        </form>
+      </div>
+    </details>
+  </div>
+  {% if component_types %}
+  <div class="table-wrap" style="border:none">
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr><th>Component</th><th>Units</th><th>Capacity</th><th>Offered on</th><th style="text-align:center">In use</th><th style="text-align:center">Status</th><th style="width:1px"></th></tr></thead>
+      <tbody>
+        {% for c in component_types %}
+        <tr style="{% if not c.is_active %}opacity:.55{% endif %}">
+          <td style="font-weight:600;color:#374151">{{ c.name }} <span style="color:#B6C0C9;font-weight:400;font-size:11px">{{ c.code }}</span></td>
+          <td>{% for u in c.units %}<span class="chip">{{ u }}</span>{% empty %}<span style="color:#9CA3AF">—</span>{% endfor %}</td>
+          <td style="font-size:12.5px;color:#6B7280">{% if c.capacity_required %}Required{% else %}Not used{% endif %}</td>
+          <td style="font-size:12.5px;color:#6B7280">
+            {% for t in c.applies_to.all %}<span class="chip">{{ t.name }}</span>{% empty %}<span style="color:#B45309;font-weight:600">No asset selected</span>{% endfor %}
+          </td>
+          <td style="text-align:center;font-size:12.5px;color:#6B7280">{{ c.use_count }}</td>
+          <td style="text-align:center">{% if c.is_active %}<span class="badge" style="background:#ECFDF5;color:#059669">Active</span>{% else %}<span class="badge" style="background:#F3F4F6;color:#9CA3AF">Inactive</span>{% endif %}</td>
+          <td>
+            <details class="md-edit md-modal" style="position:relative">
+              <summary>⋯</summary>
+              <div class="md-pop">
+                <div class="md-modal-title">Edit component — {{ c.name }}</div>
+                <form method="post" action="{% url 'catalogue:component_save' %}">{% csrf_token %}
+                  <input type="hidden" name="pk" value="{{ c.pk }}">
+                  <input type="text" name="name" value="{{ c.name }}" required>
+                  <input type="text" name="units" value="{{ c.units|join:', ' }}" placeholder="Units, comma-separated">
+                  <input type="text" name="default_unit" value="{{ c.default_unit }}" placeholder="Default unit">
+                  <label class="ck"><input type="checkbox" name="capacity_required" {% if c.capacity_required %}checked{% endif %}> Needs a capacity (sized part)</label>
+                  <label class="ck"><input type="checkbox" name="serial_required" {% if c.serial_required %}checked{% endif %}> Needs a serial number</label>
+                  <div style="font-size:11.5px;color:#6C8A95;margin:8px 0 4px">Offered on these Sub Assets — pick at least one, or the part appears nowhere:</div>
+                  <select name="applies_to" multiple size="7" class="form-input" style="width:100%;font-size:12.5px;height:auto;margin-bottom:8px">
+                    {% regroup all_sub_assets by category as sub_groups %}
+                    {% for group in sub_groups %}
+                    <optgroup label="{{ group.grouper.name }}">
+                      {% for t in group.list %}<option value="{{ t.pk }}" {% if t in c.applies_to.all %}selected{% endif %}>{{ t.name }}</option>{% endfor %}
+                    </optgroup>
+                    {% endfor %}
+                  </select>
+                  <div class="md-pop-actions"><button class="btn btn-primary btn-xs">Save</button></div>
+                </form>
+                <div class="md-pop-actions" style="margin-top:8px">
+                  <form method="post" action="{% url 'catalogue:component_toggle' c.pk %}">{% csrf_token %}<button class="btn btn-outline btn-xs">{% if c.is_active %}Deactivate{% else %}Activate{% endif %}</button></form>
+                  <form method="post" action="{% url 'catalogue:component_delete' c.pk %}" onsubmit="return confirm('Delete component {{ c.name }}?')">{% csrf_token %}<button class="btn btn-danger-soft btn-xs">Delete</button></form>
+                </div>
+              </div>
+            </details>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="padding:20px;text-align:center;color:#9CA3AF;font-size:13px">No components yet.</div>
+  {% endif %}
+</div>
+
 {# ── Vendors / Suppliers (kept here so nothing is lost) ──────────────── #}
 <div class="card" style="margin-bottom:20px">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid #EEF2F5">

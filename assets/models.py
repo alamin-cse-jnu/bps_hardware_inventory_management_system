@@ -512,10 +512,36 @@ class AssetComponent(models.Model):
         choices=ComponentType.choices,
         default=ComponentType.OTHER,
     )
+    # Master-data replacement for ``component_type``. The CharField above is
+    # kept and backfilled so pre-Phase-13 rows still read correctly; every new
+    # row carries both. Referenced by name — catalogue imports this module.
+    ctype = models.ForeignKey(
+        "catalogue.ComponentType",
+        on_delete=models.PROTECT,
+        related_name="components",
+        null=True,
+        blank=True,
+    )
     serial_number = models.CharField(max_length=200, blank=True)
     brand = models.CharField(max_length=100, blank=True)
     model_name = models.CharField(max_length=200, blank=True)
     specifications = models.JSONField(default=dict, blank=True)
+
+    # Size of the part in ``unit`` — 16 GB of RAM, 512 GB of storage.
+    capacity = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    unit = models.CharField(max_length=20, blank=True)
+
+    # Procurement — what the part cost, who supplied it, when it was bought.
+    cost = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    vendor = models.ForeignKey(
+        Vendor,
+        on_delete=models.PROTECT,
+        related_name="components",
+        null=True,
+        blank=True,
+    )
+    purchase_date = models.DateField(null=True, blank=True)
+    purchase_order = models.CharField(max_length=100, blank=True)
 
     # Lifecycle: active=True means currently installed
     is_active = models.BooleanField(default=True)
@@ -531,7 +557,29 @@ class AssetComponent(models.Model):
         verbose_name_plural = "Asset Components"
 
     def __str__(self) -> str:
-        return f"{self.get_component_type_display()} of {self.parent_asset.asset_tag}"
+        return f"{self.label} of {self.parent_asset.asset_tag}"
+
+    @property
+    def label(self) -> str:
+        """Master-data name where there is one, legacy enum label otherwise."""
+        if self.ctype_id is not None:
+            return self.ctype.name
+        return self.get_component_type_display()
+
+    @property
+    def capacity_display(self) -> str:
+        """"16 GB" — trailing zeros trimmed so 16.00 does not read as a price."""
+        if self.capacity is None:
+            return ""
+        size = self.capacity.normalize()
+        text = format(size, "f") if size == size.to_integral_value() else str(size)
+        return f"{text} {self.unit}".strip()
+
+    @property
+    def description(self) -> str:
+        """One-line summary used in lifecycle notes and the components list."""
+        parts = [self.label, self.capacity_display, self.brand, self.model_name]
+        return " ".join(p for p in parts if p)
 
     def clean(self) -> None:
         # Architectural decision #1: components only belong to has_components assets
@@ -546,3 +594,30 @@ class AssetComponent(models.Model):
                         )
                     }
                 )
+
+        if self.ctype_id is None:
+            return
+
+        ctype = self.ctype
+        if self.parent_asset_id is not None and not ctype.available_for(
+            self.parent_asset.asset_type
+        ):
+            raise ValidationError(
+                {"ctype": f"{ctype.name} is not offered for {self.parent_asset.asset_type.name}."}
+            )
+
+        units = ctype.unit_list
+        if self.unit and units and self.unit not in units:
+            raise ValidationError(
+                {"unit": f"{ctype.name} is measured in {', '.join(units)} — “{self.unit}” is not one of them."}
+            )
+        if ctype.capacity_required and self.capacity is None:
+            raise ValidationError({"capacity": f"{ctype.name} needs a capacity."})
+        if self.capacity is not None and self.capacity <= 0:
+            raise ValidationError({"capacity": "Capacity must be greater than zero."})
+        if self.capacity is not None and units and not self.unit:
+            raise ValidationError({"unit": f"Choose a unit for the {ctype.name} capacity."})
+        if ctype.serial_required and not self.serial_number.strip():
+            raise ValidationError({"serial_number": f"{ctype.name} needs a serial number."})
+        if self.cost is not None and self.cost < 0:
+            raise ValidationError({"cost": "Cost cannot be negative."})

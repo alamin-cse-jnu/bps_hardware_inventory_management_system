@@ -131,6 +131,68 @@ def dispose_asset(
     return _make_event(asset, EventType.DISPOSED, old_status, AssetItem.Status.DISPOSED, performed_by, note)
 
 
+def _legacy_value(code: str) -> str:
+    """
+    Best-effort mapping of a ComponentType code back onto the legacy enum.
+
+    The ``component_type`` column is still written so pre-Phase-13 rows and new
+    ones sort and read the same way (Meta.ordering uses it). A part an Admin
+    invented after Phase 13 has no enum member and lands on OTHER — ``ctype`` is
+    what actually names it.
+    """
+    try:
+        return AssetComponent.ComponentType((code or "").upper().replace("-", "_")).value
+    except ValueError:
+        return AssetComponent.ComponentType.OTHER
+
+
+def _build_component(
+    asset: AssetItem,
+    component_type: str,
+    brand: str,
+    model: str,
+    serial: str,
+    *,
+    ctype=None,
+    capacity=None,
+    unit: str = "",
+    cost=None,
+    vendor=None,
+    purchase_date=None,
+    purchase_order: str = "",
+) -> AssetComponent:
+    """
+    Create one component row, validated.
+
+    ``ctype`` is the master-data part (Phase 13); ``component_type`` is the
+    legacy enum value, still accepted so existing callers keep working. Passing
+    ``ctype`` fills the legacy column from it. ``full_clean`` runs the capacity,
+    unit, serial and cost rules defined on the model, so the panel and any
+    other caller enforce them identically.
+    """
+    if ctype is not None:
+        component_type = _legacy_value(getattr(ctype, "code", ""))
+
+    comp = AssetComponent(
+        parent_asset=asset,
+        ctype=ctype,
+        component_type=component_type,
+        brand=brand,
+        model_name=model,
+        serial_number=serial,
+        capacity=capacity,
+        unit=unit,
+        cost=cost,
+        vendor=vendor,
+        purchase_date=purchase_date,
+        purchase_order=purchase_order,
+        is_active=True,
+    )
+    comp.full_clean()
+    comp.save()
+    return comp
+
+
 @transaction.atomic
 def swap_component(
     asset: AssetItem,
@@ -141,32 +203,29 @@ def swap_component(
     new_serial: str,
     performed_by: User,
     note: str = "",
+    **details,
 ) -> LifecycleEvent:
     """
     Replace a component on a PC_SET (or any has_components asset).
 
     Marks the old component inactive and creates a new AssetComponent row.
-    Status is unchanged.
+    Status is unchanged. ``details`` carries the Phase 13 master-data and
+    procurement fields — see ``_build_component``.
     """
     if old_component.parent_asset_id != asset.pk:
         raise ValidationError("Component does not belong to this asset.")
     if not asset.asset_type.has_components:
         raise ValidationError(f"{asset.asset_type.name} does not support components.")
 
+    new_comp = _build_component(
+        asset, new_component_type, new_brand, new_model, new_serial, **details
+    )
+
     now = timezone.now()
     old_component.is_active = False
     old_component.removed_at = now
     old_component.removal_reason = note or "Replaced during component swap"
     old_component.save(update_fields=["is_active", "removed_at", "removal_reason", "updated_at"])
-
-    new_comp = AssetComponent.objects.create(
-        parent_asset=asset,
-        component_type=new_component_type,
-        brand=new_brand,
-        model_name=new_model,
-        serial_number=new_serial,
-        is_active=True,
-    )
 
     return _make_event(
         asset, EventType.COMPONENT_SWAP,
@@ -185,22 +244,17 @@ def add_component(
     serial: str,
     performed_by: User,
     note: str = "",
+    **details,
 ) -> LifecycleEvent:
     """
     Install a new component on a has_components asset (e.g. an extra RAM stick,
-    an SFP module). Status and assignment are unchanged.
+    an SFP module). Status and assignment are unchanged. ``details`` carries the
+    Phase 13 master-data and procurement fields — see ``_build_component``.
     """
     if not asset.asset_type.has_components:
         raise ValidationError(f"{asset.asset_type.name} does not support components.")
 
-    new_comp = AssetComponent.objects.create(
-        parent_asset=asset,
-        component_type=component_type,
-        brand=brand,
-        model_name=model,
-        serial_number=serial,
-        is_active=True,
-    )
+    new_comp = _build_component(asset, component_type, brand, model, serial, **details)
     return _make_event(
         asset, EventType.COMPONENT_ADD,
         old_status=asset.status, new_status=asset.status,

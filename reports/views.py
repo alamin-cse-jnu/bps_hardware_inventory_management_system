@@ -17,6 +17,7 @@ from config.pagination import strip_params as _strip_params
 from config.permissions import viewer_required
 from reports.columns import (
     ASSET_HISTORY_COLS,
+    COMPONENT_COLS,
     HOLDER_ASSIGNMENTS_COLS,
     INVENTORY_COLS,
     LIFECYCLE_COLS,
@@ -27,6 +28,7 @@ from reports.columns import (
 )
 from reports.generators.excel import (
     asset_history_excel,
+    component_purchases_excel,
     holder_assignments_excel,
     inventory_excel,
     lifecycle_events_excel,
@@ -34,6 +36,7 @@ from reports.generators.excel import (
     transfer_log_excel,
     warranty_expiry_excel,
 )
+from reports import components as component_report
 from reports.office_assets import asset_count, build_groups, summarise
 from reports.office_scope import (
     build_office_options,
@@ -459,6 +462,175 @@ def view_lifecycle(request):
         "base_qs":           _strip_params(request, "page"),
         "base_qs_nopag":     _strip_params(request, "page", "per_page"),
     })
+
+
+# ── Component Purchases (Phase 13) ─────────────────────────────────────────────
+
+def _component_filters(request) -> dict:
+    """Read the report's filters off the querystring, validated."""
+    basis = request.GET.get("basis") or "purchase"
+    if basis not in dict(component_report.BASIS_CHOICES):
+        basis = "purchase"
+
+    group = request.GET.get("group") or "month"
+    if group not in dict(component_report.GROUP_CHOICES):
+        group = "month"
+
+    status = request.GET.get("status") or ""
+    if status not in dict(component_report.STATUS_CHOICES):
+        status = ""
+
+    def _ids(name):
+        return [int(v) for v in request.GET.getlist(name) if v.isdigit()]
+
+    return {
+        "date_from": _parse_date(request.GET.get("date_from")),
+        "date_to": _parse_date(request.GET.get("date_to")),
+        "basis": basis,
+        "group": group,
+        "status": status,
+        "vendor_ids": _ids("vendor"),
+        "ctype_ids": _ids("ctype"),
+    }
+
+
+def _component_rows(filters, page=None):
+    """Row dicts for the given page (or every row, for a download)."""
+    return component_report.row_dicts(
+        page if page is not None else _component_list(filters),
+        date_str=_date_str,
+        dt_str=_dt_str,
+        detail_url=lambda asset: reverse("assets:detail", args=[asset.pk]),
+    )
+
+
+def _component_list(filters):
+    qs = component_report.component_queryset(
+        date_from=filters["date_from"],
+        date_to=filters["date_to"],
+        basis=filters["basis"],
+        vendor_ids=filters["vendor_ids"],
+        ctype_ids=filters["ctype_ids"],
+        status=filters["status"],
+    )
+    return list(qs[: component_report.ROW_CAP])
+
+
+@viewer_required
+def view_components(request):
+    from assets.models import Vendor
+    from catalogue.models import ComponentType
+
+    filters = _component_filters(request)
+
+    selected_keys = parse_cols(request, COMPONENT_COLS)
+    label_map     = dict(COMPONENT_COLS)
+    selected_cols = [(k, label_map[k]) for k in selected_keys]
+
+    per_page = _parse_per_page(request)
+    page_num = request.GET.get("page", 1)
+
+    # The whole result set is materialised once: the summary totals the report,
+    # not the page, so it has to be computed before pagination.
+    matches = _component_list(filters)
+    capped  = len(matches) >= component_report.ROW_CAP
+    summary = component_report.summarise(
+        matches, basis=filters["basis"], group=filters["group"]
+    )
+
+    paginator = Paginator(matches, per_page)
+    page_obj  = paginator.get_page(page_num)
+
+    return render(request, "reports/view_components.html", {
+        "rows":              _component_rows(filters, page=page_obj),
+        "selected_cols":     selected_cols,
+        "selected_col_keys": selected_keys,
+        "all_cols":          COMPONENT_COLS,
+        "page_obj":          page_obj,
+        "per_page":          per_page,
+        "start_index":       page_obj.start_index(),
+        "total_count":       paginator.count,
+        "capped":            capped,
+        "summary":           summary,
+        "has_filters":       any([
+            filters["date_from"], filters["date_to"], filters["status"],
+            filters["vendor_ids"], filters["ctype_ids"],
+        ]),
+        "date_from":         filters["date_from"],
+        "date_to":           filters["date_to"],
+        "basis":             filters["basis"],
+        "group":             filters["group"],
+        "status":            filters["status"],
+        "vendor_ids":        filters["vendor_ids"],
+        "ctype_ids":         filters["ctype_ids"],
+        "basis_choices":     component_report.BASIS_CHOICES,
+        "group_choices":     component_report.GROUP_CHOICES,
+        "status_choices":    component_report.STATUS_CHOICES,
+        "vendors":           Vendor.objects.order_by("name"),
+        "component_types":   ComponentType.objects.order_by("order", "name"),
+        "base_qs":           _strip_params(request, "page"),
+        "base_qs_nopag":     _strip_params(request, "page", "per_page"),
+    })
+
+
+@viewer_required
+def download_components(request):
+    filters  = _component_filters(request)
+    matches  = _component_list(filters)
+    sel_keys = parse_cols(request, COMPONENT_COLS)
+    data = component_purchases_excel(
+        rows=_component_rows(filters, page=matches),
+        summary=component_report.summarise(
+            matches, basis=filters["basis"], group=filters["group"]
+        ),
+        subtitle=_component_subtitle(filters),
+        columns=sel_keys,
+    )
+    return _excel_response(data, f"component_purchases_{date.today():%Y%m%d}.xlsx")
+
+
+@viewer_required
+def download_components_pdf(request):
+    filters  = _component_filters(request)
+    sel_keys = parse_cols(request, COMPONENT_COLS)
+    labels   = [dict(COMPONENT_COLS)[k] for k in sel_keys]
+    rows     = _component_rows(filters, page=_component_list(filters))
+
+    data = tabular_pdf(
+        title="Component Purchases",
+        subtitle=_component_subtitle(filters),
+        column_labels=labels,
+        rows=[[r[k] for k in sel_keys] for r in rows],
+        generated_at=timezone.now(),
+    )
+    return _pdf_response(data, f"component_purchases_{date.today():%Y%m%d}.pdf")
+
+
+def _component_subtitle(filters) -> str:
+    """Human-readable statement of the filters, printed on both downloads."""
+    basis = dict(component_report.BASIS_CHOICES)[filters["basis"]]
+    parts = []
+    if filters["date_from"] and filters["date_to"]:
+        parts.append(f"{basis}: {_date_str(filters['date_from'])} to {_date_str(filters['date_to'])}")
+    elif filters["date_from"]:
+        parts.append(f"{basis} from {_date_str(filters['date_from'])}")
+    elif filters["date_to"]:
+        parts.append(f"{basis} up to {_date_str(filters['date_to'])}")
+    if filters["status"]:
+        parts.append(dict(component_report.STATUS_CHOICES)[filters["status"]])
+    if filters["vendor_ids"]:
+        from assets.models import Vendor
+        names = list(
+            Vendor.objects.filter(pk__in=filters["vendor_ids"]).values_list("name", flat=True)
+        )
+        parts.append("Vendor: " + ", ".join(names))
+    if filters["ctype_ids"]:
+        from catalogue.models import ComponentType
+        names = list(
+            ComponentType.objects.filter(pk__in=filters["ctype_ids"]).values_list("name", flat=True)
+        )
+        parts.append("Component: " + ", ".join(names))
+    return "  ·  ".join(parts)
 
 
 # ── Office-wise Asset List (Phase 11) ──────────────────────────────────────────

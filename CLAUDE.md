@@ -233,9 +233,71 @@ to a different office** while still holding assets. Routes:
   Alerts item's active-state check now excludes `office_change` url names so
   only one item highlights.
 
+## Component Catalogue & Purchases (Phase 13)
+
+Parts fitted to an asset — RAM, storage, an SFP module — become master data with
+units and a purchase record, and get their own procurement report. Routes:
+`/reports/view/components/` + `/reports/excel|pdf/components/` (Viewer and
+above); the parts themselves are managed in the **Components** section of
+`/catalogue/manage/` (Admin).
+
+- **Master data** — `catalogue.ComponentType`: `name` + `code` (stable slug),
+  `units` (JSON list → the unit chips, e.g. `["GB","TB"]`), `default_unit`,
+  `capacity_required`, `serial_required`, `applies_to` (M2M → `AssetType`).
+  The code is derived once on create and never re-derived — a rename must not
+  orphan fitted rows.
+- **`applies_to` is an explicit allow-list** — a part is offered on the Sub
+  Assets named there and nowhere else; an empty list means the part appears on
+  **no** asset, and the Master Data page says so in amber (*No asset selected*).
+  Saving a part with nothing selected is allowed (it can be parked before its
+  Sub Assets exist) but raises a warning message rather than passing silently.
+  `available_for()` and the panel query are the two places that enforce it.
+- **`has_components` is auto-set** — an `m2m_changed` receiver on
+  `applies_to` switches `has_components=True` on every Sub Asset a part is
+  mapped to, so master data is the single control over which assets get a
+  components panel. Nothing is ever switched *off*: un-mapping one part is no
+  proof the Sub Asset has no others — the panel then renders its "no components
+  configured" callout, which is honest. Architectural decision #1 stands.
+- **`AssetComponent` additions** — `ctype` FK (master data) plus `capacity` /
+  `unit`, and the procurement fields `cost` / `vendor` (FK `assets.Vendor`,
+  PROTECT) / `purchase_date` / `purchase_order`. The legacy `component_type`
+  CharField is **kept and still written** (`Meta.ordering` uses it), filled from
+  the ctype code by `lifecycle.services._legacy_value`; a part with no matching
+  enum member lands on `OTHER`. `label` / `capacity_display` / `description`
+  read correctly for both new and pre-Phase-13 rows.
+- **Validation lives on the model** — `AssetComponent.clean()` enforces
+  capacity-required, unit ∈ `ctype.units`, serial-required, positive capacity and
+  non-negative cost; components are now created through
+  `services._build_component`, which calls `full_clean()`. The panel only
+  *parses* input, so it cannot drift from the rules.
+- **Replacement ordering** — `swap_component` creates and validates the new part
+  *before* deactivating the old one, so a rejected replacement never leaves an
+  asset with the part removed and nothing fitted.
+- **Panel** — the part `<select>` carries `data-units` / `data-default-unit` /
+  `data-capacity` on each option, so choosing a part redraws the capacity box and
+  unit chips with no extra request. Fields shared by the Add and Replace forms
+  live in `templates/lifecycle/partials/component_fields.html`. A part with
+  exactly one unit needs no chip — the view fills it in. That partial uses
+  `{% comment %}`, not `{# #}`: a `{# #}` comment **cannot span lines**, so a
+  multi-line one is emitted as literal page text and any markup inside it
+  becomes real elements — which silently broke this drawer once.
+  `reports.test_components.TemplateCommentTests` scans every template for it.
+- **Report** — `reports/components.py` is the single query layer for the view
+  page, the workbook and the PDF. `?basis=purchase|installed` picks which date
+  the range applies to (`purchase_date` vs `created_at`; default *purchase*, the
+  procurement question) — undated rows therefore drop out of a purchase-basis
+  range. Also `?vendor=` / `?ctype=` (multi), `?status=installed|removed`,
+  `?group=month|day`. `COMPONENT_COLS` + the standard column picker; 5,000-row
+  cap with the usual banner.
+- **Summary** — `summarise()` returns vendor-wise, period-wise and part-wise
+  counts and spend, computed from the full result list *before* pagination and
+  shared by the summary card and the workbook's `Summary` sheet. Rows with no
+  cost still count towards quantity but not spend, and `uncosted` is surfaced —
+  a report full of blank costs must not read as a cheap one.
+
 ## Current State
 
-**Phases 1–12: ✅ All complete · 404 tests**
+**Phases 1–13: ✅ All complete · 515 tests**
 
 | Phase | Scope | Status |
 |-------|-------|--------|
@@ -247,12 +309,19 @@ to a different office** while still holding assets. Routes:
 | 10 | Performance — vendored assets, pagination, caching, nginx gzip | ✅ Complete |
 | 11 | Office-wise Asset List — Wing/Branch/Section scope, merged-cell Excel | ✅ Complete |
 | 12 | Office Change Alerts — flag holders who moved office, transfer/return/dismiss | ✅ Complete |
+| 13 | Component Catalogue — parts master data with units, cost + vendor, purchases report | ✅ Complete |
 
-**Known failing tests (pre-existing, unrelated to Phase 10):**
+**Known failing tests (pre-existing, 6 of 515):**
 `audit.tests.test_assignment_logs_assign` creates an `Assignment` without
 `holder_snapshot`, which is `NOT NULL` with no default — it cannot pass as
 written. `assets.tests.test_invalid_date_format_fails` and
 `test_template_fixed_columns_in_data_entry` expect Excel headers without the
-`(YYYY-MM-DD)` suffix the generator now emits.
+`(YYYY-MM-DD)` suffix the generator now emits. The three serial-uniqueness
+tests (`SerialNumberUniquenessTests.test_duplicate_serial_raises_integrity_error`,
+`…_is_case_insensitive`, `PlaceholderSerialTests.test_real_serial_still_unique_alongside_placeholders`)
+assert a DB-level `IntegrityError`, but the constraint that raises it lives in
+the parked `_pending_0007_uniq_live_asset_serial_ci.py` and so is absent from
+the test database. They pass once that migration is un-parked; application-level
+validation is live either way.
 
 **Dev fixtures:** 5 categories · 12 asset types · 15 locations · RBAC groups

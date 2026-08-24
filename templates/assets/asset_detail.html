@@ -354,16 +354,24 @@
       <thead>
         <tr>
           <th>Type</th>
+          <th>Capacity</th>
           <th>Brand / Model</th>
           <th>Serial</th>
+          <th>Cost</th>
+          <th>Vendor</th>
+          <th>Purchased</th>
         </tr>
       </thead>
       <tbody>
         {% for comp in components %}
         <tr>
-          <td style="font-weight:600">{{ comp.get_component_type_display }}</td>
+          <td style="font-weight:600">{{ comp.label }}</td>
+          <td class="text-small" style="white-space:nowrap">{{ comp.capacity_display|default:"—" }}</td>
           <td class="text-small">{{ comp.brand }} {{ comp.model_name }}</td>
           <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px">{{ comp.serial_number|default:"—" }}</span></td>
+          <td class="text-small" style="white-space:nowrap">{% if comp.cost %}৳{{ comp.cost|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td class="text-small">{{ comp.vendor.name|default:"—" }}</td>
+          <td class="text-small" style="white-space:nowrap">{{ comp.purchase_date|date:"d M Y"|default:"—" }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -381,6 +389,7 @@
       <thead>
         <tr>
           <th>Type</th>
+          <th>Capacity</th>
           <th>Brand / Model</th>
           <th>Serial</th>
           <th>Removed</th>
@@ -390,7 +399,8 @@
       <tbody>
         {% for comp in removed_components %}
         <tr style="color:#6B7280">
-          <td style="font-weight:600">{{ comp.get_component_type_display }}</td>
+          <td style="font-weight:600">{{ comp.label }}</td>
+          <td class="text-small" style="white-space:nowrap">{{ comp.capacity_display|default:"—" }}</td>
           <td class="text-small">{{ comp.brand }} {{ comp.model_name }}</td>
           <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px">{{ comp.serial_number|default:"—" }}</span></td>
           <td class="text-small" style="white-space:nowrap">{{ comp.removed_at|date:"d M Y"|default:"—" }}</td>

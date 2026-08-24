@@ -28,7 +28,7 @@ from config.permissions import admin_required, viewer_required
 from assets.models import AssetCategory, AssetItem, AssetType, Vendor
 from locations.models import Block, Building, Level
 
-from .models import CatalogBrand, CatalogModel, SubAssetSpecField
+from .models import CatalogBrand, CatalogModel, ComponentType, SubAssetSpecField
 from .specs import field_dicts, slugify_key
 
 
@@ -218,6 +218,14 @@ def manage(request):
         "sel_sub": sub,
         "sel_brand": brand,
         "vendors": Vendor.objects.order_by("name"),
+        "component_types": list(
+            ComponentType.objects.annotate(use_count=Count("components"))
+            .prefetch_related("applies_to")
+            .order_by("order", "name")
+        ),
+        "all_sub_assets": list(
+            AssetType.objects.select_related("category").order_by("category__name", "name")
+        ),
         "widget_choices": SubAssetSpecField.Widget.choices,
         "location_dims": [
             {"kind": "building", "label": "Building", "placeholder": "Main Building",
@@ -627,6 +635,104 @@ def specfield_reorder(request):
             if f.order != new_order:
                 SubAssetSpecField.objects.filter(pk=f.pk).update(order=new_order)
     return JsonResponse({"ok": True})
+
+
+# ── Component types (ComponentType) ───────────────────────────────────────────
+# Global master data, not scoped to the Main/Sub selection: a part like RAM is
+# defined once and then mapped to the Sub Assets that take it. Mapping is what
+# switches a Sub Asset's ``has_components`` on (see the m2m_changed receiver in
+# catalogue/models.py), so this section is the single control over which assets
+# get a components panel.
+
+
+def _component_url() -> str:
+    return f"{reverse('catalogue:manage')}#components"
+
+
+@admin_required
+@require_POST
+def component_save(request):
+    pk = request.POST.get("pk")
+    obj = get_object_or_404(ComponentType, pk=pk) if pk else None
+    back = _component_url()
+
+    name = request.POST.get("name", "").strip()
+    if not name:
+        messages.error(request, "Component name is required.")
+        return redirect(back)
+
+    if ComponentType.objects.filter(name__iexact=name).exclude(pk=pk or 0).exists():
+        messages.error(request, f"A component named “{name}” already exists.")
+        return redirect(back)
+
+    # The code is the stable key kept on every component row, so it is derived
+    # once on create and never re-derived — renaming a part must not orphan the
+    # rows already pointing at it.
+    if obj is None:
+        code = slugify_key(name).replace("_", "-")
+        if not code:
+            messages.error(request, "Could not derive a key from that name.")
+            return redirect(back)
+        if ComponentType.objects.filter(code=code).exists():
+            messages.error(request, f"The key '{code}' is already taken.")
+            return redirect(back)
+        obj = ComponentType(code=code, order=ComponentType.objects.count())
+
+    units = _parse_options(request.POST.get("units", ""))
+    default_unit = request.POST.get("default_unit", "").strip()
+    if default_unit and units and default_unit not in units:
+        messages.error(request, f"“{default_unit}” is not one of the units listed.")
+        return redirect(back)
+
+    obj.name = name
+    obj.units = units
+    obj.default_unit = default_unit or (units[0] if units else "")
+    obj.capacity_required = request.POST.get("capacity_required") == "on"
+    obj.serial_required = request.POST.get("serial_required") == "on"
+    obj.save()
+
+    sub_ids = [int(v) for v in request.POST.getlist("applies_to") if v.isdigit()]
+    obj.applies_to.set(sub_ids)   # post_add fires -> has_components on those Subs
+
+    if sub_ids:
+        messages.success(request, f"Component “{obj.name}” saved.")
+    else:
+        # Saving with nothing selected is allowed — a part can be parked before
+        # its Sub Assets exist — but silently creating something that appears on
+        # no asset would read as a bug, so say it plainly.
+        messages.warning(
+            request,
+            f"Component “{obj.name}” saved, but no Sub Asset is selected under "
+            "“Offered on”, so it will not appear on any asset yet.",
+        )
+    return redirect(back)
+
+
+@admin_required
+@require_POST
+def component_toggle(request, pk):
+    obj = get_object_or_404(ComponentType, pk=pk)
+    obj.is_active = not obj.is_active
+    obj.save(update_fields=["is_active", "updated_at"])
+    return redirect(_component_url())
+
+
+@admin_required
+@require_POST
+def component_delete(request, pk):
+    obj = get_object_or_404(ComponentType, pk=pk)
+    used = obj.components.count()
+    if used:
+        messages.error(
+            request,
+            f"“{obj.name}” is fitted to {used} component record(s) and cannot be deleted. "
+            "Deactivate it instead — it will stop being offered on new assets.",
+        )
+        return redirect(_component_url())
+    name = obj.name
+    obj.delete()
+    messages.success(request, f"Component “{name}” deleted.")
+    return redirect(_component_url())
 
 
 # ── Verification report (read-only, printable) ────────────────────────────────

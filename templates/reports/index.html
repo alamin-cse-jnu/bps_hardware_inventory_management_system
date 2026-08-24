@@ -126,6 +126,42 @@
       </div>
     </div>
 
+    <!-- Component Purchases -->
+    {% url 'reports:components_view' as components_view_url %}
+    <div class="card">
+      <div class="card-body">
+        <div style="display:flex;align-items:flex-start;gap:14px">
+          <div style="width:40px;height:40px;border-radius:8px;background:#E8F3F8;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg width="20" height="20" fill="none" stroke="#0076A7" stroke-width="2" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="15" x2="23" y2="15"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="15" x2="4" y2="15"/></svg>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:600;color:#212529;margin-bottom:4px">Component Purchases</div>
+            <div style="font-size:12px;color:#6C757D;margin-bottom:12px">Parts fitted to assets — date-wise and vendor-wise spend</div>
+            {% if components_view_url %}
+            <a href="{{ components_view_url }}" class="btn btn-primary btn-sm" style="margin-bottom:10px;display:inline-flex;align-items:center;gap:6px">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              View Report
+            </a>
+            {% endif %}
+            <form method="get" action="{% url 'reports:components_excel' %}" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+              <div>
+                <label style="display:block;font-size:11px;color:#6C757D;margin-bottom:3px">From</label>
+                <input type="date" name="date_from" style="height:30px;border:1px solid #E5E7EB;border-radius:4px;font-size:12px;padding:0 8px">
+              </div>
+              <div>
+                <label style="display:block;font-size:11px;color:#6C757D;margin-bottom:3px">To</label>
+                <input type="date" name="date_to" style="height:30px;border:1px solid #E5E7EB;border-radius:4px;font-size:12px;padding:0 8px">
+              </div>
+              <button type="submit" class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:6px">
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Excel
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Transfer Log -->
     {% url 'reports:transfer_log_view' as transfer_log_view_url %}
     <div class="card">
